@@ -223,11 +223,25 @@
       margin-top:10px;
     }
 
-    .resultsHeader,.listHeader{
+    .resultsHeader,.listHeader,.shelfHeader{
       display:flex;
       justify-content:space-between;
       align-items:center;
       margin-bottom:10px;
+      gap:10px;
+    }
+
+    .seeAllBtn{
+      color:#dfe8f4;
+      font-size:14px;
+      font-weight:800;
+      cursor:pointer;
+      white-space:nowrap;
+      user-select:none;
+    }
+
+    .seeAllBtn:hover{
+      color:#fff;
     }
 
     .empty{
@@ -530,9 +544,54 @@
       color:#e6edf5;
     }
 
+    .shelf{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .shelfCard{
+      cursor:pointer;
+    }
+
+    .shelfPoster{
+      width:100%;
+      aspect-ratio:2/3;
+      border-radius:16px;
+      background:#0d1420 center/cover no-repeat;
+      border:1px solid rgba(255,255,255,.06);
+      box-shadow:var(--shadow);
+    }
+
+    .shelfTitle{
+      margin-top:8px;
+      font-size:13px;
+      font-weight:800;
+      line-height:1.2;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+      min-height:30px;
+    }
+
+    .shelfMeta{
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+      display:-webkit-box;
+      -webkit-line-clamp:1;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+
     @media (max-width:560px){
       .tasteGrid{
         grid-template-columns:1fr;
+      }
+
+      .shelf{
+        grid-template-columns:repeat(3,minmax(0,1fr));
       }
     }
 
@@ -543,6 +602,7 @@
       .detailTop{grid-template-columns:82px 1fr;}
       .detailPoster{width:82px;height:123px;}
       .detailTitle{font-size:21px;}
+      .shelf{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
   </style>
 </head>
@@ -579,19 +639,33 @@
       </div>
 
       <div class="section">
-        <div class="listHeader">
-          <h2>Ultimi visti</h2>
+        <div class="shelfHeader">
+          <h2>Watchlist</h2>
+          <div id="openWatchAll" class="seeAllBtn">Vedi tutto →</div>
         </div>
-        <div id="seenList" class="list"></div>
-        <div id="seenEmpty" class="empty">Non hai ancora salvato nulla tra i visti.</div>
+        <div id="watchShelf" class="shelf"></div>
+        <div id="watchShelfEmpty" class="empty">La tua watchlist è vuota.</div>
       </div>
 
       <div class="section">
-        <div class="listHeader">
-          <h2>Watchlist</h2>
+        <div class="shelfHeader">
+          <h2>Ultimi visti</h2>
+          <div id="openSeenAll" class="seeAllBtn">Vedi tutto →</div>
         </div>
-        <div id="watchList" class="list"></div>
-        <div id="watchEmpty" class="empty">La tua watchlist è vuota.</div>
+        <div id="seenShelf" class="shelf"></div>
+        <div id="seenShelfEmpty" class="empty">Non hai ancora salvato nulla tra i visti.</div>
+      </div>
+    </section>
+
+    <section id="screen-library" class="hidden">
+      <button class="secondary backBtn" id="libraryBackBtn">← Torna alla home</button>
+
+      <div class="section">
+        <div class="listHeader">
+          <h2 id="libraryTitle">Libreria</h2>
+        </div>
+        <div id="libraryList" class="list"></div>
+        <div id="libraryEmpty" class="empty">Nessun titolo disponibile.</div>
       </div>
     </section>
 
@@ -676,11 +750,12 @@
               <option value="tv">Solo serie / anime</option>
             </select>
 
-            <button id="suggestBtn">Suggeriscimi qualcosa</button>
+            <button id="suggestBtn">🎲 Dalla mia watchlist</button>
+            <button id="discoverBtn" class="secondary">✨ Scopri qualcosa di nuovo</button>
           </div>
 
           <div id="tonightSuggestion" class="suggestion">
-            Premi il pulsante e ti consiglio un titolo dalla tua watchlist.
+            Premi un pulsante per ricevere un consiglio personalizzato.
           </div>
         </div>
       </div>
@@ -788,10 +863,17 @@
     const resultCount = document.getElementById("resultCount");
     const tabs = [...document.querySelectorAll(".tab")];
 
-    const seenList = document.getElementById("seenList");
-    const watchList = document.getElementById("watchList");
-    const seenEmpty = document.getElementById("seenEmpty");
-    const watchEmpty = document.getElementById("watchEmpty");
+    const watchShelf = document.getElementById("watchShelf");
+    const seenShelf = document.getElementById("seenShelf");
+    const watchShelfEmpty = document.getElementById("watchShelfEmpty");
+    const seenShelfEmpty = document.getElementById("seenShelfEmpty");
+    const openWatchAll = document.getElementById("openWatchAll");
+    const openSeenAll = document.getElementById("openSeenAll");
+
+    const libraryBackBtn = document.getElementById("libraryBackBtn");
+    const libraryTitle = document.getElementById("libraryTitle");
+    const libraryList = document.getElementById("libraryList");
+    const libraryEmpty = document.getElementById("libraryEmpty");
 
     const statSeen = document.getElementById("statSeen");
     const statWatch = document.getElementById("statWatch");
@@ -831,6 +913,7 @@
 
     const screens = {
       home: document.getElementById("screen-home"),
+      library: document.getElementById("screen-library"),
       stats: document.getElementById("screen-stats"),
       tonight: document.getElementById("screen-tonight"),
       detail: document.getElementById("screen-detail"),
@@ -839,6 +922,7 @@
     let currentType = "multi";
     let currentDetail = null;
     let previousScreen = "home";
+    let currentLibraryMode = "watch";
 
     let db = JSON.parse(localStorage.getItem("cineTrackerDB") || `{
       "seen": [],
@@ -1033,6 +1117,65 @@
       `).join("");
     }
 
+    function renderShelf(container, items) {
+      container.innerHTML = items.map(item => `
+        <div class="shelfCard open-stored-detail" data-key="${uniqueKey(item)}">
+          <div class="shelfPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+          <div class="shelfTitle">${escapeHtml(item.title)}</div>
+          <div class="shelfMeta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderLibraryList() {
+      const items = currentLibraryMode === "watch" ? db.watchlist : db.seen;
+
+      libraryTitle.textContent = currentLibraryMode === "watch" ? "Watchlist" : "Ultimi visti";
+      libraryEmpty.classList.toggle("hidden", items.length > 0);
+
+      if (!items.length) {
+        libraryList.innerHTML = "";
+        libraryEmpty.textContent = currentLibraryMode === "watch"
+          ? "La tua watchlist è vuota."
+          : "Non hai ancora salvato nulla tra i visti.";
+        return;
+      }
+
+      libraryList.innerHTML = items.map(item => `
+        <div class="listItem">
+          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+          <div>
+            <div class="liTitle">${escapeHtml(item.title)}</div>
+            <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
+            <div class="chips">
+              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
+              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
+              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
+            </div>
+            <div class="actions">
+              ${currentLibraryMode === "watch" ? `<button class="small ok move-watch-seen" data-key="${uniqueKey(item)}">Segna visto</button>` : ""}
+              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
+              <button class="small danger ${currentLibraryMode === "watch" ? "remove-watch" : "remove-seen"}" data-key="${uniqueKey(item)}">Elimina</button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderHomeShelves() {
+      const watchPreview = db.watchlist.slice(0, 4);
+      const seenPreview = db.seen.slice(0, 4);
+
+      watchShelfEmpty.classList.toggle("hidden", watchPreview.length > 0);
+      seenShelfEmpty.classList.toggle("hidden", seenPreview.length > 0);
+
+      openWatchAll.classList.toggle("hidden", db.watchlist.length === 0);
+      openSeenAll.classList.toggle("hidden", db.seen.length === 0);
+
+      renderShelf(watchShelf, watchPreview);
+      renderShelf(seenShelf, seenPreview);
+    }
+
     async function searchTitles() {
       const q = searchInput.value.trim();
 
@@ -1128,8 +1271,7 @@
       db.seen.unshift(item);
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
       saveDB();
-      renderLists();
-      renderStats();
+      renderAll();
       openDetail(item);
     }
 
@@ -1139,8 +1281,7 @@
       if (!inSeen(item) && !inWatch(item)) {
         db.watchlist.unshift(item);
         saveDB();
-        renderLists();
-        renderStats();
+        renderAll();
       }
 
       openDetail(item);
@@ -1149,50 +1290,6 @@
     async function showDetails(type, id) {
       const item = await fetchDetail(type, id);
       openDetail(item);
-    }
-
-    function renderLists() {
-      seenEmpty.classList.toggle("hidden", db.seen.length > 0);
-      watchEmpty.classList.toggle("hidden", db.watchlist.length > 0);
-
-      seenList.innerHTML = db.seen.map(item => `
-        <div class="listItem">
-          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-          <div>
-            <div class="liTitle">${escapeHtml(item.title)}</div>
-            <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
-            <div class="chips">
-              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
-              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
-              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
-            </div>
-            <div class="actions">
-              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
-              <button class="small danger remove-seen" data-key="${uniqueKey(item)}">Elimina</button>
-            </div>
-          </div>
-        </div>
-      `).join("");
-
-      watchList.innerHTML = db.watchlist.map(item => `
-        <div class="listItem">
-          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-          <div>
-            <div class="liTitle">${escapeHtml(item.title)}</div>
-            <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
-            <div class="chips">
-              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
-              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
-              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
-            </div>
-            <div class="actions">
-              <button class="small ok move-watch-seen" data-key="${uniqueKey(item)}">Segna visto</button>
-              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
-              <button class="small danger remove-watch" data-key="${uniqueKey(item)}">Elimina</button>
-            </div>
-          </div>
-        </div>
-      `).join("");
     }
 
     function moveWatchToSeen(key) {
@@ -1207,15 +1304,13 @@
       }
 
       saveDB();
-      renderLists();
-      renderStats();
+      renderAll();
     }
 
     function removeSeen(key) {
       db.seen = db.seen.filter(x => uniqueKey(x) !== key);
       saveDB();
-      renderLists();
-      renderStats();
+      renderAll();
 
       if (currentDetail && uniqueKey(currentDetail) === key) {
         switchScreen("home");
@@ -1225,8 +1320,7 @@
     function removeWatch(key) {
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
       saveDB();
-      renderLists();
-      renderStats();
+      renderAll();
 
       if (currentDetail && uniqueKey(currentDetail) === key) {
         openDetail(currentDetail);
@@ -1241,21 +1335,58 @@
       renderTasteMap();
     }
 
+    function renderAll() {
+      renderHomeShelves();
+      renderLibraryList();
+      renderStats();
+    }
+
+    // Calcola profilo gusti dall'utente: top generi, top decade, tipo prevalente
+    function getUserTasteProfile() {
+      const genreCount = {};
+      const decadeCount = {};
+      let movieCount = 0, seriesCount = 0;
+
+      db.seen.forEach(item => {
+        if (item.media_type === "movie") movieCount++; else seriesCount++;
+        const decade = decadeOf(item.year);
+        decadeCount[decade] = (decadeCount[decade] || 0) + 1;
+        (item.genre_names || []).forEach(g => {
+          genreCount[g] = (genreCount[g] || 0) + 1;
+        });
+      });
+
+      const topGenres = Object.entries(genreCount).sort((a,b) => b[1]-a[1]).slice(0,3).map(([g]) => g);
+      const topDecade = Object.entries(decadeCount).sort((a,b) => b[1]-a[1])[0]?.[0] || null;
+      const prefType = movieCount >= seriesCount ? "movie" : "tv";
+
+      return { topGenres, topDecade, prefType, movieCount, seriesCount };
+    }
+
+    // Calcola punteggio di compatibilità tra un item della watchlist e il profilo gusti
+    function tasteScore(item, profile) {
+      let score = 0;
+      (item.genre_names || []).forEach(g => {
+        if (profile.topGenres.includes(g)) score += 2;
+      });
+      if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score += 1;
+      if (item.media_type === profile.prefType) score += 1;
+      return score;
+    }
+
     function suggestTonight() {
       let pool = [...db.watchlist];
 
       if (!pool.length) {
-        tonightSuggestion.textContent = "La watchlist è vuota. Aggiungi qualche titolo prima.";
+        tonightSuggestion.innerHTML = "<span class='muted'>La watchlist è vuota. Aggiungi qualche titolo prima.</span>";
         return;
       }
 
       const type = typeSelect.value;
-      if (type !== "all") {
-        pool = pool.filter(x => x.media_type === type);
-      }
+      if (type !== "all") pool = pool.filter(x => x.media_type === type);
 
       if (!pool.length) {
-        tonightSuggestion.textContent = "Nessun titolo compatibile con quel filtro.";
+        tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo compatibile con quel filtro.</span>";
         return;
       }
 
@@ -1267,21 +1398,118 @@
         if (movieOnly.length) pool = movieOnly;
       }
 
-      const pick = pool[Math.floor(Math.random() * pool.length)];
+      // Se abbiamo dati di gusto, ordina per compatibilità
+      let pick;
+      if (db.seen.length >= 3) {
+        const profile = getUserTasteProfile();
+        const scored = pool.map(item => ({ item, score: tasteScore(item, profile) }));
+        scored.sort((a,b) => b.score - a.score);
+        // Prendi uno dei top 3 in modo casuale per non essere troppo prevedibile
+        const topPool = scored.slice(0, Math.min(3, scored.length));
+        pick = topPool[Math.floor(Math.random() * topPool.length)].item;
+      } else {
+        pick = pool[Math.floor(Math.random() * pool.length)];
+      }
 
       let reason = [];
-      if (pick.media_type === "movie" && timeSelect.value === "medium") reason.push("sta bene in una serata da circa 2 ore");
-      if (pick.media_type === "tv" && timeSelect.value === "short") reason.push("è comodo se hai poco tempo");
-      if (moodSelect.value === "dark") reason.push("potrebbe funzionare per una serata più tesa o cupa");
-      if (moodSelect.value === "epic") reason.push("potrebbe darti una serata più visiva o intensa");
-      if (moodSelect.value === "light") reason.push("può essere una scelta più facile da iniziare");
+      if (pick.media_type === "movie" && timeSelect.value === "medium") reason.push("film, giusto per una serata da circa 2 ore");
+      if (pick.media_type === "tv" && timeSelect.value === "short") reason.push("serie comoda se hai poco tempo");
+      if (moodSelect.value === "dark") reason.push("si adatta a una serata tesa o cupa");
+      if (moodSelect.value === "epic") reason.push("può darti una serata visiva e intensa");
+      if (moodSelect.value === "light") reason.push("è una scelta più leggera per stasera");
+      if (db.seen.length >= 3) {
+        const profile = getUserTasteProfile();
+        const matchGenres = (pick.genre_names || []).filter(g => profile.topGenres.includes(g));
+        if (matchGenres.length) reason.push(`è nel tuo genere preferito (${matchGenres[0]})`);
+        if (profile.topDecade && decadeOf(pick.year) === profile.topDecade) reason.push(`è degli ${profile.topDecade}, la tua decade preferita`);
+      }
       if (!reason.length) reason.push("è nella tua watchlist e vale la pena recuperarlo");
 
       tonightSuggestion.innerHTML = `
-        <strong>Ti consiglio:</strong> ${escapeHtml(pick.title)}<br><br>
+        <strong>🎬 ${escapeHtml(pick.title)}</strong><br>
         <span class="muted">${pick.year} · ${pick.media_type === "movie" ? "Film" : "Serie / Anime"}</span><br><br>
-        Perché: ${reason.join(", ")}.
+        <span style="font-size:13px;">📌 ${reason.join(", ")}.</span>
       `;
+    }
+
+    // Mappa nomi genere → ID TMDB per discover
+    const GENRE_NAME_TO_ID = {
+      "Azione": 28, "Avventura": 12, "Animazione": 16, "Commedia": 35,
+      "Crime": 80, "Documentario": 99, "Dramma": 18, "Fantasy": 14,
+      "Horror": 27, "Musica": 10402, "Mistero": 9648, "Romance": 10749,
+      "Fantascienza": 878, "Thriller": 53, "Guerra": 10752, "Western": 37,
+      "Storia": 36, "Famiglia": 10751
+    };
+
+    async function discoverByTaste() {
+      if (db.seen.length < 3) {
+        tonightSuggestion.innerHTML = "<span class='muted'>Aggiungi almeno 3 titoli visti per ricevere consigli personalizzati.</span>";
+        return;
+      }
+
+      tonightSuggestion.innerHTML = "<span class='muted'>🔍 Sto cercando qualcosa di nuovo per te...</span>";
+
+      const profile = getUserTasteProfile();
+      const type = typeSelect.value === "tv" ? "tv" : "movie";
+
+      // Ottieni ID dei top 2 generi
+      const genreIds = profile.topGenres
+        .map(g => GENRE_NAME_TO_ID[g])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(",");
+
+      // Calcola range anni dalla decade preferita
+      let yearParam = "";
+      if (profile.topDecade) {
+        const decadeYear = parseInt(profile.topDecade);
+        if (!isNaN(decadeYear)) {
+          if (type === "movie") {
+            yearParam = `&primary_release_date.gte=${decadeYear}-01-01&primary_release_date.lte=${decadeYear + 9}-12-31`;
+          } else {
+            yearParam = `&first_air_date.gte=${decadeYear}-01-01&first_air_date.lte=${decadeYear + 9}-12-31`;
+          }
+        }
+      }
+
+      const seenIds = new Set(db.seen.map(x => x.id));
+      const watchIds = new Set(db.watchlist.map(x => x.id));
+
+      try {
+        // Cerca su 3 pagine casuali per varietà
+        const page = Math.floor(Math.random() * 3) + 1;
+        const url = `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=vote_average.desc&vote_count.gte=200${genreIds ? "&with_genres=" + genreIds : ""}${yearParam}&page=${page}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        // Filtra già visti e già in watchlist
+        const candidates = (data.results || []).filter(x => !seenIds.has(x.id) && !watchIds.has(x.id));
+
+        if (!candidates.length) {
+          tonightSuggestion.innerHTML = "<span class='muted'>Nessun risultato trovato. Prova a cambiare i filtri.</span>";
+          return;
+        }
+
+        const pick = candidates[Math.floor(Math.random() * Math.min(5, candidates.length))];
+        const title = pick.title || pick.name || "Senza titolo";
+        const year = (pick.release_date || pick.first_air_date || "").slice(0, 4);
+        const rating = pick.vote_average ? pick.vote_average.toFixed(1) : "n.d.";
+        const poster = pick.poster_path ? `<img src="${IMG}${pick.poster_path}" style="width:70px;border-radius:10px;float:right;margin-left:12px;">` : "";
+
+        const whyGenre = profile.topGenres[0] ? `genere ${profile.topGenres[0]}` : "";
+        const whyDecade = profile.topDecade ? `anni ${profile.topDecade}` : "";
+        const why = [whyGenre, whyDecade].filter(Boolean).join(", ");
+
+        tonightSuggestion.innerHTML = `
+          ${poster}
+          <strong>✨ ${escapeHtml(title)}</strong><br>
+          <span class="muted">${year} · ${type === "movie" ? "Film" : "Serie"} · ⭐ ${rating}/10</span><br><br>
+          <span style="font-size:13px;">🎯 Scelto perché ami ${why || "questo tipo di contenuti"}. Non è nella tua libreria.</span>
+          <div style="clear:both"></div>
+        `;
+      } catch(err) {
+        tonightSuggestion.innerHTML = "<span class='muted'>Errore nella ricerca. Controlla la connessione.</span>";
+      }
     }
 
     function switchScreen(name) {
@@ -1293,6 +1521,12 @@
       document.querySelectorAll(".navBtn[data-screen]").forEach(b => {
         b.classList.toggle("active", b.dataset.screen === name);
       });
+    }
+
+    function openLibrary(mode) {
+      currentLibraryMode = mode;
+      renderLibraryList();
+      switchScreen("library");
     }
 
     function exportBackup() {
@@ -1325,8 +1559,7 @@
           };
 
           saveDB();
-          renderLists();
-          renderStats();
+          renderAll();
           switchScreen("home");
           alert("Backup importato correttamente.");
         } catch (err) {
@@ -1398,8 +1631,7 @@
       target.comment = comment;
 
       saveDB();
-      renderLists();
-      renderStats();
+      renderAll();
       openDetail(target);
 
       alert("Voto e commento salvati.");
@@ -1413,8 +1645,7 @@
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
       saveDB();
-      renderLists();
-      renderStats();
+      renderAll();
       switchScreen("home");
     }
 
@@ -1459,7 +1690,12 @@
       if (e.key === "Enter") searchTitles();
     });
 
+    openWatchAll.addEventListener("click", () => openLibrary("watch"));
+    openSeenAll.addEventListener("click", () => openLibrary("seen"));
+    libraryBackBtn.addEventListener("click", () => switchScreen("home"));
+
     suggestBtn.addEventListener("click", suggestTonight);
+    document.getElementById("discoverBtn").addEventListener("click", discoverByTaste);
 
     document.querySelectorAll(".navBtn[data-screen]").forEach(btn => {
       btn.addEventListener("click", () => switchScreen(btn.dataset.screen));
@@ -1493,8 +1729,7 @@
         });
         db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
         saveDB();
-        renderLists();
-        renderStats();
+        renderAll();
       } else {
         saveDetailNotes();
       }
@@ -1512,8 +1747,7 @@
           comment: detailCommentInput.value.trim()
         });
         saveDB();
-        renderLists();
-        renderStats();
+        renderAll();
       } else if (inWatch(currentDetail)) {
         saveDetailNotes();
         return;
@@ -1531,8 +1765,7 @@
       removeCurrentDetail();
     });
 
-    renderLists();
-    renderStats();
+    renderAll();
   </script>
 
   <script>
