@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>CineTracker Personal</title>
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
   <style>
     :root{
       --bg:#0b0f14;
@@ -364,15 +369,6 @@
       margin:12px 0;
     }
 
-    .row{
-      display:flex;
-      gap:10px;
-    }
-
-    .row > *{
-      flex:1;
-    }
-
     .danger{
       background:linear-gradient(180deg,#ff8f8f,#ff6b6b)!important;
       color:#1a1111!important;
@@ -729,10 +725,6 @@
       return date ? date.slice(0, 4) : "—";
     }
 
-    function labelType(item) {
-      return item.media_type === "tv" || item.first_air_date ? "Serie TV / Anime" : "Film";
-    }
-
     function titleOf(item) {
       return item.title || item.name || "Titolo sconosciuto";
     }
@@ -746,9 +738,9 @@
         poster_path: item.poster_path || "",
         backdrop_path: item.backdrop_path || "",
         overview: item.overview || "",
-        vote: "",
-        comment: "",
-        savedAt: new Date().toISOString()
+        vote: item.vote || "",
+        comment: item.comment || "",
+        savedAt: item.savedAt || new Date().toISOString()
       };
     }
 
@@ -823,7 +815,7 @@
               </div>
               <div class="posterInfo">
                 <div class="posterTitle">${escapeHtml(n.title)}</div>
-                <div class="meta">${n.year} · ${escapeHtml(labelType(n))}</div>
+                <div class="meta">${n.year} · ${n.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
                 <div class="actions">
                   <button class="small ok action-seen" data-id="${n.id}" data-type="${n.media_type}">
                     ${seen ? "Già visto" : "Visto"}
@@ -1260,7 +1252,7 @@
       switchScreen(previousScreen || "home");
     });
 
-    detailSeenBtn.addEventListener("click", async () => {
+    detailSeenBtn.addEventListener("click", () => {
       if (!currentDetail) return;
 
       if (!inSeen(currentDetail)) {
@@ -1311,6 +1303,16 @@
 
     renderLists();
     renderStats();
+  </script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js")
+          .then(() => console.log("Service Worker registrato"))
+          .catch(err => console.log("Errore Service Worker:", err));
+      });
+    }
   </script>
 </body>
 </html>
