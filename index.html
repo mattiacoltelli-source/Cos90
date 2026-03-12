@@ -752,6 +752,7 @@
 
             <button id="suggestBtn">🎲 Dalla mia watchlist</button>
             <button id="discoverBtn" class="secondary">✨ Scopri qualcosa di nuovo</button>
+            <button id="classicBtn" class="secondary">⭐ Rivedi un classico</button>
           </div>
 
           <div id="tonightSuggestion" class="suggestion">
@@ -1432,7 +1433,34 @@
       `;
     }
 
-    // Mappa nomi genere → ID TMDB per discover
+    function suggestClassic() {
+      const pool = db.seen.filter(x => {
+        const v = parseFloat(x.vote);
+        return !isNaN(v) && v >= 7;
+      });
+
+      if (!pool.length) {
+        tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo con voto 7 o più tra i visti. Inizia a votare i tuoi preferiti!</span>";
+        return;
+      }
+
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      const voto = parseFloat(pick.vote).toFixed(1);
+      const tipo = pick.media_type === "movie" ? "Film" : "Serie / Anime";
+
+      let commento = "";
+      if (voto >= 9) commento = "Uno dei tuoi assoluti — un ottimo motivo per rivederlo.";
+      else if (voto >= 8) commento = "L'hai amato. Ogni tanto certi titoli vanno rivisti.";
+      else commento = "Un bel titolo che hai apprezzato — vale una seconda visione.";
+
+      tonightSuggestion.innerHTML = `
+        <strong>⭐ ${escapeHtml(pick.title)}</strong><br>
+        <span class="muted">${pick.year} · ${tipo} · Il tuo voto: ${voto}</span><br><br>
+        <span style="font-size:13px;">📌 ${commento}</span>
+      `;
+    }
+
+
     const GENRE_NAME_TO_ID = {
       "Azione": 28, "Avventura": 12, "Animazione": 16, "Commedia": 35,
       "Crime": 80, "Documentario": 99, "Dramma": 18, "Fantasy": 14,
@@ -1696,6 +1724,7 @@
 
     suggestBtn.addEventListener("click", suggestTonight);
     document.getElementById("discoverBtn").addEventListener("click", discoverByTaste);
+    document.getElementById("classicBtn").addEventListener("click", suggestClassic);
 
     document.querySelectorAll(".navBtn[data-screen]").forEach(btn => {
       btn.addEventListener("click", () => switchScreen(btn.dataset.screen));
