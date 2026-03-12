@@ -363,12 +363,6 @@
       display:none !important;
     }
 
-    .hr{
-      height:1px;
-      background:var(--line);
-      margin:12px 0;
-    }
-
     .danger{
       background:linear-gradient(180deg,#ff8f8f,#ff6b6b)!important;
       color:#1a1111!important;
@@ -688,10 +682,6 @@
           <div id="tonightSuggestion" class="suggestion">
             Premi il pulsante e ti consiglio un titolo dalla tua watchlist.
           </div>
-
-          <div class="actions" style="margin-top:14px;">
-            <button class="secondary" onclick="getRecommendedMovies()">Consigli per me</button>
-          </div>
         </div>
       </div>
     </section>
@@ -854,17 +844,8 @@
       "watchlist": []
     }`);
 
-    function syncGlobals() {
-      window.db = db;
-      window.API_KEY = API_KEY;
-      window.BASE_URL = BASE_URL;
-      window.IMG = IMG;
-      window.GENRE_MAP = GENRE_MAP;
-    }
-
     function saveDB() {
       localStorage.setItem("cineTrackerDB", JSON.stringify(db));
-      syncGlobals();
     }
 
     function normalizeGenres(item) {
@@ -1539,12 +1520,9 @@
       removeCurrentDetail();
     });
 
-    syncGlobals();
     renderLists();
     renderStats();
   </script>
-
-  <script src="recommend.js"></script>
 
   <script>
     if ("serviceWorker" in navigator) {
