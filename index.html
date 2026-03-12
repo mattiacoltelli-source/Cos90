@@ -339,6 +339,68 @@
       border-radius:14px;
     }
 
+    .tonightList{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .tonightCard{
+      display:grid;
+      grid-template-columns:70px 1fr;
+      gap:12px;
+      padding:10px;
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+      cursor:pointer;
+    }
+
+    .tonightPoster{
+      width:70px;
+      height:105px;
+      border-radius:12px;
+      background:#0d1420 center/cover no-repeat;
+      border:1px solid rgba(255,255,255,.05);
+    }
+
+    .tonightTitleRow{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+    }
+
+    .tonightTitle{
+      font-size:15px;
+      font-weight:800;
+      line-height:1.2;
+    }
+
+    .affinity{
+      white-space:nowrap;
+      padding:5px 8px;
+      border-radius:999px;
+      background:rgba(245,196,81,.12);
+      border:1px solid rgba(245,196,81,.3);
+      color:#f6d06a;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .tonightReason{
+      margin-top:8px;
+      font-size:12px;
+      color:#d8e2ee;
+      line-height:1.35;
+    }
+
+    .tonightSub{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:4px;
+    }
+
     .bottomNav{
       position:fixed;
       left:0;
@@ -750,7 +812,7 @@
               <option value="tv">Solo serie / anime</option>
             </select>
 
-            <button id="suggestBtn">🎲 Dalla mia watchlist</button>
+            <button id="recommendBtn">⭐ 5 consigli per te</button>
             <button id="discoverBtn" class="secondary">✨ Scopri qualcosa di nuovo</button>
             <button id="classicBtn" class="secondary">⭐ Rivedi un classico</button>
           </div>
@@ -913,7 +975,7 @@
     const timeSelect = document.getElementById("timeSelect");
     const moodSelect = document.getElementById("moodSelect");
     const typeSelect = document.getElementById("typeSelect");
-    const suggestBtn = document.getElementById("suggestBtn");
+    const recommendBtn = document.getElementById("recommendBtn");
     const discoverBtn = document.getElementById("discoverBtn");
     const classicBtn = document.getElementById("classicBtn");
     const tonightSuggestion = document.getElementById("tonightSuggestion");
@@ -979,7 +1041,7 @@
 
     function yearOf(item) {
       const date = item.release_date || item.first_air_date || "";
-      return date ? date.slice(0, 4) : "—";
+      return date ? date.slice(0, 4) : (item.year || "—");
     }
 
     function titleOf(item) {
@@ -997,6 +1059,8 @@
         overview: item.overview || "",
         vote: item.vote || "",
         comment: item.comment || "",
+        vote_average: item.vote_average || 0,
+        vote_count: item.vote_count || 0,
         genre_names: normalizeGenres(item),
         savedAt: item.savedAt || new Date().toISOString()
       };
@@ -1115,9 +1179,7 @@
 
       const insights = [];
 
-      if (dominantGenre !== "n.d.") {
-        insights.push(`Il tuo genere dominante, per ora, è ${dominantGenre.toLowerCase()}.`);
-      }
+      if (dominantGenre !== "n.d.") insights.push(`Il tuo genere dominante, per ora, è ${dominantGenre.toLowerCase()}.`);
 
       if (avgVote !== "n.d.") {
         const avgNum = parseFloat(avgVote);
@@ -1130,14 +1192,10 @@
       else if (moreSeries) insights.push("Nel complesso guardi più serie/anime che film.");
       else insights.push("Alterni abbastanza bene tra film e serie.");
 
-      if (dominantDecade !== "n.d.") {
-        insights.push(`Hai una concentrazione forte di titoli nella decade ${dominantDecade}.`);
-      }
+      if (dominantDecade !== "n.d.") insights.push(`Hai una concentrazione forte di titoli nella decade ${dominantDecade}.`);
 
       const commentRate = db.seen.filter(x => x.comment && x.comment.trim()).length / db.seen.length;
-      if (commentRate >= 0.5) {
-        insights.push("Usi l’app anche come diario cinefilo personale, non solo come tracker.");
-      }
+      if (commentRate >= 0.5) insights.push("Usi l’app anche come diario cinefilo personale, non solo come tracker.");
 
       tasteInsights.innerHTML = insights.slice(0, 5).map(text => `
         <div class="insightItem">${escapeHtml(text)}</div>
@@ -1370,6 +1428,7 @@
 
     function getUserTasteProfile() {
       const genreCount = {};
+      const genreVotes = {};
       const decadeCount = {};
       let movieCount = 0;
       let seriesCount = 0;
@@ -1381,35 +1440,45 @@
         const decade = decadeOf(item.year);
         decadeCount[decade] = (decadeCount[decade] || 0) + 1;
 
+        const voteNum = parseFloat(item.vote);
         (item.genre_names || []).forEach(g => {
           genreCount[g] = (genreCount[g] || 0) + 1;
+          if (!isNaN(voteNum)) {
+            if (!genreVotes[g]) genreVotes[g] = [];
+            genreVotes[g].push(voteNum);
+          }
         });
       });
 
       const topGenres = Object.entries(genreCount)
-        .sort((a,b) => b[1]-a[1])
-        .slice(0,3)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 4)
         .map(([g]) => g);
 
       const topDecade = Object.entries(decadeCount)
-        .sort((a,b) => b[1]-a[1])[0]?.[0] || null;
+        .sort((a,b) => b[1] - a[1])[0]?.[0] || null;
 
       const prefType = movieCount >= seriesCount ? "movie" : "tv";
 
-      return { topGenres, topDecade, prefType };
-    }
-
-    function tasteScore(item, profile) {
-      let score = 0;
-
-      (item.genre_names || []).forEach(g => {
-        if (profile.topGenres.includes(g)) score += 2;
+      const genreAverages = {};
+      Object.keys(genreCount).forEach(g => {
+        const votes = genreVotes[g] || [];
+        if (votes.length) {
+          genreAverages[g] = votes.reduce((a,b) => a + b, 0) / votes.length;
+        } else {
+          genreAverages[g] = 6.8;
+        }
       });
 
-      if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score += 1;
-      if (item.media_type === profile.prefType) score += 1;
+      const overallVotes = db.seen
+        .map(x => parseFloat(x.vote))
+        .filter(v => !isNaN(v));
 
-      return score;
+      const avgVote = overallVotes.length
+        ? overallVotes.reduce((a,b) => a + b, 0) / overallVotes.length
+        : 7;
+
+      return { topGenres, topDecade, prefType, genreAverages, avgVote };
     }
 
     function getMoodGenreBoosts() {
@@ -1419,73 +1488,6 @@
       if (mood === "epic") return ["Azione", "Avventura", "Fantascienza", "Fantasy", "Guerra"];
       if (mood === "light") return ["Commedia", "Famiglia", "Animazione", "Romance"];
       return [];
-    }
-
-    function suggestTonight() {
-      let pool = [...db.watchlist];
-
-      if (!pool.length) {
-        tonightSuggestion.innerHTML = "<span class='muted'>La watchlist è vuota. Aggiungi qualche titolo prima.</span>";
-        return;
-      }
-
-      const type = typeSelect.value;
-      if (type !== "all") pool = pool.filter(x => x.media_type === type);
-
-      if (!pool.length) {
-        tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo compatibile con quel filtro.</span>";
-        return;
-      }
-
-      if (timeSelect.value === "short") {
-        const tvOnly = pool.filter(x => x.media_type === "tv");
-        if (tvOnly.length) pool = tvOnly;
-      } else if (timeSelect.value === "medium") {
-        const movieOnly = pool.filter(x => x.media_type === "movie");
-        if (movieOnly.length) pool = movieOnly;
-      }
-
-      let pick;
-      if (db.seen.length >= 3) {
-        const profile = getUserTasteProfile();
-        const moodBoosts = getMoodGenreBoosts();
-
-        const scored = pool.map(item => {
-          let score = tasteScore(item, profile);
-          (item.genre_names || []).forEach(g => {
-            if (moodBoosts.includes(g)) score += 1;
-          });
-          return { item, score };
-        });
-
-        scored.sort((a,b) => b.score - a.score);
-        const topPool = scored.slice(0, Math.min(4, scored.length));
-        pick = topPool[Math.floor(Math.random() * topPool.length)].item;
-      } else {
-        pick = pool[Math.floor(Math.random() * pool.length)];
-      }
-
-      let reason = [];
-      if (pick.media_type === "movie" && timeSelect.value === "medium") reason.push("film, giusto per una serata da circa 2 ore");
-      if (pick.media_type === "tv" && timeSelect.value === "short") reason.push("serie comoda se hai poco tempo");
-      if (moodSelect.value === "dark") reason.push("si adatta a una serata tesa o cupa");
-      if (moodSelect.value === "epic") reason.push("può darti una serata visiva e intensa");
-      if (moodSelect.value === "light") reason.push("è una scelta più leggera per stasera");
-
-      if (db.seen.length >= 3) {
-        const profile = getUserTasteProfile();
-        const matchGenres = (pick.genre_names || []).filter(g => profile.topGenres.includes(g));
-        if (matchGenres.length) reason.push(`è nel tuo genere preferito (${matchGenres[0]})`);
-        if (profile.topDecade && decadeOf(pick.year) === profile.topDecade) reason.push(`è degli ${profile.topDecade}, la tua decade preferita`);
-      }
-
-      if (!reason.length) reason.push("è nella tua watchlist e vale la pena recuperarlo");
-
-      tonightSuggestion.innerHTML = `
-        <strong>🎬 ${escapeHtml(pick.title)}</strong><br>
-        <span class="muted">${pick.year} · ${pick.media_type === "movie" ? "Film" : "Serie / Anime"}</span><br><br>
-        <span style="font-size:13px;">📌 ${reason.join(", ")}.</span>
-      `;
     }
 
     function suggestClassic() {
@@ -1520,36 +1522,19 @@
       return Number.isFinite(num) && num > 0 ? num.toFixed(digits) : fallback;
     }
 
-    function scoreDiscoverCandidate(item, profile, mergedGenres, forcedType) {
-      let score = 0;
-      const itemGenres = normalizeGenres(item);
-
-      itemGenres.forEach(g => {
-        if (profile.topGenres.includes(g)) score += 4;
-        if (mergedGenres.includes(g)) score += 2;
-      });
-
-      if (profile.topDecade && decadeOf(yearOf(item)) === profile.topDecade) score += 2;
-      if ((forcedType || profile.prefType) === ((item.media_type === "tv" || item.first_air_date) ? "tv" : "movie")) score += 1;
-
-      const voteAverage = item.vote_average || 0;
-      const voteCount = item.vote_count || 0;
-      score += Math.min(3, voteAverage / 3);
-      score += Math.min(2, voteCount / 1000);
-
-      if (moodSelect.value === "dark" && itemGenres.some(g => ["Thriller","Horror","Crime","Mistero","Drama"].includes(g))) score += 2;
-      if (moodSelect.value === "epic" && itemGenres.some(g => ["Azione","Avventura","Fantascienza","Fantasy","Guerra"].includes(g))) score += 2;
-      if (moodSelect.value === "light" && itemGenres.some(g => ["Commedia","Famiglia","Animazione","Romance"].includes(g))) score += 2;
-
-      return score;
-    }
-
     function buildDateRange(startYear, endYear, type) {
       if (!startYear || !endYear) return "";
       if (type === "movie") {
         return `&primary_release_date.gte=${startYear}-01-01&primary_release_date.lte=${endYear}-12-31`;
       }
       return `&first_air_date.gte=${startYear}-01-01&first_air_date.lte=${endYear}-12-31`;
+    }
+
+    function getRuntimeFilter(type) {
+      if (type !== "movie") return "";
+      if (timeSelect.value === "short") return "&with_runtime.lte=110";
+      if (timeSelect.value === "medium") return "&with_runtime.gte=95&with_runtime.lte=155";
+      return "&with_runtime.gte=140";
     }
 
     function buildFallbackQueries(profile, forcedType) {
@@ -1559,6 +1544,7 @@
       const genreIds = mergedGenres.map(g => GENRE_NAME_TO_ID[g]).filter(Boolean);
       const primaryGenre = genreIds[0] || "";
       const secondaryGenre = genreIds[1] || "";
+      const thirdGenre = genreIds[2] || "";
       const comboGenres = genreIds.slice(0, 2).join(",");
 
       let preciseDate = "";
@@ -1571,14 +1557,7 @@
         }
       }
 
-      const runtimeFilter = type === "movie"
-        ? timeSelect.value === "short"
-          ? "&with_runtime.lte=110"
-          : timeSelect.value === "medium"
-            ? "&with_runtime.gte=95&with_runtime.lte=155"
-            : "&with_runtime.gte=140"
-        : "";
-
+      const runtimeFilter = getRuntimeFilter(type);
       const minVotes = type === "movie" ? "&vote_count.gte=120" : "&vote_count.gte=40";
 
       return {
@@ -1589,35 +1568,39 @@
             label: "ricerca precisa",
             urls: [
               `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${preciseDate}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${preciseDate}${runtimeFilter}&sort_by=vote_average.desc${minVotes}&page=1`
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${preciseDate}${runtimeFilter}&sort_by=vote_average.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=2`
             ]
           },
           {
             label: "ricerca più ampia",
             urls: [
               `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${widerDate}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${secondaryGenre ? `&with_genres=${secondaryGenre}` : ""}${widerDate}${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=1`
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${secondaryGenre ? `&with_genres=${secondaryGenre}` : ""}${widerDate}${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${thirdGenre ? `&with_genres=${thirdGenre}` : ""}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`
             ]
           },
           {
             label: "solo genere",
             urls: [
               `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${runtimeFilter}&sort_by=vote_average.desc${minVotes}&page=1`
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${runtimeFilter}&sort_by=vote_average.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=1`
             ]
           },
           {
             label: "fallback finale",
             urls: [
               `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=1`
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=2`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=3`
             ]
           }
         ]
       };
     }
 
-    async function fetchDiscoverLevel(urls, type, seenKeys, watchKeys) {
+    async function fetchDiscoverLevel(urls, type, excludedKeys) {
       const candidatesMap = new Map();
 
       const responses = await Promise.all(
@@ -1637,15 +1620,186 @@
         const item = normalizedItem({ ...raw, media_type: type });
         const key = uniqueKey(item);
 
-        if (seenKeys.has(key)) return;
-        if (watchKeys.has(key)) return;
+        if (excludedKeys.has(key)) return;
         if (!item.poster_path) return;
         if (!item.title || item.title === "Titolo sconosciuto") return;
+        if ((item.vote_count || 0) < 20) return;
 
         candidatesMap.set(key, item);
       });
 
       return [...candidatesMap.values()];
+    }
+
+    function calculateAffinity(item, profile) {
+      const itemGenres = item.genre_names || [];
+      const moodBoosts = getMoodGenreBoosts();
+
+      let genreBase = 0;
+      let matchedGenres = 0;
+
+      itemGenres.forEach(g => {
+        if (profile.genreAverages[g]) {
+          genreBase += profile.genreAverages[g];
+          matchedGenres++;
+        } else if (profile.topGenres.includes(g)) {
+          genreBase += 7.5;
+          matchedGenres++;
+        }
+      });
+
+      if (!matchedGenres && itemGenres.some(g => moodBoosts.includes(g))) {
+        genreBase = 7.2;
+        matchedGenres = 1;
+      }
+
+      if (!matchedGenres) {
+        genreBase = Math.max(6.4, profile.avgVote);
+        matchedGenres = 1;
+      }
+
+      let score10 = genreBase / matchedGenres;
+
+      if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score10 += 0.35;
+      if (item.media_type === profile.prefType) score10 += 0.25;
+
+      if (moodBoosts.length && itemGenres.some(g => moodBoosts.includes(g))) score10 += 0.45;
+
+      const tmdb = Number(item.vote_average) || 0;
+      if (tmdb > 0) score10 += Math.min(0.45, (tmdb - 6) * 0.10);
+
+      score10 = Math.max(6.2, Math.min(9.6, score10));
+      return Math.round(score10 * 10);
+    }
+
+    function scoreRecommendationCandidate(item, profile) {
+      let score = 0;
+      const itemGenres = item.genre_names || [];
+      const moodBoosts = getMoodGenreBoosts();
+
+      itemGenres.forEach(g => {
+        if (profile.topGenres.includes(g)) score += 4;
+        if (profile.genreAverages[g]) score += Math.max(0, profile.genreAverages[g] - 5.5);
+        if (moodBoosts.includes(g)) score += 2;
+      });
+
+      if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score += 2;
+      if (item.media_type === profile.prefType) score += 1;
+
+      const voteAverage = item.vote_average || 0;
+      const voteCount = item.vote_count || 0;
+      score += Math.min(2.5, voteAverage / 4);
+      score += Math.min(2, voteCount / 1200);
+
+      return score;
+    }
+
+    function buildReason(item, profile, affinity) {
+      const bits = [];
+      const genres = item.genre_names || [];
+      const matchGenres = genres.filter(g => profile.topGenres.includes(g));
+      const moodBoosts = getMoodGenreBoosts();
+
+      if (matchGenres.length) bits.push(`match con ${matchGenres.slice(0, 2).join(" + ")}`);
+      if (profile.topDecade && decadeOf(item.year) === profile.topDecade) bits.push(`decade che guardi spesso`);
+      if (moodBoosts.length && genres.some(g => moodBoosts.includes(g))) bits.push(`adatto al mood scelto`);
+      if (affinity >= 88) bits.push(`compatibilità molto alta`);
+      else if (affinity >= 80) bits.push(`buona sintonia con i tuoi gusti`);
+
+      return bits.slice(0, 3);
+    }
+
+    async function recommendTonightFive() {
+      if (db.seen.length < 3) {
+        tonightSuggestion.innerHTML = "<span class='muted'>Aggiungi almeno 3 titoli visti per ricevere 5 consigli personalizzati.</span>";
+        return;
+      }
+
+      tonightSuggestion.innerHTML = "<span class='muted'>🔍 Sto cercando 5 titoli adatti ai tuoi gusti...</span>";
+
+      const profile = getUserTasteProfile();
+      const forcedType = typeSelect.value === "all" ? null : typeSelect.value;
+      const { type, levels } = buildFallbackQueries(profile, forcedType);
+
+      const excludedKeys = new Set([
+        ...db.seen.map(x => uniqueKey(x)),
+        ...db.watchlist.map(x => uniqueKey(x))
+      ]);
+
+      try {
+        let candidates = [];
+        let usedLevelLabel = "";
+
+        for (const level of levels) {
+          const found = await fetchDiscoverLevel(level.urls, type, excludedKeys);
+          candidates = [...candidates, ...found];
+
+          const map = new Map();
+          candidates.forEach(item => map.set(uniqueKey(item), item));
+          candidates = [...map.values()];
+
+          if (candidates.length >= 5) {
+            usedLevelLabel = level.label;
+            break;
+          }
+        }
+
+        if (!candidates.length) {
+          tonightSuggestion.innerHTML = "<span class='muted'>Non ho trovato consigli adatti. Riprova più tardi.</span>";
+          return;
+        }
+
+        const ranked = candidates
+          .map(item => {
+            const affinity = calculateAffinity(item, profile);
+            const rankScore = scoreRecommendationCandidate(item, profile) + affinity / 20 + Math.random() * 0.8;
+            return { item, affinity, rankScore };
+          })
+          .sort((a,b) => b.rankScore - a.rankScore)
+          .slice(0, 12);
+
+        const finalFive = ranked
+          .sort((a,b) => b.affinity - a.affinity)
+          .slice(0, 5);
+
+        if (!finalFive.length) {
+          tonightSuggestion.innerHTML = "<span class='muted'>Non ho trovato consigli adatti. Riprova più tardi.</span>";
+          return;
+        }
+
+        const note = usedLevelLabel && usedLevelLabel !== "ricerca precisa"
+          ? `<div class="muted" style="font-size:12px;margin-bottom:10px;">Ho allargato un po’ la ricerca per trovarti comunque 5 proposte.</div>`
+          : "";
+
+        tonightSuggestion.innerHTML = `
+          ${note}
+          <div class="tonightList">
+            ${finalFive.map(entry => {
+              const item = entry.item;
+              const reasons = buildReason(item, profile, entry.affinity);
+              return `
+                <div class="tonightCard open-tonight-detail" data-id="${item.id}" data-type="${item.media_type}">
+                  <div class="tonightPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+                  <div>
+                    <div class="tonightTitleRow">
+                      <div class="tonightTitle">${escapeHtml(item.title)}</div>
+                      <div class="affinity">${entry.affinity}%</div>
+                    </div>
+                    <div class="tonightSub">
+                      ${escapeHtml(item.year)} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"} · ⭐ ${rawNumberToFixed(item.vote_average, 1)}
+                    </div>
+                    <div class="tonightReason">
+                      ${reasons.length ? `🎯 ${escapeHtml(reasons.join(" · "))}` : "🎯 Consigliato in base ai tuoi gusti"}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+      } catch (err) {
+        tonightSuggestion.innerHTML = "<span class='muted'>Errore nella ricerca. Controlla la connessione.</span>";
+      }
     }
 
     async function discoverByTaste() {
@@ -1658,17 +1812,22 @@
 
       const profile = getUserTasteProfile();
       const forcedType = typeSelect.value === "all" ? null : typeSelect.value;
-      const { type, mergedGenres, levels } = buildFallbackQueries(profile, forcedType);
+      const { type, mergedGenres, levels } = (() => {
+        const out = buildFallbackQueries(profile, forcedType);
+        return { type: out.type, mergedGenres: out.mergedGenres, levels: out.levels };
+      })();
 
-      const seenKeys = new Set(db.seen.map(x => uniqueKey(x)));
-      const watchKeys = new Set(db.watchlist.map(x => uniqueKey(x)));
+      const excludedKeys = new Set([
+        ...db.seen.map(x => uniqueKey(x)),
+        ...db.watchlist.map(x => uniqueKey(x))
+      ]);
 
       try {
         let candidates = [];
         let usedLevelLabel = "";
 
         for (const level of levels) {
-          const found = await fetchDiscoverLevel(level.urls, type, seenKeys, watchKeys);
+          const found = await fetchDiscoverLevel(level.urls, type, excludedKeys);
           if (found.length > 0) {
             candidates = found;
             usedLevelLabel = level.label;
@@ -1684,7 +1843,7 @@
         const scored = candidates
           .map(item => ({
             item,
-            score: scoreDiscoverCandidate(item, profile, mergedGenres, forcedType)
+            score: scoreRecommendationCandidate(item, profile) + Math.random() * 1.2
           }))
           .sort((a,b) => b.score - a.score);
 
@@ -1869,6 +2028,7 @@
       const removeWatchBtn = e.target.closest(".remove-watch");
       const moveWatchBtn = e.target.closest(".move-watch-seen");
       const openStoredBtn = e.target.closest(".open-stored-detail");
+      const openTonightBtn = e.target.closest(".open-tonight-detail");
 
       try {
         if (seenBtn) await addSeen(seenBtn.dataset.type, seenBtn.dataset.id);
@@ -1882,6 +2042,10 @@
           const key = openStoredBtn.dataset.key;
           const item = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
           if (item) openDetail(item);
+        }
+
+        if (openTonightBtn) {
+          await showDetails(openTonightBtn.dataset.type, openTonightBtn.dataset.id);
         }
       } catch (err) {
         alert("C'è stato un problema. Riprova.");
@@ -1906,7 +2070,7 @@
     openSeenAll.addEventListener("click", () => openLibrary("seen"));
     libraryBackBtn.addEventListener("click", () => switchScreen("home"));
 
-    suggestBtn.addEventListener("click", suggestTonight);
+    recommendBtn.addEventListener("click", recommendTonightFive);
     discoverBtn.addEventListener("click", discoverByTaste);
     classicBtn.addEventListener("click", suggestClassic);
 
