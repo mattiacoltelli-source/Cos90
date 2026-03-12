@@ -1,74 +1,52 @@
-document.addEventListener("DOMContentLoaded", () => {
+function getRecommendedMovies() {
+  const box = document.getElementById("tonightSuggestion");
 
-  const btn = document.getElementById("personal-recs-btn");
-  const output = document.getElementById("personal-recs-output");
+  if (!window.db || !Array.isArray(window.db.seen) || !Array.isArray(window.db.watchlist)) {
+    box.innerHTML = "Database non disponibile.";
+    return;
+  }
 
-  if (!btn) return;
+  if (window.db.seen.length < 2) {
+    box.innerHTML = "Segna almeno 2 titoli come visti per ottenere consigli.";
+    return;
+  }
 
-  btn.addEventListener("click", () => {
+  if (!window.db.watchlist.length) {
+    box.innerHTML = "Aggiungi prima qualche titolo alla watchlist.";
+    return;
+  }
 
-    const raw = localStorage.getItem("cinetracker_library");
-    const library = raw ? JSON.parse(raw) : [];
+  const genreCount = {};
 
-    if (!library.length) {
-      output.innerHTML = "Non ho abbastanza dati per consigliarti qualcosa.";
-      return;
-    }
-
-    const seen = library.filter(x => x.watched === true);
-    const unseen = library.filter(x => !x.watched);
-
-    if (!seen.length) {
-      output.innerHTML = "Segna prima qualche film come visto.";
-      return;
-    }
-
-    const genreScore = {};
-
-    seen.forEach(item => {
-      if (!item.genre) return;
-
-      const genres = item.genre.split(",");
-
-      genres.forEach(g => {
-        const clean = g.trim();
-        genreScore[clean] = (genreScore[clean] || 0) + 1;
-      });
+  window.db.seen.forEach(item => {
+    (item.genre_names || []).forEach(genre => {
+      genreCount[genre] = (genreCount[genre] || 0) + 1;
     });
-
-    const topGenres = Object.entries(genreScore)
-      .sort((a,b)=>b[1]-a[1])
-      .slice(0,3)
-      .map(x=>x[0]);
-
-    const suggestions = unseen
-      .map(item => {
-
-        if (!item.genre) return null;
-
-        const genres = item.genre.split(",");
-        let score = 0;
-
-        genres.forEach(g=>{
-          if(topGenres.includes(g.trim())) score++;
-        });
-
-        return { ...item, score };
-
-      })
-      .filter(x => x && x.score > 0)
-      .sort((a,b)=>b.score-a.score)
-      .slice(0,5);
-
-    if (!suggestions.length) {
-      output.innerHTML = "Non ho trovato consigli compatibili.";
-      return;
-    }
-
-    output.innerHTML =
-      "<strong>Consigliati per te:</strong><br><br>" +
-      suggestions.map(x=>"• "+x.title).join("<br>");
-
   });
 
-});
+  const topGenres = Object.entries(genreCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(entry => entry[0]);
+
+  const recommended = window.db.watchlist
+    .map(item => {
+      let score = 0;
+      (item.genre_names || []).forEach(genre => {
+        if (topGenres.includes(genre)) score++;
+      });
+      return { ...item, score };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  if (!recommended.length) {
+    box.innerHTML = "Non ho trovato consigli compatibili nella tua watchlist.";
+    return;
+  }
+
+  box.innerHTML =
+    "<strong>Consigli per te:</strong><br><br>" +
+    recommended.map(item => "• " + item.title).join("<br>");
+}
