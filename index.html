@@ -327,7 +327,7 @@
 
     .chooserGrid{
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:1fr;
       gap:10px;
     }
 
@@ -659,7 +659,6 @@
 
     @media (max-width:380px){
       .grid{grid-template-columns:1fr;}
-      .chooserGrid{grid-template-columns:1fr;}
       .backupButtons{grid-template-columns:1fr;}
       .detailTop{grid-template-columns:82px 1fr;}
       .detailPoster{width:82px;height:123px;}
@@ -760,16 +759,16 @@
           </div>
 
           <div class="tasteBlock">
-            <h3>Profilo rapido</h3>
-            <div id="tasteProfile" class="insightList">
-              <div class="insightItem">Ancora pochi dati per definire il tuo profilo cinefilo.</div>
+            <h3>Top titoli</h3>
+            <div id="topRatedList" class="insightList">
+              <div class="insightItem">Valuta alcuni film per vedere la classifica.</div>
             </div>
           </div>
 
           <div class="tasteBlock">
-            <h3>Insight automatici</h3>
-            <div id="tasteInsights" class="insightList">
-              <div class="insightItem">Quando userai un po’ l’app, qui compariranno insight sui tuoi gusti.</div>
+            <h3>Profilo rapido</h3>
+            <div id="tasteProfile" class="insightList">
+              <div class="insightItem">Ancora pochi dati per definire il tuo profilo cinefilo.</div>
             </div>
           </div>
         </div>
@@ -793,23 +792,22 @@
         <h2>Stasera cosa guardo?</h2>
         <div class="card chooser">
           <div class="chooserGrid">
-            <select id="timeSelect">
-              <option value="short">Ho poco tempo</option>
-              <option value="medium" selected>Circa 2 ore</option>
-              <option value="long">Tempo lungo / maratona</option>
-            </select>
-
-            <select id="moodSelect">
-              <option value="any">Qualsiasi mood</option>
-              <option value="dark">Teso / cupo</option>
-              <option value="epic">Epico / visivo</option>
-              <option value="light">Più leggero</option>
-            </select>
-
-            <select id="typeSelect">
-              <option value="all">Film o serie</option>
-              <option value="movie">Solo film</option>
-              <option value="tv">Solo serie / anime</option>
+            <select id="genreSelect">
+              <option value="all">Qualsiasi genere</option>
+              <option value="Azione">Azione</option>
+              <option value="Avventura">Avventura</option>
+              <option value="Animazione">Animazione</option>
+              <option value="Commedia">Commedia</option>
+              <option value="Crime">Crime</option>
+              <option value="Drama">Drama</option>
+              <option value="Fantascienza">Fantascienza</option>
+              <option value="Fantasy">Fantasy</option>
+              <option value="Horror">Horror</option>
+              <option value="Mistero">Mistero</option>
+              <option value="Romance">Romance</option>
+              <option value="Thriller">Thriller</option>
+              <option value="Guerra">Guerra</option>
+              <option value="Western">Western</option>
             </select>
 
             <button id="recommendBtn">⭐ 5 consigli per te</button>
@@ -969,12 +967,10 @@
 
     const genreBars = document.getElementById("genreBars");
     const decadeBars = document.getElementById("decadeBars");
+    const topRatedList = document.getElementById("topRatedList");
     const tasteProfile = document.getElementById("tasteProfile");
-    const tasteInsights = document.getElementById("tasteInsights");
 
-    const timeSelect = document.getElementById("timeSelect");
-    const moodSelect = document.getElementById("moodSelect");
-    const typeSelect = document.getElementById("typeSelect");
+    const genreSelect = document.getElementById("genreSelect");
     const recommendBtn = document.getElementById("recommendBtn");
     const discoverBtn = document.getElementById("discoverBtn");
     const classicBtn = document.getElementById("classicBtn");
@@ -1119,12 +1115,30 @@
       `).join("");
     }
 
+    function renderTopRated() {
+      const rated = db.seen
+        .filter(x => x.vote && !isNaN(parseFloat(x.vote)))
+        .sort((a,b) => parseFloat(b.vote) - parseFloat(a.vote))
+        .slice(0, 5);
+
+      if (!rated.length) {
+        topRatedList.innerHTML = `<div class="insightItem">Valuta alcuni film per vedere la classifica.</div>`;
+        return;
+      }
+
+      topRatedList.innerHTML = rated.map((item, i) => `
+        <div class="insightItem">
+          ${i + 1}. <strong>${escapeHtml(item.title)}</strong> ⭐ ${escapeHtml(item.vote)}
+        </div>
+      `).join("");
+    }
+
     function renderTasteMap() {
       if (db.seen.length < 3) {
         genreBars.innerHTML = `<div class="muted">Salva almeno 3 titoli visti.</div>`;
         decadeBars.innerHTML = `<div class="muted">Salva almeno 3 titoli visti.</div>`;
+        topRatedList.innerHTML = `<div class="insightItem">Valuta alcuni film per vedere la classifica.</div>`;
         tasteProfile.innerHTML = `<div class="insightItem">Ancora pochi dati per definire il tuo profilo cinefilo.</div>`;
-        tasteInsights.innerHTML = `<div class="insightItem">Quando userai un po’ l’app, qui compariranno insight sui tuoi gusti.</div>`;
         return;
       }
 
@@ -1162,6 +1176,7 @@
 
       buildBars(genreBars, topGenres);
       buildBars(decadeBars, topDecades);
+      renderTopRated();
 
       const dominantGenre = topGenres[0]?.label || "n.d.";
       const dominantDecade = topDecades[0]?.label || "n.d.";
@@ -1176,30 +1191,6 @@
         }</div>
         <div class="insightItem"><strong>Decade più presente:</strong> ${escapeHtml(dominantDecade)}</div>
       `;
-
-      const insights = [];
-
-      if (dominantGenre !== "n.d.") insights.push(`Il tuo genere dominante, per ora, è ${dominantGenre.toLowerCase()}.`);
-
-      if (avgVote !== "n.d.") {
-        const avgNum = parseFloat(avgVote);
-        if (avgNum >= 8) insights.push(`Tendi a premiare molto i titoli che salvi: media alta (${avgVote}).`);
-        else if (avgNum >= 6.5) insights.push(`Hai gusti abbastanza equilibrati: media voti ${avgVote}.`);
-        else insights.push(`Sei piuttosto severo nei voti: media ${avgVote}.`);
-      }
-
-      if (moreMovies) insights.push("Nel complesso guardi più film che serie/anime.");
-      else if (moreSeries) insights.push("Nel complesso guardi più serie/anime che film.");
-      else insights.push("Alterni abbastanza bene tra film e serie.");
-
-      if (dominantDecade !== "n.d.") insights.push(`Hai una concentrazione forte di titoli nella decade ${dominantDecade}.`);
-
-      const commentRate = db.seen.filter(x => x.comment && x.comment.trim()).length / db.seen.length;
-      if (commentRate >= 0.5) insights.push("Usi l’app anche come diario cinefilo personale, non solo come tracker.");
-
-      tasteInsights.innerHTML = insights.slice(0, 5).map(text => `
-        <div class="insightItem">${escapeHtml(text)}</div>
-      `).join("");
     }
 
     function renderShelf(container, items) {
@@ -1463,11 +1454,9 @@
       const genreAverages = {};
       Object.keys(genreCount).forEach(g => {
         const votes = genreVotes[g] || [];
-        if (votes.length) {
-          genreAverages[g] = votes.reduce((a,b) => a + b, 0) / votes.length;
-        } else {
-          genreAverages[g] = 6.8;
-        }
+        genreAverages[g] = votes.length
+          ? votes.reduce((a,b) => a + b, 0) / votes.length
+          : 6.8;
       });
 
       const overallVotes = db.seen
@@ -1481,23 +1470,29 @@
       return { topGenres, topDecade, prefType, genreAverages, avgVote };
     }
 
-    function getMoodGenreBoosts() {
-      const mood = moodSelect.value;
+    function getSelectedGenre() {
+      return genreSelect.value;
+    }
 
-      if (mood === "dark") return ["Thriller", "Horror", "Crime", "Mistero", "Drama"];
-      if (mood === "epic") return ["Azione", "Avventura", "Fantascienza", "Fantasy", "Guerra"];
-      if (mood === "light") return ["Commedia", "Famiglia", "Animazione", "Romance"];
-      return [];
+    function getGenreBoostsFromSelection() {
+      const selected = getSelectedGenre();
+      return selected === "all" ? [] : [selected];
     }
 
     function suggestClassic() {
-      const pool = db.seen.filter(x => {
+      let pool = db.seen.filter(x => {
         const v = parseFloat(x.vote);
         return !isNaN(v) && v >= 7;
       });
 
+      const selectedGenre = getSelectedGenre();
+      if (selectedGenre !== "all") {
+        const filtered = pool.filter(x => (x.genre_names || []).includes(selectedGenre));
+        if (filtered.length) pool = filtered;
+      }
+
       if (!pool.length) {
-        tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo con voto 7 o più tra i visti. Inizia a votare i tuoi preferiti!</span>";
+        tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo con voto 7 o più compatibile con il genere scelto. Inizia a votare i tuoi preferiti!</span>";
         return;
       }
 
@@ -1509,6 +1504,10 @@
       if (voto >= 9) commento = "Uno dei tuoi assoluti — un ottimo motivo per rivederlo.";
       else if (voto >= 8) commento = "L'hai amato. Ogni tanto certi titoli vanno rivisti.";
       else commento = "Un bel titolo che hai apprezzato — vale una seconda visione.";
+
+      if (selectedGenre !== "all") {
+        commento += ` In più rientra nel genere ${selectedGenre}.`;
+      }
 
       tonightSuggestion.innerHTML = `
         <strong>⭐ ${escapeHtml(pick.title)}</strong><br>
@@ -1530,22 +1529,20 @@
       return `&first_air_date.gte=${startYear}-01-01&first_air_date.lte=${endYear}-12-31`;
     }
 
-    function getRuntimeFilter(type) {
-      if (type !== "movie") return "";
-      if (timeSelect.value === "short") return "&with_runtime.lte=110";
-      if (timeSelect.value === "medium") return "&with_runtime.gte=95&with_runtime.lte=155";
-      return "&with_runtime.gte=140";
-    }
-
     function buildFallbackQueries(profile, forcedType) {
-      const type = forcedType || (typeSelect.value === "tv" ? "tv" : typeSelect.value === "movie" ? "movie" : profile.prefType);
-      const moodBoosts = getMoodGenreBoosts();
-      const mergedGenres = [...new Set([...profile.topGenres, ...moodBoosts])];
+      const selectedGenre = getSelectedGenre();
+      const selectedGenreId = selectedGenre !== "all" ? GENRE_NAME_TO_ID[selectedGenre] : null;
+
+      const type = forcedType || profile.prefType;
+      const selectedBoosts = getGenreBoostsFromSelection();
+      const mergedGenres = [...new Set(selectedGenre !== "all" ? [selectedGenre, ...selectedBoosts] : profile.topGenres)];
       const genreIds = mergedGenres.map(g => GENRE_NAME_TO_ID[g]).filter(Boolean);
-      const primaryGenre = genreIds[0] || "";
+
+      const primaryGenre = selectedGenreId || genreIds[0] || "";
       const secondaryGenre = genreIds[1] || "";
-      const thirdGenre = genreIds[2] || "";
-      const comboGenres = genreIds.slice(0, 2).join(",");
+      const comboGenres = selectedGenreId
+        ? [selectedGenreId, genreIds[1]].filter(Boolean).slice(0, 2).join(",")
+        : genreIds.slice(0, 2).join(",");
 
       let preciseDate = "";
       let widerDate = "";
@@ -1557,7 +1554,6 @@
         }
       }
 
-      const runtimeFilter = getRuntimeFilter(type);
       const minVotes = type === "movie" ? "&vote_count.gte=120" : "&vote_count.gte=40";
 
       return {
@@ -1567,33 +1563,29 @@
           {
             label: "ricerca precisa",
             urls: [
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${preciseDate}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${preciseDate}${runtimeFilter}&sort_by=vote_average.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=2`
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${preciseDate}&sort_by=popularity.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${preciseDate}&sort_by=vote_average.desc${minVotes}&page=1`
             ]
           },
           {
             label: "ricerca più ampia",
             urls: [
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${widerDate}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${secondaryGenre ? `&with_genres=${secondaryGenre}` : ""}${widerDate}${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${thirdGenre ? `&with_genres=${thirdGenre}` : ""}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${widerDate}&sort_by=popularity.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${secondaryGenre ? `&with_genres=${secondaryGenre}` : ""}${widerDate}&sort_by=vote_count.desc${minVotes}&page=1`
             ]
           },
           {
             label: "solo genere",
             urls: [
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${runtimeFilter}&sort_by=vote_average.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=1`
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}&sort_by=popularity.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}&sort_by=vote_average.desc${minVotes}&page=1`
             ]
           },
           {
             label: "fallback finale",
             urls: [
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=2`,
-              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=3`
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=popularity.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=vote_count.desc${minVotes}&page=1`
             ]
           }
         ]
@@ -1633,7 +1625,7 @@
 
     function calculateAffinity(item, profile) {
       const itemGenres = item.genre_names || [];
-      const moodBoosts = getMoodGenreBoosts();
+      const selectedBoosts = getGenreBoostsFromSelection();
 
       let genreBase = 0;
       let matchedGenres = 0;
@@ -1648,8 +1640,8 @@
         }
       });
 
-      if (!matchedGenres && itemGenres.some(g => moodBoosts.includes(g))) {
-        genreBase = 7.2;
+      if (!matchedGenres && itemGenres.some(g => selectedBoosts.includes(g))) {
+        genreBase = 7.4;
         matchedGenres = 1;
       }
 
@@ -1662,8 +1654,7 @@
 
       if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score10 += 0.35;
       if (item.media_type === profile.prefType) score10 += 0.25;
-
-      if (moodBoosts.length && itemGenres.some(g => moodBoosts.includes(g))) score10 += 0.45;
+      if (selectedBoosts.length && itemGenres.some(g => selectedBoosts.includes(g))) score10 += 0.55;
 
       const tmdb = Number(item.vote_average) || 0;
       if (tmdb > 0) score10 += Math.min(0.45, (tmdb - 6) * 0.10);
@@ -1675,12 +1666,12 @@
     function scoreRecommendationCandidate(item, profile) {
       let score = 0;
       const itemGenres = item.genre_names || [];
-      const moodBoosts = getMoodGenreBoosts();
+      const selectedBoosts = getGenreBoostsFromSelection();
 
       itemGenres.forEach(g => {
         if (profile.topGenres.includes(g)) score += 4;
         if (profile.genreAverages[g]) score += Math.max(0, profile.genreAverages[g] - 5.5);
-        if (moodBoosts.includes(g)) score += 2;
+        if (selectedBoosts.includes(g)) score += 3;
       });
 
       if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score += 2;
@@ -1698,11 +1689,11 @@
       const bits = [];
       const genres = item.genre_names || [];
       const matchGenres = genres.filter(g => profile.topGenres.includes(g));
-      const moodBoosts = getMoodGenreBoosts();
+      const selectedGenre = getSelectedGenre();
 
+      if (selectedGenre !== "all" && genres.includes(selectedGenre)) bits.push(`nel genere ${selectedGenre}`);
       if (matchGenres.length) bits.push(`match con ${matchGenres.slice(0, 2).join(" + ")}`);
       if (profile.topDecade && decadeOf(item.year) === profile.topDecade) bits.push(`decade che guardi spesso`);
-      if (moodBoosts.length && genres.some(g => moodBoosts.includes(g))) bits.push(`adatto al mood scelto`);
       if (affinity >= 88) bits.push(`compatibilità molto alta`);
       else if (affinity >= 80) bits.push(`buona sintonia con i tuoi gusti`);
 
@@ -1718,8 +1709,7 @@
       tonightSuggestion.innerHTML = "<span class='muted'>🔍 Sto cercando 5 titoli adatti ai tuoi gusti...</span>";
 
       const profile = getUserTasteProfile();
-      const forcedType = typeSelect.value === "all" ? null : typeSelect.value;
-      const { type, levels } = buildFallbackQueries(profile, forcedType);
+      const { type, levels } = buildFallbackQueries(profile, null);
 
       const excludedKeys = new Set([
         ...db.seen.map(x => uniqueKey(x)),
@@ -1811,11 +1801,7 @@
       tonightSuggestion.innerHTML = "<span class='muted'>🔍 Sto cercando qualcosa di nuovo per te...</span>";
 
       const profile = getUserTasteProfile();
-      const forcedType = typeSelect.value === "all" ? null : typeSelect.value;
-      const { type, mergedGenres, levels } = (() => {
-        const out = buildFallbackQueries(profile, forcedType);
-        return { type: out.type, mergedGenres: out.mergedGenres, levels: out.levels };
-      })();
+      const { type, levels } = buildFallbackQueries(profile, null);
 
       const excludedKeys = new Set([
         ...db.seen.map(x => uniqueKey(x)),
@@ -1852,6 +1838,7 @@
 
         const itemGenres = chosen.genre_names || [];
         const matchGenres = itemGenres.filter(g => profile.topGenres.includes(g));
+        const selectedGenre = getSelectedGenre();
         const year = chosen.year;
         const rating = rawNumberToFixed(chosen.vote_average || 0, 1, "n.d.");
         const poster = chosen.poster_path
@@ -1859,11 +1846,9 @@
           : "";
 
         const whyBits = [];
+        if (selectedGenre !== "all" && itemGenres.includes(selectedGenre)) whyBits.push(`hai scelto il genere ${selectedGenre}`);
         if (matchGenres.length) whyBits.push(`ami il genere ${matchGenres[0]}`);
         if (profile.topDecade && decadeOf(chosen.year) === profile.topDecade) whyBits.push(`ti piacciono spesso gli ${profile.topDecade}`);
-        if (moodSelect.value === "dark") whyBits.push("si sposa bene con un mood più teso");
-        if (moodSelect.value === "epic") whyBits.push("ha un taglio più epico/visivo");
-        if (moodSelect.value === "light") whyBits.push("è più adatto a una serata leggera");
 
         const fallbackNote = usedLevelLabel !== "ricerca precisa"
           ? ` Ho allargato la ricerca per trovarti comunque qualcosa.`
