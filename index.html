@@ -1503,11 +1503,10 @@
       const profile = getUserTasteProfile();
       const type = typeSelect.value === "tv" ? "tv" : "movie";
 
-      // Ottieni ID dei top 2 generi
+      // Usa tutti i top 3 generi
       const genreIds = profile.topGenres
         .map(g => GENRE_NAME_TO_ID[g])
         .filter(Boolean)
-        .slice(0, 2)
         .join(",");
 
       // Calcola range anni dalla decade preferita
@@ -1526,30 +1525,58 @@
       const seenIds = new Set(db.seen.map(x => x.id));
       const watchIds = new Set(db.watchlist.map(x => x.id));
 
-      try {
-        // Cerca su 3 pagine casuali per varietà
-        const page = Math.floor(Math.random() * 3) + 1;
-        const url = `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=vote_average.desc&vote_count.gte=200${genreIds ? "&with_genres=" + genreIds : ""}${yearParam}&page=${page}`;
-        const res = await fetch(url);
-        const data = await res.json();
+      // Leggi già suggeriti da localStorage per non ripetere
+      let alreadySuggested = [];
+      try { alreadySuggested = JSON.parse(localStorage.getItem("cineTrackerSuggested") || "[]"); } catch(e) {}
+      const suggestedIds = new Set(alreadySuggested);
 
-        // Filtra già visti e già in watchlist
-        const candidates = (data.results || []).filter(x => !seenIds.has(x.id) && !watchIds.has(x.id));
+      try {
+        // Scarica 5 pagine casuali per avere un pool ampio (~100 risultati)
+        const pages = [];
+        const usedPages = new Set();
+        while (pages.length < 5) {
+          const p = Math.floor(Math.random() * 10) + 1;
+          if (!usedPages.has(p)) { usedPages.add(p); pages.push(p); }
+        }
+
+        const results = await Promise.all(pages.map(page => {
+          const url = `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=vote_average.desc&vote_count.gte=200${genreIds ? "&with_genres=" + genreIds : ""}${yearParam}&page=${page}`;
+          return fetch(url).then(r => r.json()).then(d => d.results || []);
+        }));
+
+        const allResults = results.flat();
+
+        // Filtra visti, watchlist e già suggeriti
+        let candidates = allResults.filter(x =>
+          !seenIds.has(x.id) && !watchIds.has(x.id) && !suggestedIds.has(x.id)
+        );
+
+        // Se tutti già suggeriti, resetta la memoria e riprova
+        if (!candidates.length) {
+          localStorage.removeItem("cineTrackerSuggested");
+          candidates = allResults.filter(x => !seenIds.has(x.id) && !watchIds.has(x.id));
+        }
 
         if (!candidates.length) {
           tonightSuggestion.innerHTML = "<span class='muted'>Nessun risultato trovato. Prova a cambiare i filtri.</span>";
           return;
         }
 
-        const pick = candidates[Math.floor(Math.random() * Math.min(5, candidates.length))];
+        const pick = candidates[Math.floor(Math.random() * Math.min(10, candidates.length))];
+
+        // Salva in memoria per non riproporre
+        alreadySuggested.push(pick.id);
+        if (alreadySuggested.length > 50) alreadySuggested = alreadySuggested.slice(-50);
+        localStorage.setItem("cineTrackerSuggested", JSON.stringify(alreadySuggested));
+
         const title = pick.title || pick.name || "Senza titolo";
         const year = (pick.release_date || pick.first_air_date || "").slice(0, 4);
         const rating = pick.vote_average ? pick.vote_average.toFixed(1) : "n.d.";
         const poster = pick.poster_path ? `<img src="${IMG}${pick.poster_path}" style="width:70px;border-radius:10px;float:right;margin-left:12px;">` : "";
 
-        const whyGenre = profile.topGenres[0] ? `genere ${profile.topGenres[0]}` : "";
+        const whyGenres = profile.topGenres.slice(0, 2).filter(Boolean).join(" e ");
         const whyDecade = profile.topDecade ? `anni ${profile.topDecade}` : "";
-        const why = [whyGenre, whyDecade].filter(Boolean).join(", ");
+        const why = [whyGenres, whyDecade].filter(Boolean).join(", ");
 
         tonightSuggestion.innerHTML = `
           ${poster}
