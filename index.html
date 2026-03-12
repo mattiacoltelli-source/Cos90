@@ -462,6 +462,86 @@
       margin-bottom:12px;
     }
 
+    .tasteGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .tasteBlock{
+      padding:14px;
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+    }
+
+    .tasteBlock h3{
+      margin:0 0 10px;
+      font-size:14px;
+    }
+
+    .barList{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .barRow{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+      align-items:center;
+    }
+
+    .barLabel{
+      font-size:13px;
+      color:#e4eaf1;
+      margin-bottom:5px;
+    }
+
+    .barTrack{
+      width:100%;
+      height:8px;
+      background:#0e1520;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.04);
+    }
+
+    .barFill{
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--accent2),#7dbdff);
+    }
+
+    .barValue{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .insightList{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .insightItem{
+      padding:10px 12px;
+      background:#101722;
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      font-size:13px;
+      color:#e6edf5;
+    }
+
+    @media (max-width:560px){
+      .tasteGrid{
+        grid-template-columns:1fr;
+      }
+    }
+
     @media (max-width:380px){
       .grid{grid-template-columns:1fr;}
       .chooserGrid{grid-template-columns:1fr;}
@@ -533,11 +613,35 @@
       </div>
 
       <div class="section">
-        <h2>Analisi gusti</h2>
-        <div id="tasteCard" class="card" style="padding:14px;">
-          <div class="muted">Usa un po’ l’app e qui vedrai il tuo profilo.</div>
-          <div class="hr"></div>
-          <div id="tasteText">Ancora pochi dati per analizzare i tuoi gusti.</div>
+        <h2>Mappa dei gusti</h2>
+        <div class="tasteGrid">
+          <div class="tasteBlock">
+            <h3>Generi preferiti</h3>
+            <div id="genreBars" class="barList">
+              <div class="muted">Salva almeno 3 titoli visti.</div>
+            </div>
+          </div>
+
+          <div class="tasteBlock">
+            <h3>Decadi più presenti</h3>
+            <div id="decadeBars" class="barList">
+              <div class="muted">Salva almeno 3 titoli visti.</div>
+            </div>
+          </div>
+
+          <div class="tasteBlock">
+            <h3>Profilo rapido</h3>
+            <div id="tasteProfile" class="insightList">
+              <div class="insightItem">Ancora pochi dati per definire il tuo profilo cinefilo.</div>
+            </div>
+          </div>
+
+          <div class="tasteBlock">
+            <h3>Insight automatici</h3>
+            <div id="tasteInsights" class="insightList">
+              <div class="insightItem">Quando userai un po’ l’app, qui compariranno insight sui tuoi gusti.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -583,6 +687,10 @@
 
           <div id="tonightSuggestion" class="suggestion">
             Premi il pulsante e ti consiglio un titolo dalla tua watchlist.
+          </div>
+
+          <div class="actions" style="margin-top:14px;">
+            <button class="secondary" onclick="getRecommendedMovies()">Consigli per me</button>
           </div>
         </div>
       </div>
@@ -652,6 +760,36 @@
     const BASE_URL = "https://api.themoviedb.org/3";
     const IMG = "https://image.tmdb.org/t/p/w500";
 
+    const GENRE_MAP = {
+      28:"Azione",
+      12:"Avventura",
+      16:"Animazione",
+      35:"Commedia",
+      80:"Crime",
+      99:"Documentario",
+      18:"Drama",
+      10751:"Famiglia",
+      14:"Fantasy",
+      36:"Storia",
+      27:"Horror",
+      10402:"Musica",
+      9648:"Mistero",
+      10749:"Romance",
+      878:"Fantascienza",
+      10770:"TV Movie",
+      53:"Thriller",
+      10752:"Guerra",
+      37:"Western",
+      10759:"Azione & Avventura",
+      10762:"Bambini",
+      10763:"News",
+      10764:"Reality",
+      10765:"Sci-Fi & Fantasy",
+      10766:"Soap",
+      10767:"Talk",
+      10768:"War & Politics"
+    };
+
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
     const results = document.getElementById("results");
@@ -668,7 +806,11 @@
     const statWatch = document.getElementById("statWatch");
     const statMovies = document.getElementById("statMovies");
     const statSeries = document.getElementById("statSeries");
-    const tasteText = document.getElementById("tasteText");
+
+    const genreBars = document.getElementById("genreBars");
+    const decadeBars = document.getElementById("decadeBars");
+    const tasteProfile = document.getElementById("tasteProfile");
+    const tasteInsights = document.getElementById("tasteInsights");
 
     const timeSelect = document.getElementById("timeSelect");
     const moodSelect = document.getElementById("moodSelect");
@@ -712,8 +854,30 @@
       "watchlist": []
     }`);
 
+    function syncGlobals() {
+      window.db = db;
+      window.API_KEY = API_KEY;
+      window.BASE_URL = BASE_URL;
+      window.IMG = IMG;
+      window.GENRE_MAP = GENRE_MAP;
+    }
+
     function saveDB() {
       localStorage.setItem("cineTrackerDB", JSON.stringify(db));
+      syncGlobals();
+    }
+
+    function normalizeGenres(item) {
+      if (Array.isArray(item.genre_ids)) {
+        return item.genre_ids.map(id => GENRE_MAP[id] || `Genere ${id}`);
+      }
+      if (Array.isArray(item.genres)) {
+        return item.genres.map(g => typeof g === "string" ? g : g.name).filter(Boolean);
+      }
+      if (Array.isArray(item.genre_names)) {
+        return item.genre_names;
+      }
+      return [];
     }
 
     function posterUrl(path) {
@@ -740,6 +904,7 @@
         overview: item.overview || "",
         vote: item.vote || "",
         comment: item.comment || "",
+        genre_names: normalizeGenres(item),
         savedAt: item.savedAt || new Date().toISOString()
       };
     }
@@ -769,6 +934,121 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+    }
+
+    function decadeOf(year) {
+      if (!year || year === "—" || isNaN(Number(year))) return "Sconosciuta";
+      const y = Number(year);
+      return `${Math.floor(y / 10) * 10}s`;
+    }
+
+    function buildBars(container, entries) {
+      if (!entries.length) {
+        container.innerHTML = `<div class="muted">Ancora pochi dati.</div>`;
+        return;
+      }
+
+      const max = entries[0].value || 1;
+      container.innerHTML = entries.map(entry => `
+        <div class="barRow">
+          <div>
+            <div class="barLabel">${escapeHtml(entry.label)}</div>
+            <div class="barTrack">
+              <div class="barFill" style="width:${Math.max(12, (entry.value / max) * 100)}%"></div>
+            </div>
+          </div>
+          <div class="barValue">${entry.value}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderTasteMap() {
+      if (db.seen.length < 3) {
+        genreBars.innerHTML = `<div class="muted">Salva almeno 3 titoli visti.</div>`;
+        decadeBars.innerHTML = `<div class="muted">Salva almeno 3 titoli visti.</div>`;
+        tasteProfile.innerHTML = `<div class="insightItem">Ancora pochi dati per definire il tuo profilo cinefilo.</div>`;
+        tasteInsights.innerHTML = `<div class="insightItem">Quando userai un po’ l’app, qui compariranno insight sui tuoi gusti.</div>`;
+        return;
+      }
+
+      const genreCount = {};
+      const decadeCount = {};
+      let movieCount = 0;
+      let seriesCount = 0;
+
+      const rated = db.seen.filter(x => x.vote && !isNaN(parseFloat(x.vote)));
+      const avgVote = rated.length
+        ? (rated.reduce((sum, item) => sum + parseFloat(item.vote), 0) / rated.length).toFixed(1)
+        : "n.d.";
+
+      db.seen.forEach(item => {
+        if (item.media_type === "movie") movieCount++;
+        else seriesCount++;
+
+        const decade = decadeOf(item.year);
+        decadeCount[decade] = (decadeCount[decade] || 0) + 1;
+
+        (item.genre_names || []).forEach(name => {
+          genreCount[name] = (genreCount[name] || 0) + 1;
+        });
+      });
+
+      const topGenres = Object.entries(genreCount)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([label, value]) => ({ label, value }));
+
+      const topDecades = Object.entries(decadeCount)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([label, value]) => ({ label, value }));
+
+      buildBars(genreBars, topGenres);
+      buildBars(decadeBars, topDecades);
+
+      const dominantGenre = topGenres[0]?.label || "n.d.";
+      const dominantDecade = topDecades[0]?.label || "n.d.";
+      const moreMovies = movieCount > seriesCount;
+      const moreSeries = seriesCount > movieCount;
+
+      tasteProfile.innerHTML = `
+        <div class="insightItem"><strong>Genere dominante:</strong> ${escapeHtml(dominantGenre)}</div>
+        <div class="insightItem"><strong>Voto medio:</strong> ${escapeHtml(avgVote)}</div>
+        <div class="insightItem"><strong>Formato prevalente:</strong> ${
+          moreMovies ? "più film che serie" : moreSeries ? "più serie/anime che film" : "equilibrato tra film e serie"
+        }</div>
+        <div class="insightItem"><strong>Decade più presente:</strong> ${escapeHtml(dominantDecade)}</div>
+      `;
+
+      const insights = [];
+
+      if (dominantGenre !== "n.d.") {
+        insights.push(`Il tuo genere dominante, per ora, è ${dominantGenre.toLowerCase()}.`);
+      }
+
+      if (avgVote !== "n.d.") {
+        const avgNum = parseFloat(avgVote);
+        if (avgNum >= 8) insights.push(`Tendi a premiare molto i titoli che salvi: media alta (${avgVote}).`);
+        else if (avgNum >= 6.5) insights.push(`Hai gusti abbastanza equilibrati: media voti ${avgVote}.`);
+        else insights.push(`Sei piuttosto severo nei voti: media ${avgVote}.`);
+      }
+
+      if (moreMovies) insights.push("Nel complesso guardi più film che serie/anime.");
+      else if (moreSeries) insights.push("Nel complesso guardi più serie/anime che film.");
+      else insights.push("Alterni abbastanza bene tra film e serie.");
+
+      if (dominantDecade !== "n.d.") {
+        insights.push(`Hai una concentrazione forte di titoli nella decade ${dominantDecade}.`);
+      }
+
+      const commentRate = db.seen.filter(x => x.comment && x.comment.trim()).length / db.seen.length;
+      if (commentRate >= 0.5) {
+        insights.push("Usi l’app anche come diario cinefilo personale, non solo come tracker.");
+      }
+
+      tasteInsights.innerHTML = insights.slice(0, 5).map(text => `
+        <div class="insightItem">${escapeHtml(text)}</div>
+      `).join("");
     }
 
     async function searchTitles() {
@@ -890,6 +1170,7 @@
             <div class="liTitle">${escapeHtml(item.title)}</div>
             <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
             <div class="chips">
+              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
               ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
               ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
             </div>
@@ -908,6 +1189,7 @@
             <div class="liTitle">${escapeHtml(item.title)}</div>
             <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
             <div class="chips">
+              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
               ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
               ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
             </div>
@@ -964,37 +1246,7 @@
       statWatch.textContent = db.watchlist.length;
       statMovies.textContent = db.seen.filter(x => x.media_type === "movie").length;
       statSeries.textContent = db.seen.filter(x => x.media_type === "tv").length;
-
-      if (db.seen.length < 3) {
-        tasteText.textContent = "Ancora pochi dati: salva almeno 3 titoli visti per vedere una mini analisi gusti.";
-        return;
-      }
-
-      const movies = db.seen.filter(x => x.media_type === "movie").length;
-      const series = db.seen.filter(x => x.media_type === "tv").length;
-      const rated = db.seen.filter(x => x.vote && !isNaN(parseFloat(x.vote)));
-      const avg = rated.length
-        ? (rated.reduce((a, b) => a + parseFloat(b.vote), 0) / rated.length).toFixed(1)
-        : null;
-
-      let profile = [];
-
-      if (movies > series) profile.push("guardi più film che serie");
-      else if (series > movies) profile.push("guardi più serie/anime che film");
-      else profile.push("alterni abbastanza tra film e serie");
-
-      if (avg) {
-        if (parseFloat(avg) >= 8) profile.push(`sei piuttosto generoso nei voti (media ${avg})`);
-        else if (parseFloat(avg) >= 6.5) profile.push(`hai voti abbastanza equilibrati (media ${avg})`);
-        else profile.push(`sei piuttosto severo nei voti (media ${avg})`);
-      }
-
-      const withComments = db.seen.filter(x => x.comment && x.comment.trim()).length;
-      if (withComments >= Math.ceil(db.seen.length / 2)) {
-        profile.push("usi l’app anche come diario personale");
-      }
-
-      tasteText.innerHTML = "Profilo attuale: <strong>" + profile.join("</strong>, <strong>") + "</strong>.";
+      renderTasteMap();
     }
 
     function suggestTonight() {
@@ -1076,8 +1328,8 @@
           if (!confirmReplace) return;
 
           db = {
-            seen: imported.seen,
-            watchlist: imported.watchlist
+            seen: imported.seen.map(normalizedItem),
+            watchlist: imported.watchlist.map(normalizedItem)
           };
 
           saveDB();
@@ -1107,17 +1359,20 @@
       detailTitle.textContent = source.title;
       detailMeta.textContent = `${source.year} · ${source.media_type === "movie" ? "Film" : "Serie / Anime"}`;
 
-      detailGenres.innerHTML = `
-        <div class="chip">${source.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
-        <div class="chip">${source.year}</div>
-      `;
+      const chips = [];
+      chips.push(`<div class="chip">${source.media_type === "movie" ? "Film" : "Serie / Anime"}</div>`);
+      chips.push(`<div class="chip">${source.year}</div>`);
+      (source.genre_names || []).slice(0, 3).forEach(g => {
+        chips.push(`<div class="chip">${escapeHtml(g)}</div>`);
+      });
+      detailGenres.innerHTML = chips.join("");
 
       detailOverview.textContent = source.overview || "Nessuna trama disponibile.";
 
       const facts = [];
       facts.push(`Tipo: ${source.media_type === "movie" ? "Film" : "Serie / Anime"}`);
       facts.push(`Anno: ${source.year}`);
-
+      if (source.genre_names?.length) facts.push(`Generi: ${source.genre_names.join(", ")}`);
       if (inSeen(source)) facts.push("Stato: visto");
       else if (inWatch(source)) facts.push("Stato: in watchlist");
       else facts.push("Stato: non salvato");
@@ -1181,29 +1436,12 @@
       const openStoredBtn = e.target.closest(".open-stored-detail");
 
       try {
-        if (seenBtn) {
-          await addSeen(seenBtn.dataset.type, seenBtn.dataset.id);
-        }
-
-        if (watchBtn) {
-          await addWatch(watchBtn.dataset.type, watchBtn.dataset.id);
-        }
-
-        if (detailsBtn) {
-          await showDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
-        }
-
-        if (removeSeenBtn) {
-          removeSeen(removeSeenBtn.dataset.key);
-        }
-
-        if (removeWatchBtn) {
-          removeWatch(removeWatchBtn.dataset.key);
-        }
-
-        if (moveWatchBtn) {
-          moveWatchToSeen(moveWatchBtn.dataset.key);
-        }
+        if (seenBtn) await addSeen(seenBtn.dataset.type, seenBtn.dataset.id);
+        if (watchBtn) await addWatch(watchBtn.dataset.type, watchBtn.dataset.id);
+        if (detailsBtn) await showDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
+        if (removeSeenBtn) removeSeen(removeSeenBtn.dataset.key);
+        if (removeWatchBtn) removeWatch(removeWatchBtn.dataset.key);
+        if (moveWatchBtn) moveWatchToSeen(moveWatchBtn.dataset.key);
 
         if (openStoredBtn) {
           const key = openStoredBtn.dataset.key;
@@ -1301,9 +1539,12 @@
       removeCurrentDetail();
     });
 
+    syncGlobals();
     renderLists();
     renderStats();
   </script>
+
+  <script src="recommend.js"></script>
 
   <script>
     if ("serviceWorker" in navigator) {
