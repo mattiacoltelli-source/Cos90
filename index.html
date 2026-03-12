@@ -1375,6 +1375,12 @@
       return score;
     }
 
+    const MOOD_GENRES = {
+      dark:  ["Thriller", "Horror", "Crime", "Guerra", "Mistero"],
+      epic:  ["Azione", "Avventura", "Fantascienza", "Fantasy"],
+      light: ["Commedia", "Animazione", "Romance", "Famiglia"]
+    };
+
     function suggestTonight() {
       let pool = [...db.watchlist];
 
@@ -1399,13 +1405,27 @@
         if (movieOnly.length) pool = movieOnly;
       }
 
+      // Filtra per mood sui generi reali
+      const mood = moodSelect.value;
+      let moodLabel = "";
+      if (mood !== "any" && MOOD_GENRES[mood]) {
+        const moodPool = pool.filter(x =>
+          (x.genre_names || []).some(g => MOOD_GENRES[mood].includes(g))
+        );
+        if (moodPool.length) {
+          pool = moodPool;
+          moodLabel = mood === "dark" ? "teso/cupo" : mood === "epic" ? "epico/visivo" : "leggero";
+        } else {
+          moodLabel = ""; // nessun match, ignora mood e avvisa sotto
+        }
+      }
+
       // Se abbiamo dati di gusto, ordina per compatibilità
       let pick;
       if (db.seen.length >= 3) {
         const profile = getUserTasteProfile();
         const scored = pool.map(item => ({ item, score: tasteScore(item, profile) }));
         scored.sort((a,b) => b.score - a.score);
-        // Prendi uno dei top 3 in modo casuale per non essere troppo prevedibile
         const topPool = scored.slice(0, Math.min(3, scored.length));
         pick = topPool[Math.floor(Math.random() * topPool.length)].item;
       } else {
@@ -1413,11 +1433,9 @@
       }
 
       let reason = [];
+      if (moodLabel) reason.push(`corrisponde al tuo mood ${moodLabel}`);
       if (pick.media_type === "movie" && timeSelect.value === "medium") reason.push("film, giusto per una serata da circa 2 ore");
       if (pick.media_type === "tv" && timeSelect.value === "short") reason.push("serie comoda se hai poco tempo");
-      if (moodSelect.value === "dark") reason.push("si adatta a una serata tesa o cupa");
-      if (moodSelect.value === "epic") reason.push("può darti una serata visiva e intensa");
-      if (moodSelect.value === "light") reason.push("è una scelta più leggera per stasera");
       if (db.seen.length >= 3) {
         const profile = getUserTasteProfile();
         const matchGenres = (pick.genre_names || []).filter(g => profile.topGenres.includes(g));
@@ -1426,10 +1444,15 @@
       }
       if (!reason.length) reason.push("è nella tua watchlist e vale la pena recuperarlo");
 
+      const noMoodWarning = mood !== "any" && !moodLabel
+        ? `<br><span style="font-size:12px;color:var(--muted);">⚠️ Nessun titolo con mood ${mood === "dark" ? "teso" : mood === "epic" ? "epico" : "leggero"} in watchlist — ti suggerisco il più compatibile.</span>`
+        : "";
+
       tonightSuggestion.innerHTML = `
         <strong>🎬 ${escapeHtml(pick.title)}</strong><br>
         <span class="muted">${pick.year} · ${pick.media_type === "movie" ? "Film" : "Serie / Anime"}</span><br><br>
         <span style="font-size:13px;">📌 ${reason.join(", ")}.</span>
+        ${noMoodWarning}
       `;
     }
 
