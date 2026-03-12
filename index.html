@@ -569,13 +569,13 @@
         </div>
       </div>
 
-      <div class="section">
+      <div id="resultsSection" class="section hidden">
         <div class="resultsHeader">
           <h2>Risultati ricerca</h2>
           <span id="resultCount" class="muted"></span>
         </div>
         <div id="results" class="grid"></div>
-        <div id="resultsEmpty" class="empty">Cerca un titolo per iniziare.</div>
+        <div id="resultsEmpty" class="empty">Nessun risultato trovato.</div>
       </div>
 
       <div class="section">
@@ -782,6 +782,7 @@
 
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
+    const resultsSection = document.getElementById("resultsSection");
     const results = document.getElementById("results");
     const resultsEmpty = document.getElementById("resultsEmpty");
     const resultCount = document.getElementById("resultCount");
@@ -1034,8 +1035,16 @@
 
     async function searchTitles() {
       const q = searchInput.value.trim();
-      if (!q) return;
 
+      if (!q) {
+        resultsSection.classList.add("hidden");
+        results.innerHTML = "";
+        resultCount.textContent = "";
+        resultsEmpty.textContent = "Nessun risultato trovato.";
+        return;
+      }
+
+      resultsSection.classList.remove("hidden");
       results.innerHTML = "";
       resultCount.textContent = "";
       resultsEmpty.textContent = "Caricamento...";
@@ -1058,6 +1067,7 @@
           results.innerHTML = "";
           resultCount.textContent = "";
           resultsEmpty.textContent = "Nessun risultato trovato.";
+          resultsEmpty.classList.remove("hidden");
           return;
         }
 
@@ -1096,6 +1106,7 @@
         results.innerHTML = "";
         resultCount.textContent = "";
         resultsEmpty.textContent = "Errore nella ricerca. Controlla connessione o API.";
+        resultsEmpty.classList.remove("hidden");
       }
     }
 
