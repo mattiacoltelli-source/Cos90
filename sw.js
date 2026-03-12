@@ -1,20 +1,14 @@
-const CACHE_NAME = "cinetracker-v1";
-const urlsToCache = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png"
-];
+// Service Worker minimale per evitare cache vecchie
 
-self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
-  );
+self.addEventListener("install", (event) => {
+  // Attiva subito il nuovo service worker
+  self.skipWaiting();
 });
 
-self.addEventListener("fetch", event => {
-  event.respondWith(
-    caches.match(event.request).then(response => response || fetch(event.request))
-  );
+self.addEventListener("activate", (event) => {
+  // Prende il controllo immediatamente
+  event.waitUntil(self.clients.claim());
 });
+
+// NON intercettiamo le fetch, quindi nessuna cache
+self.addEventListener("fetch", () => {});

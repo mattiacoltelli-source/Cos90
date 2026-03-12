@@ -1,405 +1,317 @@
-const fallbackCatalog = [
-  {
-    title: "Cube",
-    type: "film",
-    mood: ["teso", "claustrofobico", "psicologico"],
-    genres: ["horror", "thriller", "sci-fi"],
-    runtime: 90
-  },
-  {
-    title: "The Thing",
-    type: "film",
-    mood: ["teso", "paranoico", "horror"],
-    genres: ["horror", "sci-fi"],
-    runtime: 109
-  },
-  {
-    title: "Alien",
-    type: "film",
-    mood: ["teso", "claustrofobico", "dark"],
-    genres: ["horror", "sci-fi", "thriller"],
-    runtime: 117
-  },
-  {
-    title: "Event Horizon",
-    type: "film",
-    mood: ["dark", "teso", "disturbante"],
-    genres: ["horror", "sci-fi"],
-    runtime: 96
-  },
-  {
-    title: "Pandorum",
-    type: "film",
-    mood: ["teso", "dark", "adrenalinico"],
-    genres: ["horror", "sci-fi", "thriller"],
-    runtime: 108
-  },
-  {
-    title: "The Descent",
-    type: "film",
-    mood: ["teso", "claustrofobico", "survival"],
-    genres: ["horror", "thriller"],
-    runtime: 99
-  },
-  {
-    title: "Annihilation",
-    type: "film",
-    mood: ["strano", "riflessivo", "dark"],
-    genres: ["sci-fi", "thriller", "horror"],
-    runtime: 115
-  },
-  {
-    title: "Sunshine",
-    type: "film",
-    mood: ["teso", "epico", "riflessivo"],
-    genres: ["sci-fi", "thriller"],
-    runtime: 107
-  },
-  {
-    title: "Upgrade",
-    type: "film",
-    mood: ["adrenalinico", "teso", "dark"],
-    genres: ["sci-fi", "thriller"],
-    runtime: 100
-  },
-  {
-    title: "Coherence",
-    type: "film",
-    mood: ["psicologico", "strano", "teso"],
-    genres: ["sci-fi", "thriller"],
-    runtime: 89
-  },
-  {
-    title: "The Void",
-    type: "film",
-    mood: ["dark", "disturbante", "horror"],
-    genres: ["horror", "sci-fi"],
-    runtime: 90
-  },
-  {
-    title: "Possessor",
-    type: "film",
-    mood: ["disturbante", "dark", "psicologico"],
-    genres: ["horror", "sci-fi", "thriller"],
-    runtime: 103
-  },
-  {
-    title: "Black Mirror",
-    type: "serie",
-    mood: ["dark", "psicologico", "riflessivo"],
-    genres: ["sci-fi", "thriller"],
-    runtime: 60
-  },
-  {
-    title: "Love, Death & Robots",
-    type: "serie",
-    mood: ["strano", "adrenalinico", "dark"],
-    genres: ["sci-fi", "horror"],
-    runtime: 20
-  },
-  {
-    title: "The Haunting of Hill House",
-    type: "serie",
-    mood: ["dark", "psicologico", "emotivo"],
-    genres: ["horror", "thriller"],
-    runtime: 55
-  }
-];
-
-const durationSelect =
-  document.getElementById("duration") ||
-  document.getElementById("time") ||
-  document.querySelector('select[name="duration"]');
-
-const moodSelect =
-  document.getElementById("mood") ||
-  document.querySelector('select[name="mood"]');
-
-const typeSelect =
-  document.getElementById("type") ||
-  document.querySelector('select[name="type"]');
-
-const recommendationBox =
-  document.getElementById("recommendation") ||
-  document.getElementById("recommendationText") ||
-  document.getElementById("result");
-
-function readStorageArray(key) {
+function getCineTrackerDB() {
   try {
-    const data = JSON.parse(localStorage.getItem(key));
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
-}
+    const raw = JSON.parse(localStorage.getItem("cineTrackerDB"));
+    if (!raw || typeof raw !== "object") {
+      return { seen: [], watchlist: [] };
+    }
 
-function normalizeTitle(title) {
-  return String(title || "").trim().toLowerCase();
-}
-
-function normalizeArray(arr) {
-  if (!Array.isArray(arr)) return [];
-  return arr.map(x => String(x).trim().toLowerCase()).filter(Boolean);
-}
-
-function normalizeItem(item) {
-  if (typeof item === "string") {
     return {
-      title: item,
-      type: "film",
-      mood: [],
-      genres: [],
-      runtime: 100,
-      watched: false
+      seen: Array.isArray(raw.seen) ? raw.seen : [],
+      watchlist: Array.isArray(raw.watchlist) ? raw.watchlist : []
     };
+  } catch {
+    return { seen: [], watchlist: [] };
+  }
+}
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getTitle(item) {
+  return item.title || item.name || "Titolo sconosciuto";
+}
+
+function getGenres(item) {
+  if (Array.isArray(item.genre_names)) {
+    return item.genre_names.map(g => String(g).trim().toLowerCase()).filter(Boolean);
   }
 
+  if (Array.isArray(item.genres)) {
+    return item.genres
+      .map(g => typeof g === "string" ? g : g?.name)
+      .map(g => String(g || "").trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function getYear(item) {
+  return Number(item.year || 0);
+}
+
+function getVoteNumber(item) {
+  const n = parseFloat(item.vote);
+  return isNaN(n) ? null : n;
+}
+
+function uniqueKey(item) {
+  return `${item.media_type}_${item.id}`;
+}
+
+function getMoodValueForCineTracker() {
+  const el = document.getElementById("moodSelect");
+  return el ? el.value : "any";
+}
+
+function getTimeValueForCineTracker() {
+  const el = document.getElementById("timeSelect");
+  return el ? el.value : "medium";
+}
+
+function getTypeValueForCineTracker() {
+  const el = document.getElementById("typeSelect");
+  return el ? el.value : "all";
+}
+
+function scoreGenrePreferences(seen) {
+  const counts = {};
+
+  seen.forEach(item => {
+    const vote = getVoteNumber(item);
+    const weight = vote ? Math.max(1, vote - 4) : 1.5;
+
+    getGenres(item).forEach(genre => {
+      counts[genre] = (counts[genre] || 0) + weight;
+    });
+  });
+
+  return counts;
+}
+
+function scoreTypePreferences(seen) {
+  const counts = { movie: 0, tv: 0 };
+
+  seen.forEach(item => {
+    const vote = getVoteNumber(item);
+    const weight = vote ? Math.max(1, vote - 4) : 1.5;
+
+    if (item.media_type === "movie") counts.movie += weight;
+    if (item.media_type === "tv") counts.tv += weight;
+  });
+
+  return counts;
+}
+
+function scoreDecadePreferences(seen) {
+  const counts = {};
+
+  seen.forEach(item => {
+    const year = getYear(item);
+    if (!year) return;
+
+    const decade = Math.floor(year / 10) * 10;
+    const vote = getVoteNumber(item);
+    const weight = vote ? Math.max(1, vote - 4) : 1.2;
+
+    counts[decade] = (counts[decade] || 0) + weight;
+  });
+
+  return counts;
+}
+
+function moodMatches(item, mood) {
+  if (mood === "any") return true;
+
+  const genres = getGenres(item);
+  const title = normalizeText(getTitle(item));
+  const overview = normalizeText(item.overview);
+  const text = `${title} ${overview} ${genres.join(" ")}`;
+
+  if (mood === "dark") {
+    return (
+      text.includes("dark") ||
+      text.includes("cupo") ||
+      text.includes("teso") ||
+      text.includes("thriller") ||
+      text.includes("horror") ||
+      genres.includes("thriller") ||
+      genres.includes("horror") ||
+      genres.includes("mistero") ||
+      genres.includes("crime")
+    );
+  }
+
+  if (mood === "epic") {
+    return (
+      text.includes("epico") ||
+      text.includes("visivo") ||
+      text.includes("fantasy") ||
+      text.includes("avventura") ||
+      text.includes("azione") ||
+      text.includes("guerra") ||
+      genres.includes("azione") ||
+      genres.includes("avventura") ||
+      genres.includes("fantasy") ||
+      genres.includes("storia") ||
+      genres.includes("guerra") ||
+      genres.includes("sci-fi & fantasy")
+    );
+  }
+
+  if (mood === "light") {
+    return (
+      text.includes("commedia") ||
+      text.includes("romance") ||
+      text.includes("famiglia") ||
+      text.includes("animazione") ||
+      genres.includes("commedia") ||
+      genres.includes("romance") ||
+      genres.includes("famiglia") ||
+      genres.includes("animazione")
+    );
+  }
+
+  return true;
+}
+
+function timeMatches(item, time) {
+  if (time === "short") {
+    return item.media_type === "tv";
+  }
+
+  if (time === "medium") {
+    return item.media_type === "movie";
+  }
+
+  if (time === "long") {
+    return true;
+  }
+
+  return true;
+}
+
+function buildTasteProfile(seen) {
   return {
-    title: item.title || item.name || "Titolo sconosciuto",
-    type: String(item.type || item.category || "film").toLowerCase(),
-    mood: normalizeArray(item.mood),
-    genres: normalizeArray(item.genres),
-    runtime: Number(item.runtime || item.duration || 100),
-    watched: Boolean(item.watched)
+    genreScores: scoreGenrePreferences(seen),
+    typeScores: scoreTypePreferences(seen),
+    decadeScores: scoreDecadePreferences(seen)
   };
 }
 
-function uniqueByTitle(items) {
-  const seen = new Set();
-  return items.filter(item => {
-    const key = normalizeTitle(item.title);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function getDurationValue() {
-  return (durationSelect?.value || "").toLowerCase();
-}
-
-function getMoodValue() {
-  return (moodSelect?.value || "").toLowerCase();
-}
-
-function getTypeValue() {
-  return (typeSelect?.value || "").toLowerCase();
-}
-
-function matchesDuration(item, selectedDuration) {
-  if (!selectedDuration || selectedDuration.includes("qualsiasi")) return true;
-
-  const runtime = Number(item.runtime || 0);
-
-  if (
-    selectedDuration.includes("2 ore") ||
-    selectedDuration.includes("circa 2 ore")
-  ) {
-    return runtime >= 90 && runtime <= 135;
-  }
-
-  if (
-    selectedDuration.includes("90") ||
-    selectedDuration.includes("1h30") ||
-    selectedDuration.includes("1 ora e mezza")
-  ) {
-    return runtime <= 100;
-  }
-
-  if (
-    selectedDuration.includes("breve") ||
-    selectedDuration.includes("corto")
-  ) {
-    return runtime <= 95;
-  }
-
-  if (
-    selectedDuration.includes("lungo") ||
-    selectedDuration.includes("oltre 2 ore")
-  ) {
-    return runtime > 120;
-  }
-
-  return true;
-}
-
-function matchesMood(item, selectedMood) {
-  if (!selectedMood || selectedMood.includes("qualsiasi")) return true;
-
-  const allTags = [...(item.mood || []), ...(item.genres || [])];
-  return allTags.some(tag => tag.includes(selectedMood));
-}
-
-function matchesType(item, selectedType) {
-  if (!selectedType || selectedType.includes("film o serie")) return true;
-  if (selectedType.includes("film")) return item.type === "film";
-  if (selectedType.includes("serie")) return item.type === "serie";
-  return true;
-}
-
-function countPreferences(items) {
-  const genreCount = {};
-  const moodCount = {};
-  const typeCount = {};
-
-  items.forEach(item => {
-    (item.genres || []).forEach(g => {
-      genreCount[g] = (genreCount[g] || 0) + 1;
-    });
-
-    (item.mood || []).forEach(m => {
-      moodCount[m] = (moodCount[m] || 0) + 1;
-    });
-
-    if (item.type) {
-      typeCount[item.type] = (typeCount[item.type] || 0) + 1;
-    }
-  });
-
-  return { genreCount, moodCount, typeCount };
-}
-
-function getUserTasteProfile() {
-  const watchlist = readStorageArray("watchlist").map(normalizeItem);
-  const watched = readStorageArray("watched").map(normalizeItem);
-
-  const tasteSource = [...watchlist, ...watched];
-  return countPreferences(tasteSource);
-}
-
-function scoreItem(item, profile, selectedMood, selectedType, sourceLabel) {
+function scoreCandidate(item, profile, filters) {
   let score = 0;
 
-  (item.genres || []).forEach(g => {
-    score += (profile.genreCount[g] || 0) * 3;
+  const genres = getGenres(item);
+  const year = getYear(item);
+  const decade = year ? Math.floor(year / 10) * 10 : null;
+
+  genres.forEach(genre => {
+    score += profile.genreScores[genre] || 0;
   });
 
-  (item.mood || []).forEach(m => {
-    score += (profile.moodCount[m] || 0) * 2;
-  });
-
-  if (item.type) {
-    score += (profile.typeCount[item.type] || 0) * 1.5;
+  if (item.media_type === "movie") {
+    score += profile.typeScores.movie || 0;
+  } else if (item.media_type === "tv") {
+    score += profile.typeScores.tv || 0;
   }
 
-  if (selectedMood) {
-    const tags = [...(item.mood || []), ...(item.genres || [])];
-    if (tags.some(tag => tag.includes(selectedMood))) {
-      score += 6;
-    }
+  if (decade && profile.decadeScores[decade]) {
+    score += profile.decadeScores[decade] * 0.6;
   }
 
-  if (selectedType) {
-    if (
-      (selectedType.includes("film") && item.type === "film") ||
-      (selectedType.includes("serie") && item.type === "serie")
-    ) {
-      score += 4;
-    }
+  if (filters.type !== "all" && item.media_type === filters.type) {
+    score += 4;
   }
 
-  if (sourceLabel === "watchlist") {
+  if (moodMatches(item, filters.mood)) {
     score += 5;
   }
 
-  score += Math.random() * 0.8;
+  if (timeMatches(item, filters.time)) {
+    score += 4;
+  }
+
+  const personalVote = getVoteNumber(item);
+  if (personalVote) {
+    score += personalVote * 0.5;
+  }
+
+  score += Math.random() * 0.4;
 
   return score;
 }
 
-function getCandidatePool() {
-  const watchlist = readStorageArray("watchlist").map(normalizeItem);
-  const watched = readStorageArray("watched").map(normalizeItem);
+function getRecommendationReason(item, filters, profile) {
+  const genres = getGenres(item);
+  const sortedGenres = Object.entries(profile.genreScores)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
 
-  const watchedTitles = new Set(
-    watched.map(item => normalizeTitle(item.title))
-  );
+  const matchingFavGenres = genres.filter(g => sortedGenres.includes(g)).slice(0, 2);
 
-  const watchlistCandidates = watchlist
-    .filter(item => !watchedTitles.has(normalizeTitle(item.title)) && !item.watched)
-    .map(item => ({ ...item, sourceLabel: "watchlist" }));
+  const reasons = [];
 
-  const fallbackCandidates = fallbackCatalog
-    .map(normalizeItem)
-    .filter(item => !watchedTitles.has(normalizeTitle(item.title)))
-    .filter(item => !watchlistCandidates.some(w => normalizeTitle(w.title) === normalizeTitle(item.title)))
-    .map(item => ({ ...item, sourceLabel: "catalogo" }));
+  if (matchingFavGenres.length) {
+    reasons.push(`ha generi in linea con i tuoi gusti (${matchingFavGenres.join(", ")})`);
+  }
 
-  return uniqueByTitle([...watchlistCandidates, ...fallbackCandidates]);
+  if (filters.type === "movie" && item.media_type === "movie") {
+    reasons.push("rispetta la scelta di vedere un film");
+  }
+
+  if (filters.type === "tv" && item.media_type === "tv") {
+    reasons.push("rispetta la scelta di vedere una serie o anime");
+  }
+
+  if (filters.time === "short" && item.media_type === "tv") {
+    reasons.push("è più adatto se hai poco tempo");
+  }
+
+  if (filters.time === "medium" && item.media_type === "movie") {
+    reasons.push("funziona bene per una serata classica");
+  }
+
+  if (filters.mood === "dark" && moodMatches(item, "dark")) {
+    reasons.push("si adatta a un mood più teso o cupo");
+  }
+
+  if (filters.mood === "epic" && moodMatches(item, "epic")) {
+    reasons.push("si adatta a una serata più epica o visiva");
+  }
+
+  if (filters.mood === "light" && moodMatches(item, "light")) {
+    reasons.push("può essere una scelta più leggera");
+  }
+
+  if (!reasons.length) {
+    reasons.push("è coerente con quello che salvi più spesso");
+  }
+
+  return reasons[0];
 }
 
-function formatDuration(item) {
-  return item.type === "film"
-    ? `${item.runtime} min`
-    : `${item.runtime} min a episodio`;
+function formatType(item) {
+  return item.media_type === "movie" ? "Film" : "Serie / Anime";
 }
 
-function sourceText(sourceLabel) {
-  return sourceLabel === "watchlist"
-    ? "dalla tua watchlist"
-    : "dal catalogo in base ai tuoi gusti";
-}
-
-function buildRecommendationsHTML(recommendations) {
-  const intro = `<strong>I 5 consigli più adatti a te:</strong><br><br>`;
-
-  const lines = recommendations.map((item, index) => {
-    return `${index + 1}. <strong>${item.title}</strong> (${item.type}, ${formatDuration(item)}) — ${sourceText(item.sourceLabel)}`;
+function buildTop5HTML(items, filters, profile) {
+  const lines = items.map((item, index) => {
+    const reason = getRecommendationReason(item, filters, profile);
+    return `
+      <div style="margin-bottom:14px;">
+        <strong>${index + 1}. ${getTitle(item)}</strong><br>
+        <span style="color:#9aa7b5;">${item.year || "—"} · ${formatType(item)}</span><br>
+        <span style="color:#dfe7f0;">Perché: ${reason}.</span>
+      </div>
+    `;
   });
 
-  return intro + lines.join("<br>");
+  return `
+    <strong>I 5 consigli più adatti a te:</strong><br><br>
+    ${lines.join("")}
+  `;
 }
 
-function recommendTitle() {
-  if (!recommendationBox) {
-    alert("Non trovo il box del risultato. Controlla l'id dell'elemento nel file HTML.");
-    return;
-  }
+function getRecommendedMovies() {
+  const db = getCineTrackerDB();
+  const suggestionBox = document.getElementById("tonightSuggestion");
 
-  const selectedDuration = getDurationValue();
-  const selectedMood = getMoodValue();
-  const selectedType = getTypeValue();
+  if (!suggestionBox) return;
 
-  const profile = getUserTasteProfile();
-  const pool = getCandidatePool();
+  const seen = db.seen || [];
+  const watchlist = db.watchlist || [];
 
-  if (!pool.length) {
-    recommendationBox.innerHTML =
-      "Non ho trovato titoli disponibili. Aggiungi qualcosa alla watchlist oppure rimuovi qualche visto.";
-    return;
-  }
-
-  let filtered = pool.filter(item =>
-    matchesDuration(item, selectedDuration) &&
-    matchesMood(item, selectedMood) &&
-    matchesType(item, selectedType)
-  );
-
-  if (!filtered.length) {
-    filtered = pool.filter(item => matchesType(item, selectedType));
-  }
-
-  if (!filtered.length) {
-    filtered = pool;
-  }
-
-  const scored = filtered
-    .map(item => ({
-      ...item,
-      score: scoreItem(item, profile, selectedMood, selectedType, item.sourceLabel)
-    }))
-    .sort((a, b) => b.score - a.score);
-
-  const top5 = scored.slice(0, 5);
-
-  if (!top5.length) {
-    recommendationBox.innerHTML =
-      "Non sono riuscito a trovare consigli adatti. Prova a cambiare i filtri.";
-    return;
-  }
-
-  recommendationBox.innerHTML = buildRecommendationsHTML(top5);
-}
-
-window.recommendTitle = recommendTitle;
-window.recommend = recommendTitle;
+  if (!watchlist.length) {
+    suggestionBox.innerHTML

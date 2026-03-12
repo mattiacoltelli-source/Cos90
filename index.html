@@ -1,529 +1,1559 @@
 <!doctype html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CineMatch</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>CineTracker Personal</title>
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
   <style>
     :root{
-      --bg:#0f1115;
-      --card:#181c23;
-      --card2:#202631;
-      --text:#f5f7fa;
-      --muted:#aab3c2;
-      --accent:#7c5cff;
-      --accent2:#18c37e;
-      --danger:#ff5d73;
-      --border:#2c3442;
+      --bg:#0b0f14;
+      --card:#121824;
+      --card2:#171f2e;
+      --text:#f3f5f7;
+      --muted:#9aa7b5;
+      --line:#263044;
+      --accent:#f5c451;
+      --accent2:#4da3ff;
+      --ok:#36c275;
+      --danger:#ff6b6b;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
     }
 
-    *{
-      box-sizing:border-box;
+    *{box-sizing:border-box}
+
+    html,body{
       margin:0;
       padding:0;
-      font-family:Arial, Helvetica, sans-serif;
+      background:linear-gradient(180deg,#0a0e13,#111827 60%,#0b0f14);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
     }
 
     body{
-      background:linear-gradient(180deg,#0d1015,#141922);
-      color:var(--text);
-      min-height:100vh;
-      padding:24px;
+      padding:16px 14px 96px;
     }
 
-    .container{
-      max-width:1100px;
+    .app{
+      max-width:720px;
       margin:0 auto;
     }
 
-    h1{
-      font-size:2rem;
-      margin-bottom:8px;
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:14px;
+    }
+
+    .title{
+      font-size:28px;
+      font-weight:800;
+      letter-spacing:.2px;
     }
 
     .subtitle{
       color:var(--muted);
-      margin-bottom:24px;
+      font-size:13px;
+      margin-top:2px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .searchBox{
+      padding:14px;
+      margin-bottom:14px;
+    }
+
+    .searchRow{
+      display:flex;
+      gap:10px;
+    }
+
+    input,select,textarea,button{
+      font:inherit;
+      border:none;
+      outline:none;
+      border-radius:14px;
+    }
+
+    input,select,textarea{
+      width:100%;
+      background:#0f1520;
+      color:var(--text);
+      border:1px solid var(--line);
+      padding:12px 14px;
+    }
+
+    textarea{
+      min-height:100px;
+      resize:vertical;
+    }
+
+    button{
+      background:linear-gradient(180deg,#f9d36d,#e8b845);
+      color:#111;
+      font-weight:800;
+      padding:12px 16px;
+      cursor:pointer;
+    }
+
+    button.secondary{
+      background:#192233;
+      color:var(--text);
+      border:1px solid var(--line);
+      font-weight:700;
+    }
+
+    button.small{
+      padding:8px 10px;
+      border-radius:10px;
+      font-size:13px;
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      overflow:auto;
+      padding-bottom:4px;
+      margin:10px 0 0;
+    }
+
+    .tab{
+      white-space:nowrap;
+      padding:10px 14px;
+      border-radius:999px;
+      background:#121a27;
+      color:var(--muted);
+      border:1px solid var(--line);
+      cursor:pointer;
+      font-weight:700;
+      font-size:14px;
+    }
+
+    .tab.active{
+      background:#1d2a3d;
+      color:#fff;
+      border-color:#39527a;
+    }
+
+    .section{
+      margin:18px 0;
+    }
+
+    .section h2{
+      font-size:18px;
+      margin:0 0 10px;
+    }
+
+    .muted{
+      color:var(--muted);
     }
 
     .grid{
       display:grid;
-      grid-template-columns:1.1fr 0.9fr;
-      gap:20px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
     }
 
-    .card{
+    .posterCard{
       background:var(--card);
-      border:1px solid var(--border);
+      border:1px solid rgba(255,255,255,.06);
       border-radius:18px;
-      padding:20px;
-      box-shadow:0 10px 30px rgba(0,0,0,0.2);
+      overflow:hidden;
     }
 
-    .card h2{
-      margin-bottom:14px;
-      font-size:1.2rem;
+    .poster{
+      aspect-ratio:2/3;
+      background:#0d1420 center/cover no-repeat;
+      position:relative;
     }
 
-    .row{
+    .badge{
+      position:absolute;
+      top:10px;
+      left:10px;
+      background:rgba(0,0,0,.7);
+      backdrop-filter:blur(6px);
+      color:#fff;
+      padding:6px 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .posterInfo{
+      padding:10px;
+    }
+
+    .posterTitle{
+      font-weight:800;
+      font-size:14px;
+      line-height:1.2;
+      min-height:34px;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+
+    .meta{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:4px;
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .resultsHeader,.listHeader{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:10px;
+    }
+
+    .empty{
+      padding:18px;
+      text-align:center;
+      color:var(--muted);
+      background:#101722;
+      border:1px dashed var(--line);
+      border-radius:16px;
+    }
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .listItem{
+      display:grid;
+      grid-template-columns:74px 1fr;
+      gap:12px;
+      padding:10px;
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:18px;
+    }
+
+    .thumb{
+      width:74px;
+      height:110px;
+      border-radius:12px;
+      background:#0d1420 center/cover no-repeat;
+    }
+
+    .liTitle{
+      font-size:15px;
+      font-weight:800;
+      line-height:1.2;
+    }
+
+    .chips{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    .chip{
+      padding:6px 8px;
+      background:#111a27;
+      border:1px solid var(--line);
+      color:#d6deea;
+      border-radius:999px;
+      font-size:12px;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .stat{
+      padding:14px;
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+    }
+
+    .stat .num{
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .stat .lab{
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .chooser{
+      padding:14px;
+    }
+
+    .chooserGrid{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:12px;
-      margin-bottom:12px;
+      gap:10px;
     }
 
-    .full{
-      margin-bottom:12px;
-    }
-
-    label{
-      display:block;
-      font-size:0.95rem;
-      color:var(--muted);
-      margin-bottom:6px;
-    }
-
-    input, select{
-      width:100%;
-      background:var(--card2);
-      color:var(--text);
-      border:1px solid var(--border);
-      border-radius:12px;
+    .suggestion{
+      margin-top:14px;
       padding:12px;
-      outline:none;
+      background:#101722;
+      border:1px solid var(--line);
+      border-radius:14px;
     }
 
-    button{
-      border:none;
-      border-radius:12px;
-      padding:12px 16px;
-      font-weight:700;
+    .bottomNav{
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:0;
+      padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+      background:linear-gradient(180deg,rgba(7,10,14,.1),rgba(7,10,14,.92) 30%,rgba(7,10,14,.98));
+      backdrop-filter:blur(10px);
+    }
+
+    .bottomNavInner{
+      max-width:720px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+    }
+
+    .navBtn{
+      text-align:center;
+      padding:10px 8px;
+      border-radius:14px;
+      background:#121a27;
+      border:1px solid var(--line);
+      color:#dbe4ef;
+      font-size:12px;
+      font-weight:800;
       cursor:pointer;
-      transition:0.2s ease;
     }
 
-    button:hover{
-      transform:translateY(-1px);
-      opacity:0.95;
+    .navBtn.active{
+      background:#1d2a3d;
     }
 
-    .btn-primary{
-      background:var(--accent);
-      color:white;
+    .hidden{
+      display:none !important;
     }
 
-    .btn-secondary{
-      background:var(--accent2);
-      color:#07140d;
+    .hr{
+      height:1px;
+      background:var(--line);
+      margin:12px 0;
     }
 
-    .btn-danger{
-      background:var(--danger);
-      color:white;
+    .danger{
+      background:linear-gradient(180deg,#ff8f8f,#ff6b6b)!important;
+      color:#1a1111!important;
     }
 
-    .button-row{
-      display:flex;
-      flex-wrap:wrap;
+    .ok{
+      background:linear-gradient(180deg,#7ce7aa,#36c275)!important;
+      color:#08170d!important;
+    }
+
+    .backupButtons{
+      display:grid;
+      grid-template-columns:1fr 1fr;
       gap:10px;
       margin-top:12px;
     }
 
-    .list{
-      margin-top:16px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+    .detailHero{
+      position:relative;
+      border-radius:20px;
+      overflow:hidden;
+      background:#0d1420;
+      border:1px solid rgba(255,255,255,.06);
     }
 
-    .item{
-      background:var(--card2);
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:12px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
+    .detailBackdrop{
+      height:220px;
+      background:center/cover no-repeat;
+      filter:brightness(.6);
     }
 
-    .item-info{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
+    .detailOverlay{
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg,rgba(3,6,10,.15),rgba(3,6,10,.75) 55%,rgba(3,6,10,.98));
     }
 
-    .item-title{
-      font-weight:700;
-    }
-
-    .item-meta{
-      color:var(--muted);
-      font-size:0.92rem;
-    }
-
-    .item-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .small-btn{
-      padding:8px 10px;
-      font-size:0.88rem;
-    }
-
-    .result-box{
-      margin-top:14px;
-      background:var(--card2);
-      border:1px solid var(--border);
-      border-radius:14px;
+    .detailTop{
+      position:absolute;
+      inset:auto 0 0 0;
       padding:16px;
-      min-height:120px;
-      line-height:1.6;
+      display:grid;
+      grid-template-columns:96px 1fr;
+      gap:14px;
+      align-items:end;
     }
 
-    .hint{
+    .detailPoster{
+      width:96px;
+      height:144px;
+      border-radius:14px;
+      background:#111 center/cover no-repeat;
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:var(--shadow);
+    }
+
+    .detailTitle{
+      font-size:24px;
+      font-weight:900;
+      line-height:1.05;
+      margin-bottom:6px;
+    }
+
+    .detailBody{
+      margin-top:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .detailCard{
+      padding:14px;
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:18px;
+    }
+
+    .detailCard h3{
+      margin:0 0 8px;
+      font-size:15px;
+    }
+
+    .label{
+      font-size:12px;
       color:var(--muted);
-      font-size:0.92rem;
+      margin-bottom:6px;
+      display:block;
+    }
+
+    .backBtn{
+      margin-bottom:12px;
+    }
+
+    .tasteGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
       margin-top:10px;
     }
 
-    .section-space{
-      margin-top:20px;
+    .tasteBlock{
+      padding:14px;
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
     }
 
-    @media (max-width: 900px){
-      .grid{
-        grid-template-columns:1fr;
-      }
+    .tasteBlock h3{
+      margin:0 0 10px;
+      font-size:14px;
+    }
 
-      .row{
+    .barList{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .barRow{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+      align-items:center;
+    }
+
+    .barLabel{
+      font-size:13px;
+      color:#e4eaf1;
+      margin-bottom:5px;
+    }
+
+    .barTrack{
+      width:100%;
+      height:8px;
+      background:#0e1520;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.04);
+    }
+
+    .barFill{
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--accent2),#7dbdff);
+    }
+
+    .barValue{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .insightList{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .insightItem{
+      padding:10px 12px;
+      background:#101722;
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      font-size:13px;
+      color:#e6edf5;
+    }
+
+    @media (max-width:560px){
+      .tasteGrid{
         grid-template-columns:1fr;
       }
+    }
+
+    @media (max-width:380px){
+      .grid{grid-template-columns:1fr;}
+      .chooserGrid{grid-template-columns:1fr;}
+      .backupButtons{grid-template-columns:1fr;}
+      .detailTop{grid-template-columns:82px 1fr;}
+      .detailPoster{width:82px;height:123px;}
+      .detailTitle{font-size:21px;}
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>CineMatch</h1>
-    <p class="subtitle">Salva film e serie, segna quelli visti e ricevi consigli personalizzati in base ai tuoi gusti.</p>
-
-    <div class="grid">
-      <div class="card">
-        <h2>Aggiungi un titolo</h2>
-
-        <div class="full">
-          <label for="title">Titolo</label>
-          <input id="title" type="text" placeholder="Es. Alien" />
-        </div>
-
-        <div class="row">
-          <div>
-            <label for="typeInput">Tipo</label>
-            <select id="typeInput">
-              <option value="film">Film</option>
-              <option value="serie">Serie</option>
-            </select>
-          </div>
-
-          <div>
-            <label for="runtime">Durata</label>
-            <input id="runtime" type="number" placeholder="Es. 117" />
-          </div>
-        </div>
-
-        <div class="row">
-          <div>
-            <label for="genres">Generi</label>
-            <input id="genres" type="text" placeholder="Es. horror, sci-fi, thriller" />
-          </div>
-
-          <div>
-            <label for="moods">Mood</label>
-            <input id="moods" type="text" placeholder="Es. dark, teso, psicologico" />
-          </div>
-        </div>
-
-        <div class="button-row">
-          <button class="btn-primary" onclick="addToWatchlist()">Aggiungi alla watchlist</button>
-          <button class="btn-secondary" onclick="markDirectlyWatched()">Segna subito come visto</button>
-        </div>
-
-        <p class="hint">Scrivi generi e mood separati da virgole, così i consigli saranno più intelligenti.</p>
-
-        <div class="section-space">
-          <h2>Watchlist</h2>
-          <div id="watchlist" class="list"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Consigli personalizzati</h2>
-
-        <div class="row">
-          <div>
-            <label for="duration">Durata</label>
-            <select id="duration">
-              <option value="qualsiasi">Qualsiasi</option>
-              <option value="breve">Breve</option>
-              <option value="90 minuti">90 minuti</option>
-              <option value="1 ora e mezza">1 ora e mezza</option>
-              <option value="circa 2 ore">Circa 2 ore</option>
-              <option value="lungo">Lungo</option>
-            </select>
-          </div>
-
-          <div>
-            <label for="mood">Mood</label>
-            <select id="mood">
-              <option value="qualsiasi">Qualsiasi</option>
-              <option value="dark">Dark</option>
-              <option value="teso">Teso</option>
-              <option value="psicologico">Psicologico</option>
-              <option value="horror">Horror</option>
-              <option value="thriller">Thriller</option>
-              <option value="sci-fi">Sci-fi</option>
-              <option value="strano">Strano</option>
-              <option value="adrenalinico">Adrenalinico</option>
-              <option value="riflessivo">Riflessivo</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="full">
-          <label for="type">Tipo</label>
-          <select id="type">
-            <option value="film o serie">Film o serie</option>
-            <option value="film">Film</option>
-            <option value="serie">Serie</option>
-          </select>
-        </div>
-
-        <div class="button-row">
-          <button class="btn-primary" onclick="recommendTitle()">Trova consigli</button>
-        </div>
-
-        <div id="recommendation" class="result-box">
-          Qui compariranno i tuoi 5 consigli migliori.
-        </div>
-
-        <div class="section-space">
-          <h2>Visti</h2>
-          <div id="watchedList" class="list"></div>
-        </div>
+  <div class="app">
+    <div class="topbar">
+      <div>
+        <div class="title">CineTracker</div>
+        <div class="subtitle">Film, serie TV e anime in un’unica app personale</div>
       </div>
     </div>
+
+    <section id="screen-home">
+      <div class="card searchBox">
+        <div class="searchRow">
+          <input id="searchInput" type="text" placeholder="Cerca film, serie o anime..." />
+          <button id="searchBtn">Cerca</button>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" data-type="multi">Tutto</div>
+          <div class="tab" data-type="movie">Film</div>
+          <div class="tab" data-type="tv">Serie TV</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="resultsHeader">
+          <h2>Risultati ricerca</h2>
+          <span id="resultCount" class="muted"></span>
+        </div>
+        <div id="results" class="grid"></div>
+        <div id="resultsEmpty" class="empty">Cerca un titolo per iniziare.</div>
+      </div>
+
+      <div class="section">
+        <div class="listHeader">
+          <h2>Ultimi visti</h2>
+        </div>
+        <div id="seenList" class="list"></div>
+        <div id="seenEmpty" class="empty">Non hai ancora salvato nulla tra i visti.</div>
+      </div>
+
+      <div class="section">
+        <div class="listHeader">
+          <h2>Watchlist</h2>
+        </div>
+        <div id="watchList" class="list"></div>
+        <div id="watchEmpty" class="empty">La tua watchlist è vuota.</div>
+      </div>
+    </section>
+
+    <section id="screen-stats" class="hidden">
+      <div class="section">
+        <h2>Statistiche personali</h2>
+        <div class="stats">
+          <div class="stat"><div id="statSeen" class="num">0</div><div class="lab">Titoli visti</div></div>
+          <div class="stat"><div id="statWatch" class="num">0</div><div class="lab">In watchlist</div></div>
+          <div class="stat"><div id="statMovies" class="num">0</div><div class="lab">Film visti</div></div>
+          <div class="stat"><div id="statSeries" class="num">0</div><div class="lab">Serie / anime visti</div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Mappa dei gusti</h2>
+        <div class="tasteGrid">
+          <div class="tasteBlock">
+            <h3>Generi preferiti</h3>
+            <div id="genreBars" class="barList">
+              <div class="muted">Salva almeno 3 titoli visti.</div>
+            </div>
+          </div>
+
+          <div class="tasteBlock">
+            <h3>Decadi più presenti</h3>
+            <div id="decadeBars" class="barList">
+              <div class="muted">Salva almeno 3 titoli visti.</div>
+            </div>
+          </div>
+
+          <div class="tasteBlock">
+            <h3>Profilo rapido</h3>
+            <div id="tasteProfile" class="insightList">
+              <div class="insightItem">Ancora pochi dati per definire il tuo profilo cinefilo.</div>
+            </div>
+          </div>
+
+          <div class="tasteBlock">
+            <h3>Insight automatici</h3>
+            <div id="tasteInsights" class="insightList">
+              <div class="insightItem">Quando userai un po’ l’app, qui compariranno insight sui tuoi gusti.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Backup dati</h2>
+        <div class="card" style="padding:14px;">
+          <div class="muted">Esporta o ripristina la tua libreria personale.</div>
+          <div class="backupButtons">
+            <button id="exportBtn2">Esporta backup</button>
+            <button class="secondary" id="importBtn">Importa backup</button>
+          </div>
+          <input id="importFileInput" type="file" accept=".json,application/json" class="hidden" />
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-tonight" class="hidden">
+      <div class="section">
+        <h2>Stasera cosa guardo?</h2>
+        <div class="card chooser">
+          <div class="chooserGrid">
+            <select id="timeSelect">
+              <option value="short">Ho poco tempo</option>
+              <option value="medium" selected>Circa 2 ore</option>
+              <option value="long">Tempo lungo / maratona</option>
+            </select>
+
+            <select id="moodSelect">
+              <option value="any">Qualsiasi mood</option>
+              <option value="dark">Teso / cupo</option>
+              <option value="epic">Epico / visivo</option>
+              <option value="light">Più leggero</option>
+            </select>
+
+            <select id="typeSelect">
+              <option value="all">Film o serie</option>
+              <option value="movie">Solo film</option>
+              <option value="tv">Solo serie / anime</option>
+            </select>
+
+            <button id="suggestBtn">Suggeriscimi qualcosa</button>
+          </div>
+
+          <div id="tonightSuggestion" class="suggestion">
+            Premi il pulsante e ti consiglio un titolo dalla tua watchlist.
+          </div>
+
+          <div class="actions" style="margin-top:14px;">
+            <button class="secondary" onclick="getRecommendedMovies()">Consigli per me</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-detail" class="hidden">
+      <button class="secondary backBtn" id="detailBackBtn">← Torna indietro</button>
+
+      <div class="detailHero">
+        <div id="detailBackdrop" class="detailBackdrop"></div>
+        <div class="detailOverlay"></div>
+
+        <div class="detailTop">
+          <div id="detailPoster" class="detailPoster"></div>
+          <div>
+            <div id="detailTitle" class="detailTitle">Titolo</div>
+            <div id="detailMeta" class="meta">Anno · Tipo</div>
+            <div id="detailGenres" class="chips" style="margin-top:8px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detailBody">
+        <div class="detailCard">
+          <h3>Trama</h3>
+          <div id="detailOverview" class="muted">Nessuna trama disponibile.</div>
+        </div>
+
+        <div class="detailCard">
+          <h3>Dati principali</h3>
+          <div id="detailFacts" class="muted"></div>
+        </div>
+
+        <div class="detailCard">
+          <h3>La tua scheda personale</h3>
+
+          <label class="label" for="detailVoteInput">Il tuo voto</label>
+          <input id="detailVoteInput" type="text" placeholder="Es. 8.5" />
+
+          <div style="height:10px;"></div>
+
+          <label class="label" for="detailCommentInput">Il tuo commento</label>
+          <textarea id="detailCommentInput" placeholder="Cosa ne pensi?"></textarea>
+
+          <div class="actions">
+            <button class="ok" id="detailSeenBtn">Segna come visto</button>
+            <button class="secondary" id="detailWatchBtn">Aggiungi a watchlist</button>
+            <button class="secondary" id="detailSaveNoteBtn">Salva voto/commento</button>
+            <button class="danger" id="detailRemoveBtn">Rimuovi dalla libreria</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
+
+  <div class="bottomNav">
+    <div class="bottomNavInner">
+      <div class="navBtn active" data-screen="home">Home</div>
+      <div class="navBtn" data-screen="stats">Statistiche</div>
+      <div class="navBtn" data-screen="tonight">Stasera</div>
+      <div class="navBtn" id="exportBtn">Backup</div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = "f8d5e378edf5128176f0d89f49310151";
+    const BASE_URL = "https://api.themoviedb.org/3";
+    const IMG = "https://image.tmdb.org/t/p/w500";
+
+    const GENRE_MAP = {
+      28:"Azione",
+      12:"Avventura",
+      16:"Animazione",
+      35:"Commedia",
+      80:"Crime",
+      99:"Documentario",
+      18:"Drama",
+      10751:"Famiglia",
+      14:"Fantasy",
+      36:"Storia",
+      27:"Horror",
+      10402:"Musica",
+      9648:"Mistero",
+      10749:"Romance",
+      878:"Fantascienza",
+      10770:"TV Movie",
+      53:"Thriller",
+      10752:"Guerra",
+      37:"Western",
+      10759:"Azione & Avventura",
+      10762:"Bambini",
+      10763:"News",
+      10764:"Reality",
+      10765:"Sci-Fi & Fantasy",
+      10766:"Soap",
+      10767:"Talk",
+      10768:"War & Politics"
+    };
+
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const results = document.getElementById("results");
+    const resultsEmpty = document.getElementById("resultsEmpty");
+    const resultCount = document.getElementById("resultCount");
+    const tabs = [...document.querySelectorAll(".tab")];
+
+    const seenList = document.getElementById("seenList");
+    const watchList = document.getElementById("watchList");
+    const seenEmpty = document.getElementById("seenEmpty");
+    const watchEmpty = document.getElementById("watchEmpty");
+
+    const statSeen = document.getElementById("statSeen");
+    const statWatch = document.getElementById("statWatch");
+    const statMovies = document.getElementById("statMovies");
+    const statSeries = document.getElementById("statSeries");
+
+    const genreBars = document.getElementById("genreBars");
+    const decadeBars = document.getElementById("decadeBars");
+    const tasteProfile = document.getElementById("tasteProfile");
+    const tasteInsights = document.getElementById("tasteInsights");
+
+    const timeSelect = document.getElementById("timeSelect");
+    const moodSelect = document.getElementById("moodSelect");
+    const typeSelect = document.getElementById("typeSelect");
+    const suggestBtn = document.getElementById("suggestBtn");
+    const tonightSuggestion = document.getElementById("tonightSuggestion");
+
+    const exportBtn = document.getElementById("exportBtn");
+    const exportBtn2 = document.getElementById("exportBtn2");
+    const importBtn = document.getElementById("importBtn");
+    const importFileInput = document.getElementById("importFileInput");
+
+    const detailBackBtn = document.getElementById("detailBackBtn");
+    const detailBackdrop = document.getElementById("detailBackdrop");
+    const detailPoster = document.getElementById("detailPoster");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailMeta = document.getElementById("detailMeta");
+    const detailGenres = document.getElementById("detailGenres");
+    const detailOverview = document.getElementById("detailOverview");
+    const detailFacts = document.getElementById("detailFacts");
+    const detailVoteInput = document.getElementById("detailVoteInput");
+    const detailCommentInput = document.getElementById("detailCommentInput");
+    const detailSeenBtn = document.getElementById("detailSeenBtn");
+    const detailWatchBtn = document.getElementById("detailWatchBtn");
+    const detailSaveNoteBtn = document.getElementById("detailSaveNoteBtn");
+    const detailRemoveBtn = document.getElementById("detailRemoveBtn");
+
+    const screens = {
+      home: document.getElementById("screen-home"),
+      stats: document.getElementById("screen-stats"),
+      tonight: document.getElementById("screen-tonight"),
+      detail: document.getElementById("screen-detail"),
+    };
+
+    let currentType = "multi";
+    let currentDetail = null;
+    let previousScreen = "home";
+
+    let db = JSON.parse(localStorage.getItem("cineTrackerDB") || `{
+      "seen": [],
+      "watchlist": []
+    }`);
+
+    function syncGlobals() {
+      window.db = db;
+      window.API_KEY = API_KEY;
+      window.BASE_URL = BASE_URL;
+      window.IMG = IMG;
+      window.GENRE_MAP = GENRE_MAP;
+    }
+
+    function saveDB() {
+      localStorage.setItem("cineTrackerDB", JSON.stringify(db));
+      syncGlobals();
+    }
+
+    function normalizeGenres(item) {
+      if (Array.isArray(item.genre_ids)) {
+        return item.genre_ids.map(id => GENRE_MAP[id] || `Genere ${id}`);
+      }
+      if (Array.isArray(item.genres)) {
+        return item.genres.map(g => typeof g === "string" ? g : g.name).filter(Boolean);
+      }
+      if (Array.isArray(item.genre_names)) {
+        return item.genre_names;
+      }
+      return [];
+    }
+
+    function posterUrl(path) {
+      return path ? `${IMG}${path}` : "";
+    }
+
+    function yearOf(item) {
+      const date = item.release_date || item.first_air_date || "";
+      return date ? date.slice(0, 4) : "—";
+    }
+
+    function titleOf(item) {
+      return item.title || item.name || "Titolo sconosciuto";
+    }
+
+    function normalizedItem(item) {
+      return {
+        id: item.id,
+        media_type: (item.media_type === "tv" || item.first_air_date) ? "tv" : "movie",
+        title: titleOf(item),
+        year: yearOf(item),
+        poster_path: item.poster_path || "",
+        backdrop_path: item.backdrop_path || "",
+        overview: item.overview || "",
+        vote: item.vote || "",
+        comment: item.comment || "",
+        genre_names: normalizeGenres(item),
+        savedAt: item.savedAt || new Date().toISOString()
+      };
+    }
+
+    function uniqueKey(item) {
+      return `${item.media_type}_${item.id}`;
+    }
+
+    function inSeen(item) {
+      return db.seen.find(x => uniqueKey(x) === uniqueKey(item));
+    }
+
+    function inWatch(item) {
+      return db.watchlist.find(x => uniqueKey(x) === uniqueKey(item));
+    }
+
+    function getStoredItem(item) {
+      return db.seen.find(x => uniqueKey(x) === uniqueKey(item)) ||
+             db.watchlist.find(x => uniqueKey(x) === uniqueKey(item)) ||
+             null;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function decadeOf(year) {
+      if (!year || year === "—" || isNaN(Number(year))) return "Sconosciuta";
+      const y = Number(year);
+      return `${Math.floor(y / 10) * 10}s`;
+    }
+
+    function buildBars(container, entries) {
+      if (!entries.length) {
+        container.innerHTML = `<div class="muted">Ancora pochi dati.</div>`;
+        return;
+      }
+
+      const max = entries[0].value || 1;
+      container.innerHTML = entries.map(entry => `
+        <div class="barRow">
+          <div>
+            <div class="barLabel">${escapeHtml(entry.label)}</div>
+            <div class="barTrack">
+              <div class="barFill" style="width:${Math.max(12, (entry.value / max) * 100)}%"></div>
+            </div>
+          </div>
+          <div class="barValue">${entry.value}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderTasteMap() {
+      if (db.seen.length < 3) {
+        genreBars.innerHTML = `<div class="muted">Salva almeno 3 titoli visti.</div>`;
+        decadeBars.innerHTML = `<div class="muted">Salva almeno 3 titoli visti.</div>`;
+        tasteProfile.innerHTML = `<div class="insightItem">Ancora pochi dati per definire il tuo profilo cinefilo.</div>`;
+        tasteInsights.innerHTML = `<div class="insightItem">Quando userai un po’ l’app, qui compariranno insight sui tuoi gusti.</div>`;
+        return;
+      }
+
+      const genreCount = {};
+      const decadeCount = {};
+      let movieCount = 0;
+      let seriesCount = 0;
+
+      const rated = db.seen.filter(x => x.vote && !isNaN(parseFloat(x.vote)));
+      const avgVote = rated.length
+        ? (rated.reduce((sum, item) => sum + parseFloat(item.vote), 0) / rated.length).toFixed(1)
+        : "n.d.";
+
+      db.seen.forEach(item => {
+        if (item.media_type === "movie") movieCount++;
+        else seriesCount++;
+
+        const decade = decadeOf(item.year);
+        decadeCount[decade] = (decadeCount[decade] || 0) + 1;
+
+        (item.genre_names || []).forEach(name => {
+          genreCount[name] = (genreCount[name] || 0) + 1;
+        });
+      });
+
+      const topGenres = Object.entries(genreCount)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([label, value]) => ({ label, value }));
+
+      const topDecades = Object.entries(decadeCount)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([label, value]) => ({ label, value }));
+
+      buildBars(genreBars, topGenres);
+      buildBars(decadeBars, topDecades);
+
+      const dominantGenre = topGenres[0]?.label || "n.d.";
+      const dominantDecade = topDecades[0]?.label || "n.d.";
+      const moreMovies = movieCount > seriesCount;
+      const moreSeries = seriesCount > movieCount;
+
+      tasteProfile.innerHTML = `
+        <div class="insightItem"><strong>Genere dominante:</strong> ${escapeHtml(dominantGenre)}</div>
+        <div class="insightItem"><strong>Voto medio:</strong> ${escapeHtml(avgVote)}</div>
+        <div class="insightItem"><strong>Formato prevalente:</strong> ${
+          moreMovies ? "più film che serie" : moreSeries ? "più serie/anime che film" : "equilibrato tra film e serie"
+        }</div>
+        <div class="insightItem"><strong>Decade più presente:</strong> ${escapeHtml(dominantDecade)}</div>
+      `;
+
+      const insights = [];
+
+      if (dominantGenre !== "n.d.") {
+        insights.push(`Il tuo genere dominante, per ora, è ${dominantGenre.toLowerCase()}.`);
+      }
+
+      if (avgVote !== "n.d.") {
+        const avgNum = parseFloat(avgVote);
+        if (avgNum >= 8) insights.push(`Tendi a premiare molto i titoli che salvi: media alta (${avgVote}).`);
+        else if (avgNum >= 6.5) insights.push(`Hai gusti abbastanza equilibrati: media voti ${avgVote}.`);
+        else insights.push(`Sei piuttosto severo nei voti: media ${avgVote}.`);
+      }
+
+      if (moreMovies) insights.push("Nel complesso guardi più film che serie/anime.");
+      else if (moreSeries) insights.push("Nel complesso guardi più serie/anime che film.");
+      else insights.push("Alterni abbastanza bene tra film e serie.");
+
+      if (dominantDecade !== "n.d.") {
+        insights.push(`Hai una concentrazione forte di titoli nella decade ${dominantDecade}.`);
+      }
+
+      const commentRate = db.seen.filter(x => x.comment && x.comment.trim()).length / db.seen.length;
+      if (commentRate >= 0.5) {
+        insights.push("Usi l’app anche come diario cinefilo personale, non solo come tracker.");
+      }
+
+      tasteInsights.innerHTML = insights.slice(0, 5).map(text => `
+        <div class="insightItem">${escapeHtml(text)}</div>
+      `).join("");
+    }
+
+    async function searchTitles() {
+      const q = searchInput.value.trim();
+      if (!q) return;
+
+      results.innerHTML = "";
+      resultCount.textContent = "";
+      resultsEmpty.textContent = "Caricamento...";
+      resultsEmpty.classList.remove("hidden");
+
+      try {
+        const endpoint = currentType === "movie"
+          ? `${BASE_URL}/search/movie?api_key=${API_KEY}&language=it-IT&query=${encodeURIComponent(q)}`
+          : currentType === "tv"
+          ? `${BASE_URL}/search/tv?api_key=${API_KEY}&language=it-IT&query=${encodeURIComponent(q)}`
+          : `${BASE_URL}/search/multi?api_key=${API_KEY}&language=it-IT&query=${encodeURIComponent(q)}`;
+
+        const res = await fetch(endpoint);
+        const data = await res.json();
+
+        let items = (data.results || []).filter(x => x.media_type !== "person");
+        items = items.slice(0, 20);
+
+        if (!items.length) {
+          results.innerHTML = "";
+          resultCount.textContent = "";
+          resultsEmpty.textContent = "Nessun risultato trovato.";
+          return;
+        }
+
+        resultsEmpty.classList.add("hidden");
+        resultCount.textContent = `${items.length} risultati`;
+
+        results.innerHTML = items.map(item => {
+          const n = normalizedItem(item);
+          const seen = !!inSeen(n);
+          const watch = !!inWatch(n);
+
+          return `
+            <div class="posterCard">
+              <div class="poster" style="background-image:url('${posterUrl(n.poster_path)}')">
+                <div class="badge">${n.media_type === "movie" ? "Film" : "Serie"}</div>
+              </div>
+              <div class="posterInfo">
+                <div class="posterTitle">${escapeHtml(n.title)}</div>
+                <div class="meta">${n.year} · ${n.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
+                <div class="actions">
+                  <button class="small ok action-seen" data-id="${n.id}" data-type="${n.media_type}">
+                    ${seen ? "Già visto" : "Visto"}
+                  </button>
+                  <button class="small secondary action-watch" data-id="${n.id}" data-type="${n.media_type}">
+                    ${watch ? "In watchlist" : "Watchlist"}
+                  </button>
+                  <button class="small secondary action-details" data-id="${n.id}" data-type="${n.media_type}">
+                    Dettagli
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } catch (e) {
+        results.innerHTML = "";
+        resultCount.textContent = "";
+        resultsEmpty.textContent = "Errore nella ricerca. Controlla connessione o API.";
+      }
+    }
+
+    async function fetchDetail(type, id) {
+      const res = await fetch(`${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=it-IT`);
+      if (!res.ok) throw new Error("Errore nel recupero dettagli");
+      const item = await res.json();
+      return normalizedItem(item);
+    }
+
+    async function addSeen(type, id) {
+      const item = await fetchDetail(type, id);
+
+      if (inSeen(item)) {
+        openDetail(item);
+        return;
+      }
+
+      db.seen.unshift(item);
+      db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
+      saveDB();
+      renderLists();
+      renderStats();
+      openDetail(item);
+    }
+
+    async function addWatch(type, id) {
+      const item = await fetchDetail(type, id);
+
+      if (!inSeen(item) && !inWatch(item)) {
+        db.watchlist.unshift(item);
+        saveDB();
+        renderLists();
+        renderStats();
+      }
+
+      openDetail(item);
+    }
+
+    async function showDetails(type, id) {
+      const item = await fetchDetail(type, id);
+      openDetail(item);
+    }
+
+    function renderLists() {
+      seenEmpty.classList.toggle("hidden", db.seen.length > 0);
+      watchEmpty.classList.toggle("hidden", db.watchlist.length > 0);
+
+      seenList.innerHTML = db.seen.map(item => `
+        <div class="listItem">
+          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+          <div>
+            <div class="liTitle">${escapeHtml(item.title)}</div>
+            <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
+            <div class="chips">
+              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
+              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
+              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
+            </div>
+            <div class="actions">
+              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
+              <button class="small danger remove-seen" data-key="${uniqueKey(item)}">Elimina</button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+
+      watchList.innerHTML = db.watchlist.map(item => `
+        <div class="listItem">
+          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+          <div>
+            <div class="liTitle">${escapeHtml(item.title)}</div>
+            <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
+            <div class="chips">
+              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
+              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
+              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
+            </div>
+            <div class="actions">
+              <button class="small ok move-watch-seen" data-key="${uniqueKey(item)}">Segna visto</button>
+              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
+              <button class="small danger remove-watch" data-key="${uniqueKey(item)}">Elimina</button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function moveWatchToSeen(key) {
+      const item = db.watchlist.find(x => uniqueKey(x) === key);
+      if (!item) return;
+
+      db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
+
+      if (!db.seen.find(x => uniqueKey(x) === key)) {
+        item.savedAt = new Date().toISOString();
+        db.seen.unshift(item);
+      }
+
+      saveDB();
+      renderLists();
+      renderStats();
+    }
+
+    function removeSeen(key) {
+      db.seen = db.seen.filter(x => uniqueKey(x) !== key);
+      saveDB();
+      renderLists();
+      renderStats();
+
+      if (currentDetail && uniqueKey(currentDetail) === key) {
+        switchScreen("home");
+      }
+    }
+
+    function removeWatch(key) {
+      db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
+      saveDB();
+      renderLists();
+      renderStats();
+
+      if (currentDetail && uniqueKey(currentDetail) === key) {
+        openDetail(currentDetail);
+      }
+    }
+
+    function renderStats() {
+      statSeen.textContent = db.seen.length;
+      statWatch.textContent = db.watchlist.length;
+      statMovies.textContent = db.seen.filter(x => x.media_type === "movie").length;
+      statSeries.textContent = db.seen.filter(x => x.media_type === "tv").length;
+      renderTasteMap();
+    }
+
+    function suggestTonight() {
+      let pool = [...db.watchlist];
+
+      if (!pool.length) {
+        tonightSuggestion.textContent = "La watchlist è vuota. Aggiungi qualche titolo prima.";
+        return;
+      }
+
+      const type = typeSelect.value;
+      if (type !== "all") {
+        pool = pool.filter(x => x.media_type === type);
+      }
+
+      if (!pool.length) {
+        tonightSuggestion.textContent = "Nessun titolo compatibile con quel filtro.";
+        return;
+      }
+
+      if (timeSelect.value === "short") {
+        const tvOnly = pool.filter(x => x.media_type === "tv");
+        if (tvOnly.length) pool = tvOnly;
+      } else if (timeSelect.value === "medium") {
+        const movieOnly = pool.filter(x => x.media_type === "movie");
+        if (movieOnly.length) pool = movieOnly;
+      }
+
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+
+      let reason = [];
+      if (pick.media_type === "movie" && timeSelect.value === "medium") reason.push("sta bene in una serata da circa 2 ore");
+      if (pick.media_type === "tv" && timeSelect.value === "short") reason.push("è comodo se hai poco tempo");
+      if (moodSelect.value === "dark") reason.push("potrebbe funzionare per una serata più tesa o cupa");
+      if (moodSelect.value === "epic") reason.push("potrebbe darti una serata più visiva o intensa");
+      if (moodSelect.value === "light") reason.push("può essere una scelta più facile da iniziare");
+      if (!reason.length) reason.push("è nella tua watchlist e vale la pena recuperarlo");
+
+      tonightSuggestion.innerHTML = `
+        <strong>Ti consiglio:</strong> ${escapeHtml(pick.title)}<br><br>
+        <span class="muted">${pick.year} · ${pick.media_type === "movie" ? "Film" : "Serie / Anime"}</span><br><br>
+        Perché: ${reason.join(", ")}.
+      `;
+    }
+
+    function switchScreen(name) {
+      if (name !== "detail") previousScreen = name;
+
+      Object.values(screens).forEach(s => s.classList.add("hidden"));
+      screens[name].classList.remove("hidden");
+
+      document.querySelectorAll(".navBtn[data-screen]").forEach(b => {
+        b.classList.toggle("active", b.dataset.screen === name);
+      });
+    }
+
+    function exportBackup() {
+      const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "cineTracker-backup.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function importBackup(file) {
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+
+          if (!imported || !Array.isArray(imported.seen) || !Array.isArray(imported.watchlist)) {
+            alert("File backup non valido.");
+            return;
+          }
+
+          const confirmReplace = confirm("Vuoi sostituire i dati attuali con quelli del backup?");
+          if (!confirmReplace) return;
+
+          db = {
+            seen: imported.seen.map(normalizedItem),
+            watchlist: imported.watchlist.map(normalizedItem)
+          };
+
+          saveDB();
+          renderLists();
+          renderStats();
+          switchScreen("home");
+          alert("Backup importato correttamente.");
+        } catch (err) {
+          alert("Impossibile leggere il file backup.");
+        }
+      };
+
+      reader.readAsText(file);
+    }
+
+    function openDetail(item) {
+      currentDetail = item;
+
+      const stored = getStoredItem(item);
+      const source = stored || item;
+
+      detailBackdrop.style.backgroundImage = source.backdrop_path
+        ? `url('${posterUrl(source.backdrop_path)}')`
+        : `url('${posterUrl(source.poster_path)}')`;
+
+      detailPoster.style.backgroundImage = `url('${posterUrl(source.poster_path)}')`;
+      detailTitle.textContent = source.title;
+      detailMeta.textContent = `${source.year} · ${source.media_type === "movie" ? "Film" : "Serie / Anime"}`;
+
+      const chips = [];
+      chips.push(`<div class="chip">${source.media_type === "movie" ? "Film" : "Serie / Anime"}</div>`);
+      chips.push(`<div class="chip">${source.year}</div>`);
+      (source.genre_names || []).slice(0, 3).forEach(g => {
+        chips.push(`<div class="chip">${escapeHtml(g)}</div>`);
+      });
+      detailGenres.innerHTML = chips.join("");
+
+      detailOverview.textContent = source.overview || "Nessuna trama disponibile.";
+
+      const facts = [];
+      facts.push(`Tipo: ${source.media_type === "movie" ? "Film" : "Serie / Anime"}`);
+      facts.push(`Anno: ${source.year}`);
+      if (source.genre_names?.length) facts.push(`Generi: ${source.genre_names.join(", ")}`);
+      if (inSeen(source)) facts.push("Stato: visto");
+      else if (inWatch(source)) facts.push("Stato: in watchlist");
+      else facts.push("Stato: non salvato");
+
+      detailFacts.innerHTML = facts.map(x => `<div>${escapeHtml(x)}</div>`).join("");
+
+      detailVoteInput.value = source.vote || "";
+      detailCommentInput.value = source.comment || "";
+
+      detailSeenBtn.textContent = inSeen(source) ? "Già tra i visti" : "Segna come visto";
+      detailWatchBtn.textContent = inWatch(source) ? "Già in watchlist" : "Aggiungi a watchlist";
+
+      switchScreen("detail");
+    }
+
+    function saveDetailNotes() {
+      if (!currentDetail) return;
+
+      const key = uniqueKey(currentDetail);
+      const vote = detailVoteInput.value.trim();
+      const comment = detailCommentInput.value.trim();
+
+      let target = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
+
+      if (!target) {
+        target = { ...currentDetail };
+        db.watchlist.unshift(target);
+      }
+
+      target.vote = vote;
+      target.comment = comment;
+
+      saveDB();
+      renderLists();
+      renderStats();
+      openDetail(target);
+
+      alert("Voto e commento salvati.");
+    }
+
+    function removeCurrentDetail() {
+      if (!currentDetail) return;
+
+      const key = uniqueKey(currentDetail);
+      db.seen = db.seen.filter(x => uniqueKey(x) !== key);
+      db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
+
+      saveDB();
+      renderLists();
+      renderStats();
+      switchScreen("home");
+    }
+
+    document.addEventListener("click", async function(e) {
+      const seenBtn = e.target.closest(".action-seen");
+      const watchBtn = e.target.closest(".action-watch");
+      const detailsBtn = e.target.closest(".action-details");
+      const removeSeenBtn = e.target.closest(".remove-seen");
+      const removeWatchBtn = e.target.closest(".remove-watch");
+      const moveWatchBtn = e.target.closest(".move-watch-seen");
+      const openStoredBtn = e.target.closest(".open-stored-detail");
+
+      try {
+        if (seenBtn) await addSeen(seenBtn.dataset.type, seenBtn.dataset.id);
+        if (watchBtn) await addWatch(watchBtn.dataset.type, watchBtn.dataset.id);
+        if (detailsBtn) await showDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
+        if (removeSeenBtn) removeSeen(removeSeenBtn.dataset.key);
+        if (removeWatchBtn) removeWatch(removeWatchBtn.dataset.key);
+        if (moveWatchBtn) moveWatchToSeen(moveWatchBtn.dataset.key);
+
+        if (openStoredBtn) {
+          const key = openStoredBtn.dataset.key;
+          const item = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
+          if (item) openDetail(item);
+        }
+      } catch (err) {
+        alert("C'è stato un problema. Riprova.");
+      }
+    });
+
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        tabs.forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        currentType = tab.dataset.type;
+      });
+    });
+
+    searchBtn.addEventListener("click", searchTitles);
+
+    searchInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") searchTitles();
+    });
+
+    suggestBtn.addEventListener("click", suggestTonight);
+
+    document.querySelectorAll(".navBtn[data-screen]").forEach(btn => {
+      btn.addEventListener("click", () => switchScreen(btn.dataset.screen));
+    });
+
+    exportBtn.addEventListener("click", exportBackup);
+    exportBtn2.addEventListener("click", exportBackup);
+
+    importBtn.addEventListener("click", () => {
+      importFileInput.click();
+    });
+
+    importFileInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (file) importBackup(file);
+      importFileInput.value = "";
+    });
+
+    detailBackBtn.addEventListener("click", () => {
+      switchScreen(previousScreen || "home");
+    });
+
+    detailSeenBtn.addEventListener("click", () => {
+      if (!currentDetail) return;
+
+      if (!inSeen(currentDetail)) {
+        db.seen.unshift({
+          ...currentDetail,
+          vote: detailVoteInput.value.trim(),
+          comment: detailCommentInput.value.trim()
+        });
+        db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
+        saveDB();
+        renderLists();
+        renderStats();
+      } else {
+        saveDetailNotes();
+      }
+
+      openDetail(currentDetail);
+    });
+
+    detailWatchBtn.addEventListener("click", () => {
+      if (!currentDetail) return;
+
+      if (!inSeen(currentDetail) && !inWatch(currentDetail)) {
+        db.watchlist.unshift({
+          ...currentDetail,
+          vote: detailVoteInput.value.trim(),
+          comment: detailCommentInput.value.trim()
+        });
+        saveDB();
+        renderLists();
+        renderStats();
+      } else if (inWatch(currentDetail)) {
+        saveDetailNotes();
+        return;
+      }
+
+      openDetail(currentDetail);
+    });
+
+    detailSaveNoteBtn.addEventListener("click", saveDetailNotes);
+
+    detailRemoveBtn.addEventListener("click", () => {
+      if (!currentDetail) return;
+      const ok = confirm("Vuoi rimuovere questo titolo dalla tua libreria?");
+      if (!ok) return;
+      removeCurrentDetail();
+    });
+
+    syncGlobals();
+    renderLists();
+    renderStats();
+  </script>
 
   <script src="recommend.js"></script>
 
   <script>
-    function readStorageArray(key) {
-      try {
-        const data = JSON.parse(localStorage.getItem(key));
-        return Array.isArray(data) ? data : [];
-      } catch {
-        return [];
-      }
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js")
+          .then(() => console.log("Service Worker registrato"))
+          .catch(err => console.log("Errore Service Worker:", err));
+      });
     }
-
-    function saveStorageArray(key, value) {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
-
-    function normalizeTitle(title) {
-      return String(title || "").trim().toLowerCase();
-    }
-
-    function splitTags(value) {
-      return String(value || "")
-        .split(",")
-        .map(v => v.trim().toLowerCase())
-        .filter(Boolean);
-    }
-
-    function getFormItem(markWatched = false) {
-      const title = document.getElementById("title").value.trim();
-      const type = document.getElementById("typeInput").value;
-      const runtime = Number(document.getElementById("runtime").value || 100);
-      const genres = splitTags(document.getElementById("genres").value);
-      const mood = splitTags(document.getElementById("moods").value);
-
-      if (!title) {
-        alert("Inserisci un titolo.");
-        return null;
-      }
-
-      return {
-        title,
-        type,
-        runtime,
-        genres,
-        mood,
-        watched: markWatched
-      };
-    }
-
-    function clearForm() {
-      document.getElementById("title").value = "";
-      document.getElementById("runtime").value = "";
-      document.getElementById("genres").value = "";
-      document.getElementById("moods").value = "";
-      document.getElementById("typeInput").value = "film";
-    }
-
-    function addToWatchlist() {
-      const item = getFormItem(false);
-      if (!item) return;
-
-      const watchlist = readStorageArray("watchlist");
-      const watched = readStorageArray("watched");
-
-      const allTitles = new Set([
-        ...watchlist.map(x => normalizeTitle(x.title || x.name)),
-        ...watched.map(x => normalizeTitle(x.title || x.name))
-      ]);
-
-      if (allTitles.has(normalizeTitle(item.title))) {
-        alert("Questo titolo è già presente.");
-        return;
-      }
-
-      watchlist.push(item);
-      saveStorageArray("watchlist", watchlist);
-      clearForm();
-      renderAll();
-    }
-
-    function markDirectlyWatched() {
-      const item = getFormItem(true);
-      if (!item) return;
-
-      const watchlist = readStorageArray("watchlist");
-      const watched = readStorageArray("watched");
-
-      const allTitles = new Set([
-        ...watchlist.map(x => normalizeTitle(x.title || x.name)),
-        ...watched.map(x => normalizeTitle(x.title || x.name))
-      ]);
-
-      if (allTitles.has(normalizeTitle(item.title))) {
-        alert("Questo titolo è già presente.");
-        return;
-      }
-
-      watched.push(item);
-      saveStorageArray("watched", watched);
-      clearForm();
-      renderAll();
-    }
-
-    function markAsWatched(title) {
-      const watchlist = readStorageArray("watchlist");
-      const watched = readStorageArray("watched");
-
-      const item = watchlist.find(x => normalizeTitle(x.title || x.name) === normalizeTitle(title));
-      if (!item) return;
-
-      const newWatchlist = watchlist.filter(
-        x => normalizeTitle(x.title || x.name) !== normalizeTitle(title)
-      );
-
-      watched.push({ ...item, watched: true });
-
-      saveStorageArray("watchlist", newWatchlist);
-      saveStorageArray("watched", watched);
-      renderAll();
-    }
-
-    function moveBackToWatchlist(title) {
-      const watchlist = readStorageArray("watchlist");
-      const watched = readStorageArray("watched");
-
-      const item = watched.find(x => normalizeTitle(x.title || x.name) === normalizeTitle(title));
-      if (!item) return;
-
-      const newWatched = watched.filter(
-        x => normalizeTitle(x.title || x.name) !== normalizeTitle(title)
-      );
-
-      watchlist.push({ ...item, watched: false });
-
-      saveStorageArray("watchlist", watchlist);
-      saveStorageArray("watched", newWatched);
-      renderAll();
-    }
-
-    function deleteFromList(key, title) {
-      const items = readStorageArray(key);
-      const filtered = items.filter(
-        x => normalizeTitle(x.title || x.name) !== normalizeTitle(title)
-      );
-      saveStorageArray(key, filtered);
-      renderAll();
-    }
-
-    function itemMeta(item) {
-      const t = item.type || "film";
-      const r = item.runtime ? `${item.runtime} min` : "";
-      const g = Array.isArray(item.genres) && item.genres.length ? item.genres.join(", ") : "nessun genere";
-      const m = Array.isArray(item.mood) && item.mood.length ? item.mood.join(", ") : "nessun mood";
-      return `${t} • ${r} • ${g} • ${m}`;
-    }
-
-    function renderWatchlist() {
-      const box = document.getElementById("watchlist");
-      const items = readStorageArray("watchlist");
-
-      if (!items.length) {
-        box.innerHTML = '<div class="item"><div class="item-info"><div class="item-title">Nessun titolo in watchlist</div><div class="item-meta">Aggiungi un film o una serie.</div></div></div>';
-        return;
-      }
-
-      box.innerHTML = items.map(item => `
-        <div class="item">
-          <div class="item-info">
-            <div class="item-title">${item.title}</div>
-            <div class="item-meta">${itemMeta(item)}</div>
-          </div>
-          <div class="item-actions">
-            <button class="small-btn btn-secondary" onclick="markAsWatched('${String(item.title).replace(/'/g, "\\'")}')">Visto</button>
-            <button class="small-btn btn-danger" onclick="deleteFromList('watchlist','${String(item.title).replace(/'/g, "\\'")}')">Elimina</button>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    function renderWatched() {
-      const box = document.getElementById("watchedList");
-      const items = readStorageArray("watched");
-
-      if (!items.length) {
-        box.innerHTML = '<div class="item"><div class="item-info"><div class="item-title">Ancora nessun visto</div><div class="item-meta">Quando segni qualcosa come visto, apparirà qui.</div></div></div>';
-        return;
-      }
-
-      box.innerHTML = items.map(item => `
-        <div class="item">
-          <div class="item-info">
-            <div class="item-title">${item.title}</div>
-            <div class="item-meta">${itemMeta(item)}</div>
-          </div>
-          <div class="item-actions">
-            <button class="small-btn btn-primary" onclick="moveBackToWatchlist('${String(item.title).replace(/'/g, "\\'")}')">Riporta in watchlist</button>
-            <button class="small-btn btn-danger" onclick="deleteFromList('watched','${String(item.title).replace(/'/g, "\\'")}')">Elimina</button>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    function renderAll() {
-      renderWatchlist();
-      renderWatched();
-    }
-
-    renderAll();
   </script>
 </body>
 </html>
