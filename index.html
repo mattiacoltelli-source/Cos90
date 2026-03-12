@@ -647,6 +647,22 @@
       overflow:hidden;
     }
 
+    .libraryGroup{
+      margin-bottom:18px;
+    }
+
+    .libraryGroup:last-child{
+      margin-bottom:0;
+    }
+
+    .libraryGroupTitle{
+      font-size:15px;
+      font-weight:900;
+      margin:0 0 10px;
+      color:#f3f5f7;
+      padding:0 2px;
+    }
+
     @media (max-width:560px){
       .tasteGrid{
         grid-template-columns:1fr;
@@ -1203,6 +1219,40 @@
       `).join("");
     }
 
+    function renderLibraryItem(item, mode) {
+      return `
+        <div class="listItem">
+          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+          <div>
+            <div class="liTitle">${escapeHtml(item.title)}</div>
+            <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
+            <div class="chips">
+              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
+              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
+              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
+            </div>
+            <div class="actions">
+              ${mode === "watch" ? `<button class="small ok move-watch-seen" data-key="${uniqueKey(item)}">Segna visto</button>` : ""}
+              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
+              <button class="small danger ${mode === "watch" ? "remove-watch" : "remove-seen"}" data-key="${uniqueKey(item)}">Elimina</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLibraryGroup(title, items, mode) {
+      if (!items.length) return "";
+      return `
+        <div class="libraryGroup">
+          <div class="libraryGroupTitle">${title}</div>
+          <div class="list">
+            ${items.map(item => renderLibraryItem(item, mode)).join("")}
+          </div>
+        </div>
+      `;
+    }
+
     function renderLibraryList() {
       const items = currentLibraryMode === "watch" ? db.watchlist : db.seen;
 
@@ -1217,25 +1267,18 @@
         return;
       }
 
-      libraryList.innerHTML = items.map(item => `
-        <div class="listItem">
-          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-          <div>
-            <div class="liTitle">${escapeHtml(item.title)}</div>
-            <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
-            <div class="chips">
-              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
-              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
-              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
-            </div>
-            <div class="actions">
-              ${currentLibraryMode === "watch" ? `<button class="small ok move-watch-seen" data-key="${uniqueKey(item)}">Segna visto</button>` : ""}
-              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
-              <button class="small danger ${currentLibraryMode === "watch" ? "remove-watch" : "remove-seen"}" data-key="${uniqueKey(item)}">Elimina</button>
-            </div>
-          </div>
-        </div>
-      `).join("");
+      if (currentLibraryMode === "seen") {
+        const films = items.filter(item => item.media_type === "movie");
+        const series = items.filter(item => item.media_type === "tv");
+
+        libraryList.innerHTML = `
+          ${renderLibraryGroup("🎬 Film", films, "seen")}
+          ${renderLibraryGroup("📺 Serie / Anime", series, "seen")}
+        `;
+        return;
+      }
+
+      libraryList.innerHTML = items.map(item => renderLibraryItem(item, "watch")).join("");
     }
 
     function renderHomeShelves() {
