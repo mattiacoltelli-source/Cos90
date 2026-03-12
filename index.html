@@ -825,7 +825,6 @@
     const API_KEY = "f8d5e378edf5128176f0d89f49310151";
     const BASE_URL = "https://api.themoviedb.org/3";
     const IMG = "https://image.tmdb.org/t/p/w500";
-    const DISCOVER_HISTORY_KEY = "cineTrackerDiscoverHistory";
 
     const GENRE_MAP = {
       28:"Azione",
@@ -959,25 +958,6 @@
 
     function saveDB() {
       localStorage.setItem("cineTrackerDB", JSON.stringify(db));
-    }
-
-    function getDiscoverHistory() {
-      try {
-        const parsed = JSON.parse(localStorage.getItem(DISCOVER_HISTORY_KEY) || "[]");
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-
-    function saveDiscoverHistory(list) {
-      localStorage.setItem(DISCOVER_HISTORY_KEY, JSON.stringify(list.slice(0, 30)));
-    }
-
-    function pushDiscoverHistory(key) {
-      const history = getDiscoverHistory().filter(x => x !== key);
-      history.unshift(key);
-      saveDiscoverHistory(history);
     }
 
     function normalizeGenres(item) {
@@ -1416,7 +1396,7 @@
 
       const prefType = movieCount >= seriesCount ? "movie" : "tv";
 
-      return { topGenres, topDecade, prefType, movieCount, seriesCount };
+      return { topGenres, topDecade, prefType };
     }
 
     function tasteScore(item, profile) {
@@ -1535,56 +1515,9 @@
       `;
     }
 
-    function buildDiscoverUrls(profile, forcedType) {
-      const type = forcedType || (typeSelect.value === "tv" ? "tv" : typeSelect.value === "movie" ? "movie" : profile.prefType);
-      const moodBoosts = getMoodGenreBoosts();
-      const mergedGenres = [...new Set([...profile.topGenres, ...moodBoosts])];
-
-      const topGenreIds = mergedGenres
-        .map(g => GENRE_NAME_TO_ID[g])
-        .filter(Boolean)
-        .slice(0, 3);
-
-      const oneGenreId = topGenreIds[0] || "";
-      const twoGenres = topGenreIds.slice(0, 2).join(",");
-      const randomPageA = Math.floor(Math.random() * 5) + 1;
-      const randomPageB = Math.floor(Math.random() * 5) + 1;
-      const randomPageC = Math.floor(Math.random() * 5) + 1;
-
-      let dateRangeA = "";
-      let dateRangeB = "";
-      if (profile.topDecade) {
-        const decadeYear = parseInt(profile.topDecade, 10);
-        if (!isNaN(decadeYear)) {
-          if (type === "movie") {
-            dateRangeA = `&primary_release_date.gte=${decadeYear}-01-01&primary_release_date.lte=${decadeYear + 9}-12-31`;
-            dateRangeB = `&primary_release_date.gte=${Math.max(1970, decadeYear - 10)}-01-01&primary_release_date.lte=${decadeYear + 14}-12-31`;
-          } else {
-            dateRangeA = `&first_air_date.gte=${decadeYear}-01-01&first_air_date.lte=${decadeYear + 9}-12-31`;
-            dateRangeB = `&first_air_date.gte=${Math.max(1970, decadeYear - 10)}-01-01&first_air_date.lte=${decadeYear + 14}-12-31`;
-          }
-        }
-      }
-
-      const runtimeFilter = type === "movie"
-        ? timeSelect.value === "short"
-          ? "&with_runtime.lte=110"
-          : timeSelect.value === "medium"
-            ? "&with_runtime.gte=95&with_runtime.lte=155"
-            : "&with_runtime.gte=140"
-        : "";
-
-      const popularitySort = "&sort_by=popularity.desc";
-      const ratingSort = "&sort_by=vote_average.desc";
-      const minVotes = type === "movie" ? "&vote_count.gte=180" : "&vote_count.gte=80";
-
-      const urls = [
-        `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${oneGenreId ? `&with_genres=${oneGenreId}` : ""}${dateRangeA}${runtimeFilter}${popularitySort}${minVotes}&page=${randomPageA}`,
-        `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${twoGenres ? `&with_genres=${twoGenres}` : ""}${dateRangeB}${runtimeFilter}${ratingSort}${minVotes}&page=${randomPageB}`,
-        `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${oneGenreId ? `&with_genres=${oneGenreId}` : ""}${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=${randomPageC}`
-      ];
-
-      return { urls, type, mergedGenres };
+    function rawNumberToFixed(value, digits = 1, fallback = "n.d.") {
+      const num = Number(value);
+      return Number.isFinite(num) && num > 0 ? num.toFixed(digits) : fallback;
     }
 
     function scoreDiscoverCandidate(item, profile, mergedGenres, forcedType) {
@@ -1611,6 +1544,110 @@
       return score;
     }
 
+    function buildDateRange(startYear, endYear, type) {
+      if (!startYear || !endYear) return "";
+      if (type === "movie") {
+        return `&primary_release_date.gte=${startYear}-01-01&primary_release_date.lte=${endYear}-12-31`;
+      }
+      return `&first_air_date.gte=${startYear}-01-01&first_air_date.lte=${endYear}-12-31`;
+    }
+
+    function buildFallbackQueries(profile, forcedType) {
+      const type = forcedType || (typeSelect.value === "tv" ? "tv" : typeSelect.value === "movie" ? "movie" : profile.prefType);
+      const moodBoosts = getMoodGenreBoosts();
+      const mergedGenres = [...new Set([...profile.topGenres, ...moodBoosts])];
+      const genreIds = mergedGenres.map(g => GENRE_NAME_TO_ID[g]).filter(Boolean);
+      const primaryGenre = genreIds[0] || "";
+      const secondaryGenre = genreIds[1] || "";
+      const comboGenres = genreIds.slice(0, 2).join(",");
+
+      let preciseDate = "";
+      let widerDate = "";
+      if (profile.topDecade) {
+        const decadeYear = parseInt(profile.topDecade, 10);
+        if (!isNaN(decadeYear)) {
+          preciseDate = buildDateRange(decadeYear, decadeYear + 9, type);
+          widerDate = buildDateRange(Math.max(1970, decadeYear - 10), decadeYear + 14, type);
+        }
+      }
+
+      const runtimeFilter = type === "movie"
+        ? timeSelect.value === "short"
+          ? "&with_runtime.lte=110"
+          : timeSelect.value === "medium"
+            ? "&with_runtime.gte=95&with_runtime.lte=155"
+            : "&with_runtime.gte=140"
+        : "";
+
+      const minVotes = type === "movie" ? "&vote_count.gte=120" : "&vote_count.gte=40";
+
+      return {
+        type,
+        mergedGenres,
+        levels: [
+          {
+            label: "ricerca precisa",
+            urls: [
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${preciseDate}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${preciseDate}${runtimeFilter}&sort_by=vote_average.desc${minVotes}&page=1`
+            ]
+          },
+          {
+            label: "ricerca più ampia",
+            urls: [
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${widerDate}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${secondaryGenre ? `&with_genres=${secondaryGenre}` : ""}${widerDate}${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=1`
+            ]
+          },
+          {
+            label: "solo genere",
+            urls: [
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${runtimeFilter}&sort_by=vote_average.desc${minVotes}&page=1`
+            ]
+          },
+          {
+            label: "fallback finale",
+            urls: [
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=popularity.desc${minVotes}&page=1`,
+              `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${runtimeFilter}&sort_by=vote_count.desc${minVotes}&page=1`
+            ]
+          }
+        ]
+      };
+    }
+
+    async function fetchDiscoverLevel(urls, type, seenKeys, watchKeys) {
+      const candidatesMap = new Map();
+
+      const responses = await Promise.all(
+        urls.map(async url => {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return data.results || [];
+          } catch {
+            return [];
+          }
+        })
+      );
+
+      responses.flat().forEach(raw => {
+        const item = normalizedItem({ ...raw, media_type: type });
+        const key = uniqueKey(item);
+
+        if (seenKeys.has(key)) return;
+        if (watchKeys.has(key)) return;
+        if (!item.poster_path) return;
+        if (!item.title || item.title === "Titolo sconosciuto") return;
+
+        candidatesMap.set(key, item);
+      });
+
+      return [...candidatesMap.values()];
+    }
+
     async function discoverByTaste() {
       if (db.seen.length < 3) {
         tonightSuggestion.innerHTML = "<span class='muted'>Aggiungi almeno 3 titoli visti per ricevere consigli personalizzati.</span>";
@@ -1621,58 +1658,41 @@
 
       const profile = getUserTasteProfile();
       const forcedType = typeSelect.value === "all" ? null : typeSelect.value;
-      const { urls, type, mergedGenres } = buildDiscoverUrls(profile, forcedType);
+      const { type, mergedGenres, levels } = buildFallbackQueries(profile, forcedType);
 
       const seenKeys = new Set(db.seen.map(x => uniqueKey(x)));
       const watchKeys = new Set(db.watchlist.map(x => uniqueKey(x)));
-      const recentHistory = getDiscoverHistory();
-      const candidatesMap = new Map();
 
       try {
-        const responses = await Promise.all(urls.map(async url => {
-          const res = await fetch(url);
-          if (!res.ok) return [];
-          const data = await res.json();
-          return data.results || [];
-        }));
+        let candidates = [];
+        let usedLevelLabel = "";
 
-        responses.flat().forEach(raw => {
-          const item = normalizedItem({ ...raw, media_type: type });
-          const key = uniqueKey(item);
-
-          if (seenKeys.has(key)) return;
-          if (watchKeys.has(key)) return;
-          if (!item.poster_path) return;
-          if (!item.title || item.title === "Titolo sconosciuto") return;
-
-          if (!candidatesMap.has(key)) {
-            candidatesMap.set(key, item);
+        for (const level of levels) {
+          const found = await fetchDiscoverLevel(level.urls, type, seenKeys, watchKeys);
+          if (found.length > 0) {
+            candidates = found;
+            usedLevelLabel = level.label;
+            break;
           }
-        });
+        }
 
-        let candidates = [...candidatesMap.values()];
         if (!candidates.length) {
-          tonightSuggestion.innerHTML = "<span class='muted'>Nessun risultato trovato. Prova a cambiare i filtri.</span>";
+          tonightSuggestion.innerHTML = "<span class='muted'>Nessun risultato trovato. Riprova più tardi.</span>";
           return;
         }
 
-        const freshCandidates = candidates.filter(item => !recentHistory.includes(uniqueKey(item)));
-        if (freshCandidates.length >= 5) {
-          candidates = freshCandidates;
-        }
+        const scored = candidates
+          .map(item => ({
+            item,
+            score: scoreDiscoverCandidate(item, profile, mergedGenres, forcedType)
+          }))
+          .sort((a,b) => b.score - a.score);
 
-        const scored = candidates.map(item => ({
-          item,
-          score: scoreDiscoverCandidate(item, profile, mergedGenres, forcedType)
-        })).sort((a,b) => b.score - a.score);
-
-        const pickPool = scored.slice(0, Math.min(12, scored.length));
+        const pickPool = scored.slice(0, Math.min(10, scored.length));
         const chosen = pickPool[Math.floor(Math.random() * pickPool.length)].item;
-        pushDiscoverHistory(uniqueKey(chosen));
 
         const itemGenres = chosen.genre_names || [];
         const matchGenres = itemGenres.filter(g => profile.topGenres.includes(g));
-        const mainWhy = matchGenres[0] || profile.topGenres[0] || "i tuoi gusti";
         const year = chosen.year;
         const rating = rawNumberToFixed(chosen.vote_average || 0, 1, "n.d.");
         const poster = chosen.poster_path
@@ -1685,23 +1705,23 @@
         if (moodSelect.value === "dark") whyBits.push("si sposa bene con un mood più teso");
         if (moodSelect.value === "epic") whyBits.push("ha un taglio più epico/visivo");
         if (moodSelect.value === "light") whyBits.push("è più adatto a una serata leggera");
-        if (!whyBits.length) whyBits.push(`ha un buon match con ${mainWhy}`);
+
+        const fallbackNote = usedLevelLabel !== "ricerca precisa"
+          ? ` Ho allargato la ricerca per trovarti comunque qualcosa.`
+          : "";
+
+        if (!whyBits.length) whyBits.push("ha un buon match con i tuoi gusti");
 
         tonightSuggestion.innerHTML = `
           ${poster}
           <strong>✨ ${escapeHtml(chosen.title)}</strong><br>
           <span class="muted">${year} · ${chosen.media_type === "movie" ? "Film" : "Serie / Anime"} · ⭐ ${rating}/10</span><br><br>
-          <span style="font-size:13px;">🎯 Scelto perché ${whyBits.join(", ")}. Non è nella tua libreria.</span>
+          <span style="font-size:13px;">🎯 Scelto perché ${whyBits.join(", ")}. Non è nella tua libreria.${fallbackNote}</span>
           <div style="clear:both"></div>
         `;
       } catch (err) {
         tonightSuggestion.innerHTML = "<span class='muted'>Errore nella ricerca. Controlla la connessione.</span>";
       }
-    }
-
-    function rawNumberToFixed(value, digits = 1, fallback = "n.d.") {
-      const num = Number(value);
-      return Number.isFinite(num) && num > 0 ? num.toFixed(digits) : fallback;
     }
 
     function switchScreen(name) {
