@@ -185,7 +185,6 @@
       position:absolute;
       top:10px;
       left:10px;
-      background:rgba(0,0,0,.7);
       backdrop-filter:blur(6px);
       color:#fff;
       padding:6px 8px;
@@ -193,6 +192,18 @@
       font-size:12px;
       font-weight:800;
       border:1px solid rgba(255,255,255,.12);
+    }
+
+    .badge-film{
+      background:rgba(245,196,81,.22);
+      color:#f5d77b;
+      border-color:rgba(245,196,81,.35);
+    }
+
+    .badge-series{
+      background:rgba(77,163,255,.18);
+      color:#9ec9ff;
+      border-color:rgba(77,163,255,.35);
     }
 
     .posterInfo{
@@ -606,14 +617,30 @@
       color:#e6edf5;
     }
 
-    .shelf{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+    .shelfScroller{
+      display:flex;
       gap:12px;
+      overflow-x:auto;
+      padding-bottom:6px;
+      scroll-snap-type:x proximity;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    .shelfScroller::-webkit-scrollbar{
+      height:8px;
+    }
+
+    .shelfScroller::-webkit-scrollbar-thumb{
+      background:#253247;
+      border-radius:999px;
     }
 
     .shelfCard{
+      min-width:140px;
+      width:140px;
+      flex:0 0 140px;
       cursor:pointer;
+      scroll-snap-align:start;
     }
 
     .shelfPoster{
@@ -623,10 +650,15 @@
       background:#0d1420 center/cover no-repeat;
       border:1px solid rgba(255,255,255,.06);
       box-shadow:var(--shadow);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .shelfInfo{
+      margin-top:8px;
     }
 
     .shelfTitle{
-      margin-top:8px;
       font-size:13px;
       font-weight:800;
       line-height:1.2;
@@ -647,29 +679,35 @@
       overflow:hidden;
     }
 
-    .libraryGroup{
-      margin-bottom:18px;
+    .libraryFilters{
+      display:flex;
+      gap:8px;
+      overflow:auto;
+      padding-bottom:4px;
+      margin-bottom:12px;
     }
 
-    .libraryGroup:last-child{
-      margin-bottom:0;
+    .filterPill{
+      white-space:nowrap;
+      padding:9px 12px;
+      border-radius:999px;
+      background:#121a27;
+      color:var(--muted);
+      border:1px solid var(--line);
+      cursor:pointer;
+      font-weight:700;
+      font-size:13px;
     }
 
-    .libraryGroupTitle{
-      font-size:15px;
-      font-weight:900;
-      margin:0 0 10px;
-      color:#f3f5f7;
-      padding:0 2px;
+    .filterPill.active{
+      background:#1d2a3d;
+      color:#fff;
+      border-color:#39527a;
     }
 
     @media (max-width:560px){
       .tasteGrid{
         grid-template-columns:1fr;
-      }
-
-      .shelf{
-        grid-template-columns:repeat(3,minmax(0,1fr));
       }
     }
 
@@ -679,7 +717,11 @@
       .detailTop{grid-template-columns:82px 1fr;}
       .detailPoster{width:82px;height:123px;}
       .detailTitle{font-size:21px;}
-      .shelf{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .shelfCard{
+        min-width:128px;
+        width:128px;
+        flex:0 0 128px;
+      }
     }
   </style>
 </head>
@@ -720,17 +762,26 @@
           <h2>Watchlist</h2>
           <div id="openWatchAll" class="seeAllBtn">Vedi tutto →</div>
         </div>
-        <div id="watchShelf" class="shelf"></div>
+        <div id="watchShelf" class="shelfScroller"></div>
         <div id="watchShelfEmpty" class="empty">La tua watchlist è vuota.</div>
       </div>
 
       <div class="section">
         <div class="shelfHeader">
-          <h2>Ultimi visti</h2>
-          <div id="openSeenAll" class="seeAllBtn">Vedi tutto →</div>
+          <h2>🎬 Ultimi film visti</h2>
+          <div id="openSeenMovies" class="seeAllBtn">Vedi tutto →</div>
         </div>
-        <div id="seenShelf" class="shelf"></div>
-        <div id="seenShelfEmpty" class="empty">Non hai ancora salvato nulla tra i visti.</div>
+        <div id="seenMovieShelf" class="shelfScroller"></div>
+        <div id="seenMovieShelfEmpty" class="empty">Non hai ancora film salvati tra i visti.</div>
+      </div>
+
+      <div class="section">
+        <div class="shelfHeader">
+          <h2>📺 Ultime serie TV viste</h2>
+          <div id="openSeenSeries" class="seeAllBtn">Vedi tutto →</div>
+        </div>
+        <div id="seenSeriesShelf" class="shelfScroller"></div>
+        <div id="seenSeriesShelfEmpty" class="empty">Non hai ancora serie TV salvate tra i visti.</div>
       </div>
     </section>
 
@@ -741,6 +792,13 @@
         <div class="listHeader">
           <h2 id="libraryTitle">Libreria</h2>
         </div>
+
+        <div id="libraryFilters" class="libraryFilters">
+          <div class="filterPill active" data-filter="all">Tutti</div>
+          <div class="filterPill" data-filter="movie">Film</div>
+          <div class="filterPill" data-filter="series">Serie TV</div>
+        </div>
+
         <div id="libraryList" class="list"></div>
         <div id="libraryEmpty" class="empty">Nessun titolo disponibile.</div>
       </div>
@@ -901,6 +959,7 @@
     const API_KEY = "f8d5e378edf5128176f0d89f49310151";
     const BASE_URL = "https://api.themoviedb.org/3";
     const IMG = "https://image.tmdb.org/t/p/w500";
+    const TONIGHT_AUTO_COOLDOWN_MS = 20000;
 
     const GENRE_MAP = {
       28:"Azione",
@@ -965,16 +1024,22 @@
     const tabs = [...document.querySelectorAll(".tab")];
 
     const watchShelf = document.getElementById("watchShelf");
-    const seenShelf = document.getElementById("seenShelf");
+    const seenMovieShelf = document.getElementById("seenMovieShelf");
+    const seenSeriesShelf = document.getElementById("seenSeriesShelf");
+
     const watchShelfEmpty = document.getElementById("watchShelfEmpty");
-    const seenShelfEmpty = document.getElementById("seenShelfEmpty");
+    const seenMovieShelfEmpty = document.getElementById("seenMovieShelfEmpty");
+    const seenSeriesShelfEmpty = document.getElementById("seenSeriesShelfEmpty");
+
     const openWatchAll = document.getElementById("openWatchAll");
-    const openSeenAll = document.getElementById("openSeenAll");
+    const openSeenMovies = document.getElementById("openSeenMovies");
+    const openSeenSeries = document.getElementById("openSeenSeries");
 
     const libraryBackBtn = document.getElementById("libraryBackBtn");
     const libraryTitle = document.getElementById("libraryTitle");
     const libraryList = document.getElementById("libraryList");
     const libraryEmpty = document.getElementById("libraryEmpty");
+    const libraryFilters = [...document.querySelectorAll(".filterPill")];
 
     const statSeen = document.getElementById("statSeen");
     const statWatch = document.getElementById("statWatch");
@@ -1024,6 +1089,9 @@
     let currentDetail = null;
     let previousScreen = "home";
     let currentLibraryMode = "watch";
+    let currentLibraryFilter = "all";
+    let lastAutoRecommendAt = 0;
+    let tonightAutoRequestCounter = 0;
 
     let db = JSON.parse(localStorage.getItem("cineTrackerDB") || `{
       "seen": [],
@@ -1109,6 +1177,21 @@
       if (!year || year === "—" || isNaN(Number(year))) return "Sconosciuta";
       const y = Number(year);
       return `${Math.floor(y / 10) * 10}s`;
+    }
+
+    function mediaLabel(item) {
+      return item.media_type === "movie" ? "Film" : "Serie TV";
+    }
+
+    function mediaBadgeClass(item) {
+      return item.media_type === "movie" ? "badge-film" : "badge-series";
+    }
+
+    function filterByLibraryCategory(items, filter) {
+      if (filter === "all") return items;
+      if (filter === "movie") return items.filter(x => x.media_type === "movie");
+      if (filter === "series") return items.filter(x => x.media_type === "tv");
+      return items;
     }
 
     function buildBars(container, entries) {
@@ -1203,7 +1286,7 @@
         <div class="insightItem"><strong>Genere dominante:</strong> ${escapeHtml(dominantGenre)}</div>
         <div class="insightItem"><strong>Voto medio:</strong> ${escapeHtml(avgVote)}</div>
         <div class="insightItem"><strong>Formato prevalente:</strong> ${
-          moreMovies ? "più film che serie" : moreSeries ? "più serie/anime che film" : "equilibrato tra film e serie"
+          moreMovies ? "più film che serie" : moreSeries ? "più serie che film" : "equilibrato tra film e serie"
         }</div>
         <div class="insightItem"><strong>Decade più presente:</strong> ${escapeHtml(dominantDecade)}</div>
       `;
@@ -1212,87 +1295,77 @@
     function renderShelf(container, items) {
       container.innerHTML = items.map(item => `
         <div class="shelfCard open-stored-detail" data-key="${uniqueKey(item)}">
-          <div class="shelfPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-          <div class="shelfTitle">${escapeHtml(item.title)}</div>
-          <div class="shelfMeta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
+          <div class="shelfPoster" style="background-image:url('${posterUrl(item.poster_path)}')">
+            <div class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</div>
+          </div>
+          <div class="shelfInfo">
+            <div class="shelfTitle">${escapeHtml(item.title)}</div>
+            <div class="shelfMeta">${item.year} · ${mediaLabel(item)}</div>
+          </div>
         </div>
       `).join("");
     }
 
-    function renderLibraryItem(item, mode) {
-      return `
-        <div class="listItem">
-          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-          <div>
-            <div class="liTitle">${escapeHtml(item.title)}</div>
-            <div class="meta">${item.year} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
-            <div class="chips">
-              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
-              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
-              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
-            </div>
-            <div class="actions">
-              ${mode === "watch" ? `<button class="small ok move-watch-seen" data-key="${uniqueKey(item)}">Segna visto</button>` : ""}
-              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
-              <button class="small danger ${mode === "watch" ? "remove-watch" : "remove-seen"}" data-key="${uniqueKey(item)}">Elimina</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderLibraryGroup(title, items, mode) {
-      if (!items.length) return "";
-      return `
-        <div class="libraryGroup">
-          <div class="libraryGroupTitle">${title}</div>
-          <div class="list">
-            ${items.map(item => renderLibraryItem(item, mode)).join("")}
-          </div>
-        </div>
-      `;
-    }
-
     function renderLibraryList() {
-      const items = currentLibraryMode === "watch" ? db.watchlist : db.seen;
+      const rawItems = currentLibraryMode === "watch" ? db.watchlist : db.seen;
+      const items = filterByLibraryCategory(rawItems, currentLibraryFilter);
 
-      libraryTitle.textContent = currentLibraryMode === "watch" ? "Watchlist" : "Ultimi visti";
+      if (currentLibraryMode === "watch") {
+        libraryTitle.textContent = "Watchlist";
+      } else {
+        if (currentLibraryFilter === "movie") libraryTitle.textContent = "Film visti";
+        else if (currentLibraryFilter === "series") libraryTitle.textContent = "Serie TV viste";
+        else libraryTitle.textContent = "Archivio visti";
+      }
+
       libraryEmpty.classList.toggle("hidden", items.length > 0);
 
       if (!items.length) {
         libraryList.innerHTML = "";
         libraryEmpty.textContent = currentLibraryMode === "watch"
           ? "La tua watchlist è vuota."
-          : "Non hai ancora salvato nulla tra i visti.";
+          : "Nessun titolo disponibile per questo filtro.";
         return;
       }
 
-      if (currentLibraryMode === "seen") {
-        const films = items.filter(item => item.media_type === "movie");
-        const series = items.filter(item => item.media_type === "tv");
-
-        libraryList.innerHTML = `
-          ${renderLibraryGroup("🎬 Film", films, "seen")}
-          ${renderLibraryGroup("📺 Serie / Anime", series, "seen")}
-        `;
-        return;
-      }
-
-      libraryList.innerHTML = items.map(item => renderLibraryItem(item, "watch")).join("");
+      libraryList.innerHTML = items.map(item => `
+        <div class="listItem">
+          <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+          <div>
+            <div class="liTitle">${escapeHtml(item.title)}</div>
+            <div class="meta">${item.year} · ${mediaLabel(item)}</div>
+            <div class="chips">
+              <div class="chip">${mediaLabel(item)}</div>
+              ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
+              ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
+              ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 40)}${item.comment.length > 40 ? "..." : ""}</div>` : ""}
+            </div>
+            <div class="actions">
+              ${currentLibraryMode === "watch" ? `<button class="small ok move-watch-seen" data-key="${uniqueKey(item)}">Segna visto</button>` : ""}
+              <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
+              <button class="small danger ${currentLibraryMode === "watch" ? "remove-watch" : "remove-seen"}" data-key="${uniqueKey(item)}">Elimina</button>
+            </div>
+          </div>
+        </div>
+      `).join("");
     }
 
     function renderHomeShelves() {
-      const watchPreview = db.watchlist.slice(0, 4);
-      const seenPreview = db.seen.slice(0, 4);
+      const watchPreview = db.watchlist.slice(0, 8);
+      const seenMovies = db.seen.filter(x => x.media_type === "movie").slice(0, 8);
+      const seenSeries = db.seen.filter(x => x.media_type === "tv").slice(0, 8);
 
       watchShelfEmpty.classList.toggle("hidden", watchPreview.length > 0);
-      seenShelfEmpty.classList.toggle("hidden", seenPreview.length > 0);
+      seenMovieShelfEmpty.classList.toggle("hidden", seenMovies.length > 0);
+      seenSeriesShelfEmpty.classList.toggle("hidden", seenSeries.length > 0);
 
       openWatchAll.classList.toggle("hidden", db.watchlist.length === 0);
-      openSeenAll.classList.toggle("hidden", db.seen.length === 0);
+      openSeenMovies.classList.toggle("hidden", db.seen.filter(x => x.media_type === "movie").length === 0);
+      openSeenSeries.classList.toggle("hidden", db.seen.filter(x => x.media_type === "tv").length === 0);
 
       renderShelf(watchShelf, watchPreview);
-      renderShelf(seenShelf, seenPreview);
+      renderShelf(seenMovieShelf, seenMovies);
+      renderShelf(seenSeriesShelf, seenSeries);
     }
 
     async function searchTitles() {
@@ -1344,11 +1417,11 @@
           return `
             <div class="posterCard">
               <div class="poster" style="background-image:url('${posterUrl(n.poster_path)}')">
-                <div class="badge">${n.media_type === "movie" ? "Film" : "Serie"}</div>
+                <div class="badge ${mediaBadgeClass(n)}">${mediaLabel(n)}</div>
               </div>
               <div class="posterInfo">
                 <div class="posterTitle">${escapeHtml(n.title)}</div>
-                <div class="meta">${n.year} · ${n.media_type === "movie" ? "Film" : "Serie / Anime"}</div>
+                <div class="meta">${n.year} · ${mediaLabel(n)}</div>
                 <div class="actions">
                   <button class="small ok action-seen" data-id="${n.id}" data-type="${n.media_type}">
                     ${seen ? "Già visto" : "Visto"}
@@ -1523,34 +1596,24 @@
     }
 
     function suggestClassic() {
-      let pool = db.seen.filter(x => {
+      const pool = db.seen.filter(x => {
         const v = parseFloat(x.vote);
         return !isNaN(v) && v >= 7;
       });
 
-      const selectedGenre = getSelectedGenre();
-      if (selectedGenre !== "all") {
-        const filtered = pool.filter(x => (x.genre_names || []).includes(selectedGenre));
-        if (filtered.length) pool = filtered;
-      }
-
       if (!pool.length) {
-        tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo con voto 7 o più compatibile con il genere scelto. Inizia a votare i tuoi preferiti!</span>";
+        tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo con voto 7 o più disponibile. Inizia a votare i tuoi preferiti!</span>";
         return;
       }
 
       const pick = pool[Math.floor(Math.random() * pool.length)];
       const voto = parseFloat(pick.vote).toFixed(1);
-      const tipo = pick.media_type === "movie" ? "Film" : "Serie / Anime";
+      const tipo = mediaLabel(pick);
 
       let commento = "";
       if (voto >= 9) commento = "Uno dei tuoi assoluti — un ottimo motivo per rivederlo.";
       else if (voto >= 8) commento = "L'hai amato. Ogni tanto certi titoli vanno rivisti.";
       else commento = "Un bel titolo che hai apprezzato — vale una seconda visione.";
-
-      if (selectedGenre !== "all") {
-        commento += ` In più rientra nel genere ${selectedGenre}.`;
-      }
 
       tonightSuggestion.innerHTML = `
         <strong>⭐ ${escapeHtml(pick.title)}</strong><br>
@@ -1572,19 +1635,22 @@
       return `&first_air_date.gte=${startYear}-01-01&first_air_date.lte=${endYear}-12-31`;
     }
 
-    function buildFallbackQueries(profile, forcedType) {
+    function buildFallbackQueries(profile, forcedType, options = {}) {
+      const useSelectedGenre = options.useSelectedGenre === true;
       const selectedGenre = getSelectedGenre();
-      const selectedGenreId = selectedGenre !== "all" ? GENRE_NAME_TO_ID[selectedGenre] : null;
+      const selectedGenreId = (useSelectedGenre && selectedGenre !== "all") ? GENRE_NAME_TO_ID[selectedGenre] : null;
 
       const type = forcedType || profile.prefType;
-      const selectedBoosts = getGenreBoostsFromSelection();
-      const mergedGenres = [...new Set(selectedGenre !== "all" ? [selectedGenre, ...selectedBoosts] : profile.topGenres)];
+      const selectedBoosts = useSelectedGenre ? getGenreBoostsFromSelection() : [];
+      const mergedGenres = [...new Set(
+        selectedGenreId ? [selectedGenre, ...profile.topGenres] : profile.topGenres
+      )];
       const genreIds = mergedGenres.map(g => GENRE_NAME_TO_ID[g]).filter(Boolean);
 
       const primaryGenre = selectedGenreId || genreIds[0] || "";
       const secondaryGenre = genreIds[1] || "";
       const comboGenres = selectedGenreId
-        ? [selectedGenreId, genreIds[1]].filter(Boolean).slice(0, 2).join(",")
+        ? [selectedGenreId, genreIds[0]].filter(Boolean).slice(0, 2).join(",")
         : genreIds.slice(0, 2).join(",");
 
       let preciseDate = "";
@@ -1601,7 +1667,7 @@
 
       return {
         type,
-        mergedGenres,
+        selectedBoosts,
         levels: [
           {
             label: "ricerca precisa",
@@ -1668,7 +1734,6 @@
 
     function calculateAffinity(item, profile) {
       const itemGenres = item.genre_names || [];
-      const selectedBoosts = getGenreBoostsFromSelection();
 
       let genreBase = 0;
       let matchedGenres = 0;
@@ -1683,11 +1748,6 @@
         }
       });
 
-      if (!matchedGenres && itemGenres.some(g => selectedBoosts.includes(g))) {
-        genreBase = 7.4;
-        matchedGenres = 1;
-      }
-
       if (!matchedGenres) {
         genreBase = Math.max(6.4, profile.avgVote);
         matchedGenres = 1;
@@ -1697,7 +1757,6 @@
 
       if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score10 += 0.35;
       if (item.media_type === profile.prefType) score10 += 0.25;
-      if (selectedBoosts.length && itemGenres.some(g => selectedBoosts.includes(g))) score10 += 0.55;
 
       const tmdb = Number(item.vote_average) || 0;
       if (tmdb > 0) score10 += Math.min(0.45, (tmdb - 6) * 0.10);
@@ -1706,10 +1765,10 @@
       return Math.round(score10 * 10);
     }
 
-    function scoreRecommendationCandidate(item, profile) {
+    function scoreRecommendationCandidate(item, profile, options = {}) {
       let score = 0;
       const itemGenres = item.genre_names || [];
-      const selectedBoosts = getGenreBoostsFromSelection();
+      const selectedBoosts = options.selectedBoosts || [];
 
       itemGenres.forEach(g => {
         if (profile.topGenres.includes(g)) score += 4;
@@ -1732,9 +1791,7 @@
       const bits = [];
       const genres = item.genre_names || [];
       const matchGenres = genres.filter(g => profile.topGenres.includes(g));
-      const selectedGenre = getSelectedGenre();
 
-      if (selectedGenre !== "all" && genres.includes(selectedGenre)) bits.push(`nel genere ${selectedGenre}`);
       if (matchGenres.length) bits.push(`match con ${matchGenres.slice(0, 2).join(" + ")}`);
       if (profile.topDecade && decadeOf(item.year) === profile.topDecade) bits.push(`decade che guardi spesso`);
       if (affinity >= 88) bits.push(`compatibilità molto alta`);
@@ -1743,7 +1800,10 @@
       return bits.slice(0, 3);
     }
 
-    async function recommendTonightFive() {
+    async function recommendTonightFive(options = {}) {
+      const isAuto = options.auto === true;
+      const requestId = ++tonightAutoRequestCounter;
+
       if (db.seen.length < 3) {
         tonightSuggestion.innerHTML = "<span class='muted'>Aggiungi almeno 3 titoli visti per ricevere 5 consigli personalizzati.</span>";
         return;
@@ -1752,7 +1812,7 @@
       tonightSuggestion.innerHTML = "<span class='muted'>🔍 Sto cercando 5 titoli adatti ai tuoi gusti...</span>";
 
       const profile = getUserTasteProfile();
-      const { type, levels } = buildFallbackQueries(profile, null);
+      const { type, levels } = buildFallbackQueries(profile, null, { useSelectedGenre: false });
 
       const excludedKeys = new Set([
         ...db.seen.map(x => uniqueKey(x)),
@@ -1776,6 +1836,8 @@
             break;
           }
         }
+
+        if (requestId !== tonightAutoRequestCounter) return;
 
         if (!candidates.length) {
           tonightSuggestion.innerHTML = "<span class='muted'>Non ho trovato consigli adatti. Riprova più tardi.</span>";
@@ -1819,7 +1881,7 @@
                       <div class="affinity">${entry.affinity}%</div>
                     </div>
                     <div class="tonightSub">
-                      ${escapeHtml(item.year)} · ${item.media_type === "movie" ? "Film" : "Serie / Anime"} · ⭐ ${rawNumberToFixed(item.vote_average, 1)}
+                      ${escapeHtml(item.year)} · ${mediaLabel(item)} · ⭐ ${rawNumberToFixed(item.vote_average, 1)}
                     </div>
                     <div class="tonightReason">
                       ${reasons.length ? `🎯 ${escapeHtml(reasons.join(" · "))}` : "🎯 Consigliato in base ai tuoi gusti"}
@@ -1830,9 +1892,21 @@
             }).join("")}
           </div>
         `;
+
+        if (isAuto) {
+          lastAutoRecommendAt = Date.now();
+        }
       } catch (err) {
+        if (requestId !== tonightAutoRequestCounter) return;
         tonightSuggestion.innerHTML = "<span class='muted'>Errore nella ricerca. Controlla la connessione.</span>";
       }
+    }
+
+    async function maybeAutoRecommendTonight() {
+      const now = Date.now();
+      const elapsed = now - lastAutoRecommendAt;
+      if (elapsed < TONIGHT_AUTO_COOLDOWN_MS) return;
+      await recommendTonightFive({ auto: true });
     }
 
     async function discoverByTaste() {
@@ -1844,7 +1918,8 @@
       tonightSuggestion.innerHTML = "<span class='muted'>🔍 Sto cercando qualcosa di nuovo per te...</span>";
 
       const profile = getUserTasteProfile();
-      const { type, levels } = buildFallbackQueries(profile, null);
+      const queryConfig = buildFallbackQueries(profile, null, { useSelectedGenre: true });
+      const { type, levels, selectedBoosts } = queryConfig;
 
       const excludedKeys = new Set([
         ...db.seen.map(x => uniqueKey(x)),
@@ -1872,7 +1947,7 @@
         const scored = candidates
           .map(item => ({
             item,
-            score: scoreRecommendationCandidate(item, profile) + Math.random() * 1.2
+            score: scoreRecommendationCandidate(item, profile, { selectedBoosts }) + Math.random() * 1.2
           }))
           .sort((a,b) => b.score - a.score);
 
@@ -1902,7 +1977,7 @@
         tonightSuggestion.innerHTML = `
           ${poster}
           <strong>✨ ${escapeHtml(chosen.title)}</strong><br>
-          <span class="muted">${year} · ${chosen.media_type === "movie" ? "Film" : "Serie / Anime"} · ⭐ ${rating}/10</span><br><br>
+          <span class="muted">${year} · ${mediaLabel(chosen)} · ⭐ ${rating}/10</span><br><br>
           <span style="font-size:13px;">🎯 Scelto perché ${whyBits.join(", ")}. Non è nella tua libreria.${fallbackNote}</span>
           <div style="clear:both"></div>
         `;
@@ -1920,10 +1995,23 @@
       document.querySelectorAll(".navBtn[data-screen]").forEach(b => {
         b.classList.toggle("active", b.dataset.screen === name);
       });
+
+      if (name === "tonight") {
+        maybeAutoRecommendTonight();
+      }
     }
 
-    function openLibrary(mode) {
+    function setLibraryFilter(filter) {
+      currentLibraryFilter = filter;
+      libraryFilters.forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.filter === filter);
+      });
+      renderLibraryList();
+    }
+
+    function openLibrary(mode, filter = "all") {
       currentLibraryMode = mode;
+      setLibraryFilter(filter);
       renderLibraryList();
       switchScreen("library");
     }
@@ -1981,10 +2069,10 @@
 
       detailPoster.style.backgroundImage = `url('${posterUrl(source.poster_path)}')`;
       detailTitle.textContent = source.title;
-      detailMeta.textContent = `${source.year} · ${source.media_type === "movie" ? "Film" : "Serie / Anime"}`;
+      detailMeta.textContent = `${source.year} · ${mediaLabel(source)}`;
 
       const chips = [];
-      chips.push(`<div class="chip">${source.media_type === "movie" ? "Film" : "Serie / Anime"}</div>`);
+      chips.push(`<div class="chip">${mediaLabel(source)}</div>`);
       chips.push(`<div class="chip">${source.year}</div>`);
       (source.genre_names || []).slice(0, 3).forEach(g => {
         chips.push(`<div class="chip">${escapeHtml(g)}</div>`);
@@ -1994,7 +2082,7 @@
       detailOverview.textContent = source.overview || "Nessuna trama disponibile.";
 
       const facts = [];
-      facts.push(`Tipo: ${source.media_type === "movie" ? "Film" : "Serie / Anime"}`);
+      facts.push(`Tipo: ${mediaLabel(source)}`);
       facts.push(`Anno: ${source.year}`);
       if (source.genre_names?.length) facts.push(`Generi: ${source.genre_names.join(", ")}`);
       if (inSeen(source)) facts.push("Stato: visto");
@@ -2088,17 +2176,23 @@
       });
     });
 
+    libraryFilters.forEach(btn => {
+      btn.addEventListener("click", () => {
+        setLibraryFilter(btn.dataset.filter);
+      });
+    });
+
     searchBtn.addEventListener("click", searchTitles);
 
     searchInput.addEventListener("keydown", e => {
       if (e.key === "Enter") searchTitles();
     });
 
-    openWatchAll.addEventListener("click", () => openLibrary("watch"));
-    openSeenAll.addEventListener("click", () => openLibrary("seen"));
-    libraryBackBtn.addEventListener("click", () => switchScreen("home"));
+    openWatchAll.addEventListener("click", () => openLibrary("watch", "all"));
+    openSeenMovies.addEventListener("click", () => openLibrary("seen", "movie"));
+    openSeenSeries.addEventListener("click", () => openLibrary("seen", "series"));
 
-    recommendBtn.addEventListener("click", recommendTonightFive);
+    recommendBtn.addEventListener("click", () => recommendTonightFive({ auto: false }));
     discoverBtn.addEventListener("click", discoverByTaste);
     classicBtn.addEventListener("click", suggestClassic);
 
@@ -2118,6 +2212,8 @@
       if (file) importBackup(file);
       importFileInput.value = "";
     });
+
+    libraryBackBtn.addEventListener("click", () => switchScreen("home"));
 
     detailBackBtn.addEventListener("click", () => {
       switchScreen(previousScreen || "home");
