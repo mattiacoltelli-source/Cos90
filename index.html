@@ -259,6 +259,12 @@
       aspect-ratio:2/3;
       background:#0d1420 center/cover no-repeat;
       position:relative;
+      transition:transform var(--normal) ease;
+      transform-origin:center center;
+    }
+
+    .posterCard:active .poster{
+      transform:scale(1.03);
     }
 
     .badge{
@@ -385,6 +391,12 @@
       height:110px;
       border-radius:12px;
       background:#0d1420 center/cover no-repeat;
+      transition:transform var(--normal) ease;
+      transform-origin:center center;
+    }
+
+    .listItem:active .thumb{
+      transform:scale(1.03);
     }
 
     .liTitle{
@@ -443,6 +455,7 @@
     .stat .num{
       font-size:22px;
       font-weight:900;
+      font-variant-numeric:tabular-nums;
     }
 
     .stat .lab{
@@ -510,6 +523,12 @@
       border-radius:12px;
       background:#0d1420 center/cover no-repeat;
       border:1px solid rgba(255,255,255,.05);
+      transition:transform var(--normal) ease;
+      transform-origin:center center;
+    }
+
+    .tonightCard:active .tonightPoster{
+      transform:scale(1.035);
     }
 
     .tonightTitleRow{
@@ -684,6 +703,11 @@
       background:#111 center/cover no-repeat;
       border:1px solid rgba(255,255,255,.12);
       box-shadow:var(--shadow);
+      transition:transform var(--normal) ease;
+    }
+
+    .detailHero:active .detailPoster{
+      transform:scale(1.02);
     }
 
     .detailTitle{
@@ -861,6 +885,12 @@
       box-shadow:var(--shadow);
       position:relative;
       overflow:hidden;
+      transition:transform var(--normal) ease;
+      transform-origin:center center;
+    }
+
+    .shelfCard:active .shelfPoster{
+      transform:scale(1.035);
     }
 
     .shelfInfo{
@@ -925,6 +955,13 @@
       transform:translateY(1px) scale(.985);
     }
 
+    .genreFiltersTitle{
+      font-size:12px;
+      color:var(--muted);
+      margin:-2px 0 8px;
+      padding-left:2px;
+    }
+
     .screenFade{
       animation:screenFade .22s ease;
     }
@@ -932,6 +969,67 @@
     @keyframes screenFade{
       from{opacity:.0; transform:translateY(4px);}
       to{opacity:1; transform:translateY(0);}
+    }
+
+    .toastWrap{
+      position:fixed;
+      left:14px;
+      right:14px;
+      bottom:86px;
+      z-index:9999;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      pointer-events:none;
+    }
+
+    .toast{
+      background:linear-gradient(180deg,rgba(23,31,46,.98),rgba(15,21,32,.98));
+      border:1px solid rgba(255,255,255,.10);
+      color:#f2f6fa;
+      border-radius:16px;
+      padding:12px 14px;
+      box-shadow:0 14px 28px rgba(0,0,0,.28);
+      transform:translateY(16px) scale(.98);
+      opacity:0;
+      transition:
+        transform 220ms ease,
+        opacity 220ms ease,
+        border-color 220ms ease,
+        box-shadow 220ms ease;
+      pointer-events:none;
+    }
+
+    .toast.show{
+      transform:translateY(0) scale(1);
+      opacity:1;
+    }
+
+    .toast.success{
+      border-color:rgba(54,194,117,.32);
+      box-shadow:0 14px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(54,194,117,.08);
+    }
+
+    .toast.error{
+      border-color:rgba(255,107,107,.28);
+      box-shadow:0 14px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(255,107,107,.08);
+    }
+
+    .toast.info{
+      border-color:rgba(245,196,81,.26);
+      box-shadow:0 14px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(245,196,81,.08);
+    }
+
+    .toastTitle{
+      font-size:13px;
+      font-weight:800;
+      margin-bottom:3px;
+    }
+
+    .toastText{
+      font-size:13px;
+      color:#d7e0ea;
+      line-height:1.35;
     }
 
     @media (max-width:560px){
@@ -1026,6 +1124,9 @@
           <div class="filterPill" data-filter="movie">Film</div>
           <div class="filterPill" data-filter="series">Serie TV</div>
         </div>
+
+        <div id="genreFiltersTitle" class="genreFiltersTitle hidden">Filtra per genere</div>
+        <div id="libraryGenreFilters" class="libraryFilters hidden"></div>
 
         <div id="libraryList" class="list"></div>
         <div id="libraryEmpty" class="empty">Nessun titolo disponibile.</div>
@@ -1192,6 +1293,8 @@
     </div>
   </div>
 
+  <div id="toastWrap" class="toastWrap"></div>
+
   <script>
     const API_KEY = "f8d5e378edf5128176f0d89f49310151";
     const BASE_URL = "https://api.themoviedb.org/3";
@@ -1279,6 +1382,8 @@
     const libraryList = document.getElementById("libraryList");
     const libraryEmpty = document.getElementById("libraryEmpty");
     const libraryFilters = [...document.querySelectorAll(".filterPill")];
+    const libraryGenreFilters = document.getElementById("libraryGenreFilters");
+    const genreFiltersTitle = document.getElementById("genreFiltersTitle");
 
     const statSeen = document.getElementById("statSeen");
     const statWatch = document.getElementById("statWatch");
@@ -1314,6 +1419,7 @@
     const detailWatchBtn = document.getElementById("detailWatchBtn");
     const detailSaveNoteBtn = document.getElementById("detailSaveNoteBtn");
     const detailRemoveBtn = document.getElementById("detailRemoveBtn");
+    const toastWrap = document.getElementById("toastWrap");
 
     const screens = {
       home: document.getElementById("screen-home"),
@@ -1329,15 +1435,43 @@
     let previousScreen = "home";
     let currentLibraryMode = "watch";
     let currentLibraryFilter = "all";
+    let currentLibraryGenre = "all";
     let lastAutoRecommendAt = 0;
     let tonightAutoRequestCounter = 0;
+    let lastHapticAt = 0;
+    let statAnimationFrame = null;
 
-    let db = JSON.parse(localStorage.getItem("cineTrackerDB") || `{
-      "seen": [],
-      "watchlist": []
-    }`);
+    let db;
+    try {
+      const rawDB = localStorage.getItem("cineTrackerDB");
+      if (rawDB) {
+        db = JSON.parse(rawDB);
+      } else {
+        db = { seen: [], watchlist: [] };
+      }
 
-    let suggestHistory = JSON.parse(localStorage.getItem(SUGGEST_HISTORY_KEY) || "[]");
+      if (!db || typeof db !== "object") {
+        db = { seen: [], watchlist: [] };
+      }
+
+      if (!Array.isArray(db.seen)) db.seen = [];
+      if (!Array.isArray(db.watchlist)) db.watchlist = [];
+    } catch (error) {
+      console.warn("CineTracker DB corrotto. Reset automatico.", error);
+      db = { seen: [], watchlist: [] };
+      localStorage.setItem("cineTrackerDB", JSON.stringify(db));
+    }
+
+    let suggestHistory;
+    try {
+      const rawHistory = localStorage.getItem(SUGGEST_HISTORY_KEY);
+      suggestHistory = rawHistory ? JSON.parse(rawHistory) : [];
+      if (!Array.isArray(suggestHistory)) suggestHistory = [];
+    } catch (error) {
+      console.warn("Storico suggerimenti corrotto. Reset automatico.", error);
+      suggestHistory = [];
+      localStorage.setItem(SUGGEST_HISTORY_KEY, JSON.stringify([]));
+    }
 
     function saveDB() {
       localStorage.setItem("cineTrackerDB", JSON.stringify(db));
@@ -1345,6 +1479,87 @@
 
     function saveSuggestHistory() {
       localStorage.setItem(SUGGEST_HISTORY_KEY, JSON.stringify(suggestHistory.slice(0, SUGGEST_HISTORY_MAX)));
+    }
+
+    function showToast(message, type = "info", title = "") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+
+      const heading = title || (
+        type === "success" ? "Fatto" :
+        type === "error" ? "Attenzione" :
+        "Info"
+      );
+
+      toast.innerHTML = `
+        <div class="toastTitle">${escapeHtml(heading)}</div>
+        <div class="toastText">${escapeHtml(message)}</div>
+      `;
+
+      toastWrap.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.add("show");
+      });
+
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => {
+          toast.remove();
+        }, 240);
+      }, 2400);
+    }
+
+    function haptic(pattern = 10) {
+      const now = Date.now();
+      if (now - lastHapticAt < 60) return;
+      lastHapticAt = now;
+
+      if (navigator.vibrate) {
+        try {
+          navigator.vibrate(pattern);
+        } catch {}
+      }
+    }
+
+    function animateValue(el, target, duration = 550) {
+      const end = Number(target) || 0;
+      const current = Number(el.dataset.currentValue || 0);
+
+      if (current === end) {
+        el.textContent = String(end);
+        return;
+      }
+
+      const start = current;
+      const startTime = performance.now();
+
+      function tick(now) {
+        const progress = Math.min((now - startTime) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const value = Math.round(start + (end - start) * eased);
+        el.textContent = String(value);
+        el.dataset.currentValue = String(value);
+
+        if (progress < 1) {
+          requestAnimationFrame(tick);
+        } else {
+          el.textContent = String(end);
+          el.dataset.currentValue = String(end);
+        }
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    function animateStats(seen, watch, movies, series) {
+      if (statAnimationFrame) cancelAnimationFrame(statAnimationFrame);
+      statAnimationFrame = requestAnimationFrame(() => {
+        animateValue(statSeen, seen);
+        animateValue(statWatch, watch);
+        animateValue(statMovies, movies);
+        animateValue(statSeries, series);
+      });
     }
 
     function normalizeGenres(item) {
@@ -1456,6 +1671,56 @@
       if (filter === "movie") return items.filter(x => x.media_type === "movie");
       if (filter === "series") return items.filter(x => x.media_type === "tv");
       return items;
+    }
+
+    function filterByLibraryGenre(items, genre) {
+      if (genre === "all") return items;
+      return items.filter(item => (item.genre_names || []).includes(genre));
+    }
+
+    function getLibrarySourceItems() {
+      return currentLibraryMode === "watch" ? db.watchlist : db.seen;
+    }
+
+    function getAvailableLibraryGenres() {
+      const baseItems = filterByLibraryCategory(getLibrarySourceItems(), currentLibraryFilter);
+      const genreSet = new Set();
+
+      baseItems.forEach(item => {
+        (item.genre_names || []).forEach(genre => {
+          if (genre && genre.trim()) genreSet.add(genre);
+        });
+      });
+
+      return [...genreSet].sort((a, b) => a.localeCompare(b, "it"));
+    }
+
+    function renderGenreFilters() {
+      const genres = getAvailableLibraryGenres();
+
+      if (!genres.length) {
+        libraryGenreFilters.innerHTML = "";
+        libraryGenreFilters.classList.add("hidden");
+        genreFiltersTitle.classList.add("hidden");
+        currentLibraryGenre = "all";
+        return;
+      }
+
+      if (currentLibraryGenre !== "all" && !genres.includes(currentLibraryGenre)) {
+        currentLibraryGenre = "all";
+      }
+
+      genreFiltersTitle.classList.remove("hidden");
+      libraryGenreFilters.classList.remove("hidden");
+
+      libraryGenreFilters.innerHTML = `
+        <div class="filterPill ${currentLibraryGenre === "all" ? "active" : ""}" data-genre-filter="all">Tutti i generi</div>
+        ${genres.map(genre => `
+          <div class="filterPill ${currentLibraryGenre === genre ? "active" : ""}" data-genre-filter="${escapeHtml(genre)}">
+            ${escapeHtml(genre)}
+          </div>
+        `).join("")}
+      `;
     }
 
     function buildBars(container, entries) {
@@ -1581,24 +1846,39 @@
     }
 
     function renderLibraryList() {
-      const rawItems = currentLibraryMode === "watch" ? db.watchlist : db.seen;
-      const items = filterByLibraryCategory(rawItems, currentLibraryFilter);
+      const rawItems = getLibrarySourceItems();
+      renderGenreFilters();
+
+      let items = filterByLibraryCategory(rawItems, currentLibraryFilter);
+      items = filterByLibraryGenre(items, currentLibraryGenre);
 
       if (currentLibraryMode === "watch") {
-        libraryTitle.textContent = "Watchlist";
+        libraryTitle.textContent = currentLibraryGenre === "all"
+          ? "Watchlist"
+          : `Watchlist · ${currentLibraryGenre}`;
       } else {
-        if (currentLibraryFilter === "movie") libraryTitle.textContent = "Film visti";
-        else if (currentLibraryFilter === "series") libraryTitle.textContent = "Serie TV viste";
-        else libraryTitle.textContent = "Archivio visti";
+        let baseTitle = "Archivio visti";
+        if (currentLibraryFilter === "movie") baseTitle = "Film visti";
+        else if (currentLibraryFilter === "series") baseTitle = "Serie TV viste";
+
+        libraryTitle.textContent = currentLibraryGenre === "all"
+          ? baseTitle
+          : `${baseTitle} · ${currentLibraryGenre}`;
       }
 
       libraryEmpty.classList.toggle("hidden", items.length > 0);
 
       if (!items.length) {
         libraryList.innerHTML = "";
-        libraryEmpty.textContent = currentLibraryMode === "watch"
-          ? "La tua watchlist è vuota."
-          : "Nessun titolo disponibile per questo filtro.";
+        if (currentLibraryMode === "watch") {
+          libraryEmpty.textContent = currentLibraryGenre === "all"
+            ? "La tua watchlist è vuota."
+            : `Nessun titolo in watchlist per il genere ${currentLibraryGenre}.`;
+        } else {
+          libraryEmpty.textContent = currentLibraryGenre === "all"
+            ? "Nessun titolo disponibile per questo filtro."
+            : `Nessun titolo visto per il genere ${currentLibraryGenre}.`;
+        }
         return;
       }
 
@@ -1678,6 +1958,7 @@
           resultCount.textContent = "";
           resultsEmpty.textContent = "Nessun risultato trovato.";
           resultsEmpty.classList.remove("hidden");
+          showToast("Nessun risultato trovato per questa ricerca.", "info", "Ricerca");
           return;
         }
 
@@ -1717,6 +1998,7 @@
         resultCount.textContent = "";
         resultsEmpty.textContent = "Errore nella ricerca. Controlla connessione o API.";
         resultsEmpty.classList.remove("hidden");
+        showToast("Errore nella ricerca. Controlla connessione o API.", "error", "Ricerca");
       }
     }
 
@@ -1740,6 +2022,8 @@
       saveDB();
       renderAll();
       openDetail(item);
+      showToast(`"${item.title}" aggiunto ai visti.`, "success", "Titolo salvato");
+      haptic([12, 20, 12]);
     }
 
     async function addWatch(type, id) {
@@ -1749,6 +2033,8 @@
         db.watchlist.unshift(item);
         saveDB();
         renderAll();
+        showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
+        haptic([10]);
       }
 
       openDetail(item);
@@ -1772,9 +2058,12 @@
 
       saveDB();
       renderAll();
+      showToast(`"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
+      haptic([12, 20, 12]);
     }
 
     function removeSeen(key) {
+      const item = db.seen.find(x => uniqueKey(x) === key);
       db.seen = db.seen.filter(x => uniqueKey(x) !== key);
       saveDB();
       renderAll();
@@ -1782,9 +2071,15 @@
       if (currentDetail && uniqueKey(currentDetail) === key) {
         switchScreen("home");
       }
+
+      if (item) {
+        showToast(`"${item.title}" rimosso dai visti.`, "info", "Titolo rimosso");
+        haptic([14]);
+      }
     }
 
     function removeWatch(key) {
+      const item = db.watchlist.find(x => uniqueKey(x) === key);
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
       saveDB();
       renderAll();
@@ -1792,13 +2087,20 @@
       if (currentDetail && uniqueKey(currentDetail) === key) {
         openDetail(currentDetail);
       }
+
+      if (item) {
+        showToast(`"${item.title}" rimosso dalla watchlist.`, "info", "Titolo rimosso");
+        haptic([14]);
+      }
     }
 
     function renderStats() {
-      statSeen.textContent = db.seen.length;
-      statWatch.textContent = db.watchlist.length;
-      statMovies.textContent = db.seen.filter(x => x.media_type === "movie").length;
-      statSeries.textContent = db.seen.filter(x => x.media_type === "tv").length;
+      const seenCount = db.seen.length;
+      const watchCount = db.watchlist.length;
+      const movieCount = db.seen.filter(x => x.media_type === "movie").length;
+      const seriesCount = db.seen.filter(x => x.media_type === "tv").length;
+
+      animateStats(seenCount, watchCount, movieCount, seriesCount);
       renderTasteMap();
     }
 
@@ -1878,6 +2180,7 @@
 
       if (!pool.length) {
         tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo con voto 7 o più disponibile. Inizia a votare i tuoi preferiti!</span>";
+        showToast("Serve almeno un titolo con voto 7 o più.", "info", "Classico");
         return;
       }
 
@@ -1895,6 +2198,7 @@
         <span class="muted">${pick.year} · ${tipo} · Il tuo voto: ${voto}</span><br><br>
         <span style="font-size:13px;">📌 ${commento}</span>
       `;
+      haptic([10]);
     }
 
     function rawNumberToFixed(value, digits = 1, fallback = "n.d.") {
@@ -2159,6 +2463,7 @@
 
       if (db.seen.length < 3) {
         tonightSuggestion.innerHTML = "<span class='muted'>Aggiungi almeno 3 titoli visti per ricevere 5 consigli personalizzati.</span>";
+        showToast("Aggiungi almeno 3 titoli visti per usare i consigli personalizzati.", "info", "Consigli");
         return;
       }
 
@@ -2194,6 +2499,7 @@
 
         if (!candidates.length) {
           tonightSuggestion.innerHTML = "<span class='muted'>Non ho trovato consigli adatti. Riprova più tardi.</span>";
+          showToast("Non ho trovato consigli adatti al momento.", "info", "Consigli");
           return;
         }
 
@@ -2215,6 +2521,7 @@
 
         if (!finalFive.length) {
           tonightSuggestion.innerHTML = "<span class='muted'>Non ho trovato consigli adatti. Riprova più tardi.</span>";
+          showToast("Non ho trovato consigli adatti al momento.", "info", "Consigli");
           return;
         }
 
@@ -2251,12 +2558,15 @@
           </div>
         `;
 
+        if (!isAuto) haptic([10]);
+
         if (isAuto) {
           lastAutoRecommendAt = Date.now();
         }
       } catch (err) {
         if (requestId !== tonightAutoRequestCounter) return;
         tonightSuggestion.innerHTML = "<span class='muted'>Errore nella ricerca. Controlla la connessione.</span>";
+        showToast("Errore nella ricerca dei consigli. Controlla la connessione.", "error", "Consigli");
       }
     }
 
@@ -2270,6 +2580,7 @@
     async function discoverByTaste() {
       if (db.seen.length < 3) {
         tonightSuggestion.innerHTML = "<span class='muted'>Aggiungi almeno 3 titoli visti per ricevere consigli personalizzati.</span>";
+        showToast("Aggiungi almeno 3 titoli visti per usare questa funzione.", "info", "Scopri");
         return;
       }
 
@@ -2299,6 +2610,7 @@
 
         if (!candidates.length) {
           tonightSuggestion.innerHTML = "<span class='muted'>Nessun risultato trovato. Riprova più tardi.</span>";
+          showToast("Non ho trovato nulla di adatto al momento.", "info", "Scopri");
           return;
         }
 
@@ -2341,8 +2653,10 @@
           <span style="font-size:13px;">🎯 Scelto perché ${whyBits.join(", ")}. Non è nella tua libreria.${fallbackNote}</span>
           <div style="clear:both"></div>
         `;
+        haptic([10]);
       } catch (err) {
         tonightSuggestion.innerHTML = "<span class='muted'>Errore nella ricerca. Controlla la connessione.</span>";
+        showToast("Errore nella ricerca. Controlla la connessione.", "error", "Scopri");
       }
     }
 
@@ -2368,14 +2682,21 @@
 
     function setLibraryFilter(filter) {
       currentLibraryFilter = filter;
+      currentLibraryGenre = "all";
       libraryFilters.forEach(btn => {
         btn.classList.toggle("active", btn.dataset.filter === filter);
       });
       renderLibraryList();
     }
 
+    function setLibraryGenre(genre) {
+      currentLibraryGenre = genre;
+      renderLibraryList();
+    }
+
     function openLibrary(mode, filter = "all") {
       currentLibraryMode = mode;
+      currentLibraryGenre = "all";
       setLibraryFilter(filter);
       renderLibraryList();
       switchScreen("library");
@@ -2388,6 +2709,8 @@
       a.download = "cineTracker-backup.json";
       a.click();
       URL.revokeObjectURL(a.href);
+      showToast("Backup esportato correttamente.", "success", "Backup");
+      haptic([12, 20, 12]);
     }
 
     function importBackup(file) {
@@ -2398,7 +2721,7 @@
           const imported = JSON.parse(e.target.result);
 
           if (!imported || !Array.isArray(imported.seen) || !Array.isArray(imported.watchlist)) {
-            alert("File backup non valido.");
+            showToast("File backup non valido.", "error", "Backup");
             return;
           }
 
@@ -2413,9 +2736,10 @@
           saveDB();
           renderAll();
           switchScreen("home");
-          alert("Backup importato correttamente.");
+          showToast("Backup importato correttamente.", "success", "Backup");
+          haptic([12, 20, 12]);
         } catch (err) {
-          alert("Impossibile leggere il file backup.");
+          showToast("Impossibile leggere il file backup.", "error", "Backup");
         }
       };
 
@@ -2487,19 +2811,23 @@
       renderAll();
       openDetail(target);
 
-      alert("Voto e commento salvati.");
+      showToast("Voto e commento salvati.", "success", "Scheda aggiornata");
+      haptic([12, 20, 12]);
     }
 
     function removeCurrentDetail() {
       if (!currentDetail) return;
 
       const key = uniqueKey(currentDetail);
+      const title = currentDetail.title;
       db.seen = db.seen.filter(x => uniqueKey(x) !== key);
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
       saveDB();
       renderAll();
       switchScreen("home");
+      showToast(`"${title}" rimosso dalla libreria.`, "info", "Titolo rimosso");
+      haptic([14]);
     }
 
     document.addEventListener("click", async function(e) {
@@ -2511,8 +2839,19 @@
       const moveWatchBtn = e.target.closest(".move-watch-seen");
       const openStoredBtn = e.target.closest(".open-stored-detail");
       const openTonightBtn = e.target.closest(".open-tonight-detail");
+      const genreFilterBtn = e.target.closest("[data-genre-filter]");
+      const genericTap = e.target.closest("button, .navBtn, .tab, .filterPill, .seeAllBtn, .shelfCard, .tonightCard");
+
+      if (genericTap) {
+        haptic([8]);
+      }
 
       try {
+        if (genreFilterBtn) {
+          setLibraryGenre(genreFilterBtn.dataset.genreFilter);
+          return;
+        }
+
         if (seenBtn) await addSeen(seenBtn.dataset.type, seenBtn.dataset.id);
         if (watchBtn) await addWatch(watchBtn.dataset.type, watchBtn.dataset.id);
         if (detailsBtn) await showDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
@@ -2530,7 +2869,7 @@
           await showDetails(openTonightBtn.dataset.type, openTonightBtn.dataset.id);
         }
       } catch (err) {
-        alert("C'è stato un problema. Riprova.");
+        showToast("C'è stato un problema. Riprova.", "error", "Errore");
       }
     });
 
@@ -2596,6 +2935,8 @@
         db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
         saveDB();
         renderAll();
+        showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Titolo salvato");
+        haptic([12, 20, 12]);
       } else {
         saveDetailNotes();
       }
@@ -2614,6 +2955,8 @@
         });
         saveDB();
         renderAll();
+        showToast(`"${currentDetail.title}" aggiunto alla watchlist.`, "success", "Watchlist");
+        haptic([10]);
       } else if (inWatch(currentDetail)) {
         saveDetailNotes();
         return;
