@@ -813,9 +813,11 @@
 
     .barFill{
       height:100%;
+      width:0%;
       border-radius:999px;
       background:linear-gradient(90deg,var(--accent2),#7dbdff);
-      transition:width 420ms ease;
+      transition:width 820ms cubic-bezier(.22,1,.36,1);
+      will-change:width;
     }
 
     .insightList{
@@ -1440,6 +1442,7 @@
     let tonightAutoRequestCounter = 0;
     let lastHapticAt = 0;
     let statAnimationFrame = null;
+    let barAnimationFrame = null;
 
     let db;
     try {
@@ -1559,6 +1562,28 @@
         animateValue(statWatch, watch);
         animateValue(statMovies, movies);
         animateValue(statSeries, series);
+      });
+    }
+
+    function animateBarGroups() {
+      if (barAnimationFrame) cancelAnimationFrame(barAnimationFrame);
+
+      const bars = document.querySelectorAll("#screen-stats .barFill[data-width]");
+      if (!bars.length) return;
+
+      bars.forEach(bar => {
+        bar.style.width = "0%";
+      });
+
+      barAnimationFrame = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          bars.forEach((bar, index) => {
+            const target = bar.dataset.width || "0";
+            setTimeout(() => {
+              bar.style.width = `${target}%`;
+            }, index * 55);
+          });
+        });
       });
     }
 
@@ -1730,17 +1755,20 @@
       }
 
       const max = entries[0].value || 1;
-      container.innerHTML = entries.map(entry => `
-        <div class="barRow">
-          <div>
-            <div class="barLabel">${escapeHtml(entry.label)}</div>
-            <div class="barTrack">
-              <div class="barFill" style="width:${Math.max(12, (entry.value / max) * 100)}%"></div>
+      container.innerHTML = entries.map(entry => {
+        const pct = Math.max(12, (entry.value / max) * 100);
+        return `
+          <div class="barRow">
+            <div>
+              <div class="barLabel">${escapeHtml(entry.label)}</div>
+              <div class="barTrack">
+                <div class="barFill" data-width="${pct}"></div>
+              </div>
             </div>
+            <div class="barValue">${entry.value}</div>
           </div>
-          <div class="barValue">${entry.value}</div>
-        </div>
-      `).join("");
+        `;
+      }).join("");
     }
 
     function renderTopRated() {
@@ -2677,6 +2705,12 @@
 
       if (name === "tonight") {
         maybeAutoRecommendTonight();
+      }
+
+      if (name === "stats") {
+        setTimeout(() => {
+          animateBarGroups();
+        }, 60);
       }
     }
 
