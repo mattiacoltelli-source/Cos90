@@ -22,7 +22,14 @@
       --ok:#36c275;
       --danger:#ff6b6b;
       --shadow:0 10px 30px rgba(0,0,0,.35);
+      --shadow-soft:0 8px 22px rgba(0,0,0,.22);
+      --glow-warm:0 0 0 1px rgba(245,196,81,.18), 0 10px 26px rgba(245,196,81,.14);
+      --glow-blue:0 0 0 1px rgba(77,163,255,.14), 0 10px 24px rgba(77,163,255,.12);
       --radius:18px;
+      --press-scale:.985;
+      --press-translate:1px;
+      --fast:140ms;
+      --normal:220ms;
     }
 
     *{box-sizing:border-box}
@@ -30,7 +37,9 @@
     html,body{
       margin:0;
       padding:0;
-      background:linear-gradient(180deg,#0a0e13,#111827 60%,#0b0f14);
+      background:
+        radial-gradient(circle at top center, rgba(245,196,81,.08), transparent 28%),
+        linear-gradient(180deg,#0a0e13,#111827 60%,#0b0f14);
       color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
     }
@@ -70,6 +79,15 @@
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       overflow:hidden;
+      transition:
+        transform var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease,
+        background var(--normal) ease;
+    }
+
+    .card:active{
+      transform:translateY(1px) scale(.998);
     }
 
     .searchBox{
@@ -87,6 +105,7 @@
       border:none;
       outline:none;
       border-radius:14px;
+      -webkit-tap-highlight-color: transparent;
     }
 
     input,select,textarea{
@@ -95,6 +114,17 @@
       color:var(--text);
       border:1px solid var(--line);
       padding:12px 14px;
+      transition:
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease,
+        background var(--normal) ease,
+        transform var(--fast) ease;
+    }
+
+    input:focus,select:focus,textarea:focus{
+      border-color:rgba(245,196,81,.42);
+      box-shadow:0 0 0 3px rgba(245,196,81,.08);
+      background:#111a28;
     }
 
     textarea{
@@ -108,13 +138,42 @@
       font-weight:800;
       padding:12px 16px;
       cursor:pointer;
+      box-shadow:var(--glow-warm);
+      transition:
+        transform var(--fast) ease,
+        box-shadow var(--normal) ease,
+        filter var(--normal) ease,
+        background var(--normal) ease,
+        opacity var(--normal) ease;
+    }
+
+    button:hover{
+      filter:brightness(1.03);
+      box-shadow:0 0 0 1px rgba(245,196,81,.22), 0 14px 28px rgba(245,196,81,.18);
+    }
+
+    button:active{
+      transform:translateY(var(--press-translate)) scale(var(--press-scale));
+      filter:brightness(.98);
+      box-shadow:0 0 0 1px rgba(245,196,81,.12), 0 6px 14px rgba(245,196,81,.12);
     }
 
     button.secondary{
-      background:#192233;
+      background:linear-gradient(180deg,#1a2436,#182132);
       color:var(--text);
       border:1px solid var(--line);
       font-weight:700;
+      box-shadow:var(--glow-blue);
+    }
+
+    button.secondary:hover{
+      border-color:#365078;
+      background:linear-gradient(180deg,#1d2940,#192334);
+      box-shadow:0 0 0 1px rgba(77,163,255,.18), 0 12px 24px rgba(77,163,255,.14);
+    }
+
+    button.secondary:active{
+      box-shadow:0 0 0 1px rgba(77,163,255,.12), 0 6px 14px rgba(77,163,255,.10);
     }
 
     button.small{
@@ -141,12 +200,23 @@
       cursor:pointer;
       font-weight:700;
       font-size:14px;
+      transition:
+        transform var(--fast) ease,
+        background var(--normal) ease,
+        color var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease;
     }
 
     .tab.active{
       background:#1d2a3d;
       color:#fff;
       border-color:#39527a;
+      box-shadow:0 8px 20px rgba(77,163,255,.10);
+    }
+
+    .tab:active{
+      transform:translateY(1px) scale(.985);
     }
 
     .section{
@@ -173,6 +243,16 @@
       border:1px solid rgba(255,255,255,.06);
       border-radius:18px;
       overflow:hidden;
+      transition:
+        transform var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease;
+    }
+
+    .posterCard:active{
+      transform:translateY(1px) scale(.992);
+      border-color:rgba(245,196,81,.22);
+      box-shadow:0 10px 24px rgba(0,0,0,.28);
     }
 
     .poster{
@@ -192,6 +272,7 @@
       font-size:12px;
       font-weight:800;
       border:1px solid rgba(255,255,255,.12);
+      transition:transform var(--fast) ease, box-shadow var(--normal) ease;
     }
 
     .badge-film{
@@ -249,10 +330,19 @@
       cursor:pointer;
       white-space:nowrap;
       user-select:none;
+      transition:
+        color var(--normal) ease,
+        transform var(--fast) ease,
+        opacity var(--normal) ease;
     }
 
     .seeAllBtn:hover{
       color:#fff;
+    }
+
+    .seeAllBtn:active{
+      transform:translateY(1px) scale(.985);
+      opacity:.9;
     }
 
     .empty{
@@ -278,6 +368,16 @@
       background:var(--card);
       border:1px solid rgba(255,255,255,.06);
       border-radius:18px;
+      transition:
+        transform var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease;
+    }
+
+    .listItem:active{
+      transform:translateY(1px) scale(.993);
+      border-color:rgba(255,255,255,.12);
+      box-shadow:var(--shadow-soft);
     }
 
     .thumb{
@@ -307,6 +407,14 @@
       color:#d6deea;
       border-radius:999px;
       font-size:12px;
+      transition:
+        background var(--normal) ease,
+        border-color var(--normal) ease,
+        transform var(--fast) ease;
+    }
+
+    .chip:active{
+      transform:scale(.98);
     }
 
     .stats{
@@ -320,6 +428,16 @@
       background:var(--card);
       border:1px solid rgba(255,255,255,.06);
       border-radius:16px;
+      transition:
+        transform var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease;
+    }
+
+    .stat:active{
+      transform:translateY(1px) scale(.992);
+      border-color:rgba(245,196,81,.18);
+      box-shadow:var(--shadow-soft);
     }
 
     .stat .num{
@@ -348,6 +466,10 @@
       background:#101722;
       border:1px solid var(--line);
       border-radius:14px;
+      transition:
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease,
+        transform var(--normal) ease;
     }
 
     .tonightList{
@@ -365,6 +487,21 @@
       border:1px solid rgba(255,255,255,.06);
       border-radius:16px;
       cursor:pointer;
+      transition:
+        transform var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease,
+        background var(--normal) ease;
+    }
+
+    .tonightCard:hover{
+      border-color:rgba(245,196,81,.18);
+      box-shadow:0 12px 28px rgba(0,0,0,.24);
+    }
+
+    .tonightCard:active{
+      transform:translateY(1px) scale(.993);
+      background:#162133;
     }
 
     .tonightPoster{
@@ -397,6 +534,13 @@
       color:#f6d06a;
       font-size:12px;
       font-weight:900;
+      transition:
+        transform var(--fast) ease,
+        box-shadow var(--normal) ease;
+    }
+
+    .tonightCard:active .affinity{
+      transform:scale(.98);
     }
 
     .tonightReason{
@@ -440,10 +584,23 @@
       font-size:12px;
       font-weight:800;
       cursor:pointer;
+      transition:
+        transform var(--fast) ease,
+        background var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease,
+        color var(--normal) ease;
     }
 
     .navBtn.active{
-      background:#1d2a3d;
+      background:linear-gradient(180deg,#1f2d42,#1c283a);
+      border-color:#385175;
+      box-shadow:0 10px 22px rgba(77,163,255,.14);
+      color:#fff;
+    }
+
+    .navBtn:active{
+      transform:translateY(1px) scale(.985);
     }
 
     .hidden{
@@ -453,18 +610,41 @@
     .danger{
       background:linear-gradient(180deg,#ff8f8f,#ff6b6b)!important;
       color:#1a1111!important;
+      box-shadow:0 0 0 1px rgba(255,107,107,.18), 0 10px 24px rgba(255,107,107,.16)!important;
     }
 
     .ok{
       background:linear-gradient(180deg,#7ce7aa,#36c275)!important;
       color:#08170d!important;
+      box-shadow:0 0 0 1px rgba(54,194,117,.18), 0 10px 24px rgba(54,194,117,.16)!important;
     }
 
     .backupButtons{
       display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-top:12px;
+      grid-template-columns:1fr;
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .backupHero{
+      padding:16px;
+      border-radius:20px;
+      background:
+        radial-gradient(circle at top right, rgba(245,196,81,.10), transparent 35%),
+        linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));
+      border:1px solid rgba(255,255,255,.06);
+      box-shadow:var(--shadow);
+    }
+
+    .backupMini{
+      margin-top:10px;
+      padding:12px;
+      border-radius:14px;
+      background:#101722;
+      border:1px solid rgba(255,255,255,.06);
+      color:#dbe6f1;
+      font-size:13px;
+      line-height:1.45;
     }
 
     .detailHero{
@@ -525,6 +705,14 @@
       background:var(--card);
       border:1px solid rgba(255,255,255,.06);
       border-radius:18px;
+      transition:
+        transform var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease;
+    }
+
+    .detailCard:active{
+      transform:translateY(1px) scale(.996);
     }
 
     .detailCard h3{
@@ -555,6 +743,15 @@
       background:var(--card);
       border:1px solid rgba(255,255,255,.06);
       border-radius:16px;
+      transition:
+        transform var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease;
+    }
+
+    .tasteBlock:active{
+      transform:translateY(1px) scale(.994);
+      border-color:rgba(255,255,255,.10);
     }
 
     .tasteBlock h3{
@@ -594,12 +791,7 @@
       height:100%;
       border-radius:999px;
       background:linear-gradient(90deg,var(--accent2),#7dbdff);
-    }
-
-    .barValue{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:800;
+      transition:width 420ms ease;
     }
 
     .insightList{
@@ -615,6 +807,16 @@
       border-radius:14px;
       font-size:13px;
       color:#e6edf5;
+      transition:
+        transform var(--fast) ease,
+        border-color var(--normal) ease,
+        background var(--normal) ease;
+    }
+
+    .insightItem:active{
+      transform:scale(.992);
+      border-color:rgba(245,196,81,.18);
+      background:#121b29;
     }
 
     .shelfScroller{
@@ -641,6 +843,13 @@
       flex:0 0 140px;
       cursor:pointer;
       scroll-snap-align:start;
+      transition:
+        transform var(--normal) ease,
+        opacity var(--normal) ease;
+    }
+
+    .shelfCard:active{
+      transform:translateY(1px) scale(.985);
     }
 
     .shelfPoster{
@@ -697,12 +906,32 @@
       cursor:pointer;
       font-weight:700;
       font-size:13px;
+      transition:
+        transform var(--fast) ease,
+        background var(--normal) ease,
+        color var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease;
     }
 
     .filterPill.active{
       background:#1d2a3d;
       color:#fff;
       border-color:#39527a;
+      box-shadow:0 8px 18px rgba(77,163,255,.10);
+    }
+
+    .filterPill:active{
+      transform:translateY(1px) scale(.985);
+    }
+
+    .screenFade{
+      animation:screenFade .22s ease;
+    }
+
+    @keyframes screenFade{
+      from{opacity:.0; transform:translateY(4px);}
+      to{opacity:1; transform:translateY(0);}
     }
 
     @media (max-width:560px){
@@ -713,7 +942,6 @@
 
     @media (max-width:380px){
       .grid{grid-template-columns:1fr;}
-      .backupButtons{grid-template-columns:1fr;}
       .detailTop{grid-template-columns:82px 1fr;}
       .detailPoster{width:82px;height:123px;}
       .detailTitle{font-size:21px;}
@@ -847,18 +1075,6 @@
           </div>
         </div>
       </div>
-
-      <div class="section">
-        <h2>Backup dati</h2>
-        <div class="card" style="padding:14px;">
-          <div class="muted">Esporta o ripristina la tua libreria personale.</div>
-          <div class="backupButtons">
-            <button id="exportBtn2">Esporta backup</button>
-            <button class="secondary" id="importBtn">Importa backup</button>
-          </div>
-          <input id="importFileInput" type="file" accept=".json,application/json" class="hidden" />
-        </div>
-      </div>
     </section>
 
     <section id="screen-tonight" class="hidden">
@@ -892,6 +1108,27 @@
           <div id="tonightSuggestion" class="suggestion">
             Premi un pulsante per ricevere un consiglio personalizzato.
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-backup" class="hidden">
+      <div class="section">
+        <h2>Backup dati</h2>
+
+        <div class="backupHero">
+          <div class="muted">Esporta o ripristina la tua libreria personale in modo semplice.</div>
+
+          <div class="backupMini">
+            Salva una copia dei tuoi titoli visti, della watchlist, dei voti e dei commenti. Utile se cambi telefono o vuoi tenere una copia di sicurezza.
+          </div>
+
+          <div class="backupButtons">
+            <button id="exportBtn2">Esporta backup</button>
+            <button class="secondary" id="importBtn">Importa backup</button>
+          </div>
+
+          <input id="importFileInput" type="file" accept=".json,application/json" class="hidden" />
         </div>
       </div>
     </section>
@@ -951,7 +1188,7 @@
       <div class="navBtn active" data-screen="home">Home</div>
       <div class="navBtn" data-screen="stats">Statistiche</div>
       <div class="navBtn" data-screen="tonight">Stasera</div>
-      <div class="navBtn" id="exportBtn">Backup</div>
+      <div class="navBtn" data-screen="backup">Backup</div>
     </div>
   </div>
 
@@ -1059,7 +1296,6 @@
     const classicBtn = document.getElementById("classicBtn");
     const tonightSuggestion = document.getElementById("tonightSuggestion");
 
-    const exportBtn = document.getElementById("exportBtn");
     const exportBtn2 = document.getElementById("exportBtn2");
     const importBtn = document.getElementById("importBtn");
     const importFileInput = document.getElementById("importFileInput");
@@ -1084,6 +1320,7 @@
       library: document.getElementById("screen-library"),
       stats: document.getElementById("screen-stats"),
       tonight: document.getElementById("screen-tonight"),
+      backup: document.getElementById("screen-backup"),
       detail: document.getElementById("screen-detail"),
     };
 
@@ -2112,8 +2349,13 @@
     function switchScreen(name) {
       if (name !== "detail") previousScreen = name;
 
-      Object.values(screens).forEach(s => s.classList.add("hidden"));
+      Object.values(screens).forEach(s => {
+        s.classList.add("hidden");
+        s.classList.remove("screenFade");
+      });
+
       screens[name].classList.remove("hidden");
+      screens[name].classList.add("screenFade");
 
       document.querySelectorAll(".navBtn[data-screen]").forEach(b => {
         b.classList.toggle("active", b.dataset.screen === name);
@@ -2324,7 +2566,6 @@
       btn.addEventListener("click", () => switchScreen(btn.dataset.screen));
     });
 
-    exportBtn.addEventListener("click", exportBackup);
     exportBtn2.addEventListener("click", exportBackup);
 
     importBtn.addEventListener("click", () => {
