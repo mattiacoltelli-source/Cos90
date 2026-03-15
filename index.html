@@ -293,6 +293,12 @@
       border-color:rgba(77,163,255,.35);
     }
 
+    .badge-soft{
+      background:rgba(255,255,255,.08);
+      color:#f2f6fa;
+      border-color:rgba(255,255,255,.14);
+    }
+
     .posterInfo{
       padding:10px;
     }
@@ -915,9 +921,47 @@
       font-size:12px;
       color:var(--muted);
       display:-webkit-box;
-      -webkit-line-clamp:1;
+      -webkit-line-clamp:2;
       -webkit-box-orient:vertical;
       overflow:hidden;
+      line-height:1.35;
+      min-height:30px;
+    }
+
+    .upcomingTagRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:6px;
+    }
+
+    .miniTag{
+      padding:5px 7px;
+      border-radius:999px;
+      background:#111a27;
+      border:1px solid var(--line);
+      color:#dce6f2;
+      font-size:11px;
+      font-weight:700;
+      line-height:1;
+    }
+
+    .miniTag.gold{
+      background:rgba(245,196,81,.12);
+      border-color:rgba(245,196,81,.28);
+      color:#f5d77b;
+    }
+
+    .miniTag.blue{
+      background:rgba(77,163,255,.12);
+      border-color:rgba(77,163,255,.28);
+      color:#9ec9ff;
+    }
+
+    .miniTag.green{
+      background:rgba(54,194,117,.12);
+      border-color:rgba(54,194,117,.28);
+      color:#8fe2b3;
     }
 
     .libraryFilters{
@@ -1083,6 +1127,30 @@
         </div>
         <div id="results" class="grid"></div>
         <div id="resultsEmpty" class="empty">Nessun risultato trovato.</div>
+      </div>
+
+      <div class="section">
+        <div class="shelfHeader">
+          <h2>🎯 In uscita per te</h2>
+        </div>
+        <div id="upcomingForYouShelf" class="shelfScroller"></div>
+        <div id="upcomingForYouEmpty" class="empty">Salva e vota alcuni film con voto da 7 in su per vedere uscite più adatte ai tuoi gusti.</div>
+      </div>
+
+      <div class="section">
+        <div class="shelfHeader">
+          <h2>📅 In uscita questo mese</h2>
+        </div>
+        <div id="upcomingMonthShelf" class="shelfScroller"></div>
+        <div id="upcomingMonthEmpty" class="empty">Nessuna uscita interessante trovata per questo mese.</div>
+      </div>
+
+      <div class="section">
+        <div class="shelfHeader">
+          <h2>👀 Da tenere d’occhio</h2>
+        </div>
+        <div id="watchRadarShelf" class="shelfScroller"></div>
+        <div id="watchRadarEmpty" class="empty">Sto ancora cercando film futuri promettenti per te.</div>
       </div>
 
       <div class="section">
@@ -1268,7 +1336,7 @@
           <h3>La tua scheda personale</h3>
 
           <label class="label" for="detailVoteInput">Il tuo voto</label>
-          <input id="detailVoteInput" type="text" placeholder="Es. 8.5" />
+          <input id="detailVoteInput" type="text" placeholder="Es. 7, 7+, 7,5, 8-" />
 
           <div style="height:10px;"></div>
 
@@ -1304,6 +1372,7 @@
     const TONIGHT_AUTO_COOLDOWN_MS = 20000;
     const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
     const SUGGEST_HISTORY_MAX = 40;
+    const UPCOMING_CACHE_MS = 1000 * 60 * 30;
 
     const GENRE_MAP = {
       28:"Azione",
@@ -1366,6 +1435,13 @@
     const resultsEmpty = document.getElementById("resultsEmpty");
     const resultCount = document.getElementById("resultCount");
     const tabs = [...document.querySelectorAll(".tab")];
+
+    const upcomingForYouShelf = document.getElementById("upcomingForYouShelf");
+    const upcomingForYouEmpty = document.getElementById("upcomingForYouEmpty");
+    const upcomingMonthShelf = document.getElementById("upcomingMonthShelf");
+    const upcomingMonthEmpty = document.getElementById("upcomingMonthEmpty");
+    const watchRadarShelf = document.getElementById("watchRadarShelf");
+    const watchRadarEmpty = document.getElementById("watchRadarEmpty");
 
     const watchShelf = document.getElementById("watchShelf");
     const seenMovieShelf = document.getElementById("seenMovieShelf");
@@ -1443,6 +1519,7 @@
     let lastHapticAt = 0;
     let statAnimationFrame = null;
     let barAnimationFrame = null;
+    let upcomingLoadToken = 0;
 
     let db;
     try {
@@ -1631,6 +1708,85 @@
       return "";
     }
 
+    function sanitizeVoteInput(raw) {
+      if (raw === null || raw === undefined) return "";
+      let value = String(raw).trim();
+      if (!value) return "";
+
+      value = value.replace(/\s+/g, "");
+      value = value.replace(/\./g, ",");
+      value = value.replace(/,/g, ",");
+
+      const mapSimple = {
+        "6½": "6,5",
+        "7½": "7,5",
+        "8½": "8,5",
+        "9½": "9,5",
+        "10½": "10,5"
+      };
+      if (mapSimple[value]) value = mapSimple[value];
+
+      const directNumeric = Number(value.replace(",", "."));
+      if (Number.isFinite(directNumeric)) {
+        if (directNumeric < 0) return "";
+        if (directNumeric > 10) value = "10";
+        return value.replace(".", ",");
+      }
+
+      const match = value.match(/^(\d{1,2})([+-])$/);
+      if (match) {
+        const base = Number(match[1]);
+        if (!Number.isFinite(base) || base < 0 || base > 10) return "";
+        return `${base}${match[2]}`;
+      }
+
+      const halfMatch = value.match(/^(\d{1,2}),5$/);
+      if (halfMatch) {
+        const base = Number(halfMatch[1]);
+        if (!Number.isFinite(base) || base < 0 || base > 10) return "";
+        return `${base},5`;
+      }
+
+      const intMatch = value.match(/^(\d{1,2})$/);
+      if (intMatch) {
+        const base = Number(intMatch[1]);
+        if (!Number.isFinite(base) || base < 0 || base > 10) return "";
+        return String(base);
+      }
+
+      return "";
+    }
+
+    function parseUserVote(raw) {
+      if (raw === null || raw === undefined) return NaN;
+      const value = sanitizeVoteInput(raw);
+      if (!value) return NaN;
+
+      if (value.endsWith("+")) {
+        const base = Number(value.slice(0, -1));
+        return Number.isFinite(base) ? Math.min(10, base + 0.25) : NaN;
+      }
+
+      if (value.endsWith("-")) {
+        const base = Number(value.slice(0, -1));
+        return Number.isFinite(base) ? Math.max(0, base - 0.25) : NaN;
+      }
+
+      const num = Number(value.replace(",", "."));
+      return Number.isFinite(num) ? num : NaN;
+    }
+
+    function formatParsedVote(value) {
+      if (!Number.isFinite(value)) return "";
+      const rounded = Math.round(value * 100) / 100;
+      return rounded % 1 === 0 ? String(rounded.toFixed(0)) : String(rounded).replace(".", ",");
+    }
+
+    function normalizeGenresNamesList(list) {
+      if (!Array.isArray(list)) return [];
+      return list.filter(Boolean).map(x => String(x).trim()).filter(Boolean);
+    }
+
     function normalizedItem(item) {
       return {
         id: item.id,
@@ -1640,13 +1796,16 @@
         poster_path: item.poster_path || "",
         backdrop_path: item.backdrop_path || "",
         overview: item.overview || "",
-        vote: item.vote || "",
+        vote: sanitizeVoteInput(item.vote || ""),
         comment: item.comment || "",
         vote_average: item.vote_average || 0,
         vote_count: item.vote_count || 0,
+        popularity: item.popularity || 0,
         genre_names: normalizeGenres(item),
         director: extractDirector(item),
-        savedAt: item.savedAt || new Date().toISOString()
+        savedAt: item.savedAt || new Date().toISOString(),
+        release_date: item.release_date || "",
+        first_air_date: item.first_air_date || ""
       };
     }
 
@@ -1773,8 +1932,8 @@
 
     function renderTopRated() {
       const rated = db.seen
-        .filter(x => x.vote && !isNaN(parseFloat(x.vote)))
-        .sort((a,b) => parseFloat(b.vote) - parseFloat(a.vote))
+        .filter(x => Number.isFinite(parseUserVote(x.vote)))
+        .sort((a,b) => parseUserVote(b.vote) - parseUserVote(a.vote))
         .slice(0, 5);
 
       if (!rated.length) {
@@ -1784,7 +1943,7 @@
 
       topRatedList.innerHTML = rated.map((item, i) => `
         <div class="insightItem">
-          ${i + 1}. <strong>${escapeHtml(item.title)}</strong> ⭐ ${escapeHtml(item.vote)}
+          ${i + 1}. <strong>${escapeHtml(item.title)}</strong> ⭐ ${escapeHtml(item.vote || formatParsedVote(parseUserVote(item.vote)))}
         </div>
       `).join("");
     }
@@ -1951,6 +2110,380 @@
       renderShelf(seenSeriesShelf, seenSeries);
     }
 
+    function getTodayISO() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function getMonthBounds() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+
+      const start = new Date(y, m, 1);
+      const end = new Date(y, m + 1, 0);
+
+      return {
+        start: toISODate(start),
+        end: toISODate(end)
+      };
+    }
+
+    function toISODate(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatReleaseDate(dateStr) {
+      if (!dateStr) return "Data non disponibile";
+      const d = new Date(dateStr + "T00:00:00");
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+    }
+
+    function daysUntil(dateStr) {
+      if (!dateStr) return null;
+      const target = new Date(dateStr + "T00:00:00");
+      const now = new Date();
+      const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diff = target.getTime() - startToday.getTime();
+      return Math.round(diff / 86400000);
+    }
+
+    function releaseLabel(dateStr) {
+      const days = daysUntil(dateStr);
+      if (days === null) return "Data n.d.";
+      if (days < 0) return `Uscito il ${formatReleaseDate(dateStr)}`;
+      if (days === 0) return "Esce oggi";
+      if (days === 1) return "Esce domani";
+      if (days <= 14) return `Esce tra ${days} giorni`;
+      return `Esce il ${formatReleaseDate(dateStr)}`;
+    }
+
+    function getExcludedMovieKeys() {
+      return new Set([
+        ...db.seen.filter(x => x.media_type === "movie").map(x => uniqueKey(x)),
+        ...db.watchlist.filter(x => x.media_type === "movie").map(x => uniqueKey(x))
+      ]);
+    }
+
+    function getQualifiedSeenMoviesForTaste() {
+      return db.seen.filter(item =>
+        item.media_type === "movie" &&
+        Number.isFinite(parseUserVote(item.vote)) &&
+        parseUserVote(item.vote) >= 7
+      );
+    }
+
+    function getPreferredGenreIdsFromVotes() {
+      const qualified = getQualifiedSeenMoviesForTaste();
+      if (!qualified.length) return [];
+
+      const genreScores = {};
+
+      qualified.forEach(item => {
+        const voteNum = parseUserVote(item.vote);
+        const weight = Math.max(1, voteNum - 6.5);
+
+        (item.genre_names || []).forEach(name => {
+          const genreId = GENRE_NAME_TO_ID[name];
+          if (!genreId) return;
+          genreScores[genreId] = (genreScores[genreId] || 0) + weight;
+        });
+      });
+
+      return Object.entries(genreScores)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([genreId]) => Number(genreId));
+    }
+
+    async function fetchTmdbJson(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Errore TMDb");
+      return res.json();
+    }
+
+    function dedupeMovies(items) {
+      const map = new Map();
+      items.forEach(item => {
+        if (!item || !item.id) return;
+        const normalized = normalizedItem({ ...item, media_type: "movie" });
+        map.set(uniqueKey(normalized), normalized);
+      });
+      return [...map.values()];
+    }
+
+    function renderUpcomingShelf(container, items, mode = "generic") {
+      container.innerHTML = items.map(item => {
+        const label = releaseLabel(item.release_date);
+        const tags = [];
+
+        if (mode === "forYou") {
+          tags.push(`<div class="miniTag gold">nei tuoi generi</div>`);
+        }
+
+        if (mode === "month") {
+          tags.push(`<div class="miniTag blue">questo mese</div>`);
+        }
+
+        if (mode === "radar") {
+          const avg = Number(item.vote_average) || 0;
+          if (avg >= 7) tags.push(`<div class="miniTag gold">buon rating</div>`);
+          if ((item.popularity || 0) >= 40) tags.push(`<div class="miniTag blue">molto atteso</div>`);
+        }
+
+        const tmdbScore = Number(item.vote_average) || 0;
+        if (tmdbScore > 0) {
+          tags.push(`<div class="miniTag green">⭐ ${tmdbScore.toFixed(1)}</div>`);
+        }
+
+        return `
+          <div class="shelfCard open-upcoming-detail" data-id="${item.id}" data-type="movie">
+            <div class="shelfPoster" style="background-image:url('${posterUrl(item.poster_path)}')">
+              <div class="badge badge-film">Film</div>
+            </div>
+            <div class="shelfInfo">
+              <div class="shelfTitle">${escapeHtml(item.title)}</div>
+              <div class="shelfMeta">${escapeHtml(label)}</div>
+              <div class="upcomingTagRow">${tags.join("")}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function setUpcomingLoadingState() {
+      upcomingForYouShelf.innerHTML = "";
+      upcomingMonthShelf.innerHTML = "";
+      watchRadarShelf.innerHTML = "";
+
+      upcomingForYouEmpty.textContent = "Sto cercando uscite basate sui tuoi gusti...";
+      upcomingMonthEmpty.textContent = "Sto caricando le uscite del mese...";
+      watchRadarEmpty.textContent = "Sto cercando film futuri da tenere d’occhio...";
+
+      upcomingForYouEmpty.classList.remove("hidden");
+      upcomingMonthEmpty.classList.remove("hidden");
+      watchRadarEmpty.classList.remove("hidden");
+    }
+
+    function readUpcomingCache() {
+      try {
+        const raw = localStorage.getItem("cineTrackerUpcomingCache");
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.timestamp) return null;
+        if (Date.now() - parsed.timestamp > UPCOMING_CACHE_MS) return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveUpcomingCache(payload) {
+      try {
+        localStorage.setItem("cineTrackerUpcomingCache", JSON.stringify({
+          timestamp: Date.now(),
+          forYou: payload.forYou || [],
+          month: payload.month || [],
+          radar: payload.radar || []
+        }));
+      } catch {}
+    }
+
+    function applyUpcomingPayload(payload) {
+      const forYou = Array.isArray(payload.forYou) ? payload.forYou.map(normalizedItem) : [];
+      const month = Array.isArray(payload.month) ? payload.month.map(normalizedItem) : [];
+      const radar = Array.isArray(payload.radar) ? payload.radar.map(normalizedItem) : [];
+
+      upcomingForYouEmpty.classList.toggle("hidden", forYou.length > 0);
+      upcomingMonthEmpty.classList.toggle("hidden", month.length > 0);
+      watchRadarEmpty.classList.toggle("hidden", radar.length > 0);
+
+      if (!forYou.length) {
+        upcomingForYouShelf.innerHTML = "";
+      } else {
+        renderUpcomingShelf(upcomingForYouShelf, forYou, "forYou");
+      }
+
+      if (!month.length) {
+        upcomingMonthShelf.innerHTML = "";
+      } else {
+        renderUpcomingShelf(upcomingMonthShelf, month, "month");
+      }
+
+      if (!radar.length) {
+        watchRadarShelf.innerHTML = "";
+      } else {
+        renderUpcomingShelf(watchRadarShelf, radar, "radar");
+      }
+    }
+
+    function scoreRadarMovie(item, preferredGenreIds) {
+      let score = 0;
+      const itemGenreIds = Array.isArray(item.genre_ids) ? item.genre_ids : [];
+
+      itemGenreIds.forEach(id => {
+        if (preferredGenreIds.includes(id)) score += 5;
+      });
+
+      const voteAverage = Number(item.vote_average) || 0;
+      const voteCount = Number(item.vote_count) || 0;
+      const popularity = Number(item.popularity) || 0;
+
+      score += Math.min(4, voteAverage / 2.2);
+      score += Math.min(4, popularity / 18);
+      score += Math.min(2.5, voteCount / 250);
+
+      const days = daysUntil(item.release_date);
+      if (days !== null) {
+        if (days <= 30) score += 3;
+        else if (days <= 60) score += 2;
+        else if (days <= 120) score += 1;
+      }
+
+      return score;
+    }
+
+    async function loadUpcomingShelves(force = false) {
+      const token = ++upcomingLoadToken;
+
+      if (!force) {
+        const cache = readUpcomingCache();
+        if (cache) {
+          applyUpcomingPayload(cache);
+          return;
+        }
+      }
+
+      setUpcomingLoadingState();
+
+      const excluded = getExcludedMovieKeys();
+      const preferredGenreIds = getPreferredGenreIdsFromVotes();
+      const today = getTodayISO();
+      const { start: monthStart, end: monthEnd } = getMonthBounds();
+
+      try {
+        const urls = [];
+
+        if (preferredGenreIds.length) {
+          urls.push(
+            `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=popularity.desc&release_date.gte=${today}&with_genres=${preferredGenreIds.join(",")}&page=1`,
+            `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=vote_average.desc&vote_count.gte=40&release_date.gte=${today}&with_genres=${preferredGenreIds.join(",")}&page=1`
+          );
+        } else {
+          urls.push(null, null);
+        }
+
+        urls.push(
+          `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=popularity.desc&release_date.gte=${monthStart}&release_date.lte=${monthEnd}&page=1`,
+          `${BASE_URL}/movie/upcoming?api_key=${API_KEY}&language=it-IT&region=IT&page=1`,
+          `${BASE_URL}/movie/upcoming?api_key=${API_KEY}&language=it-IT&region=IT&page=2`
+        );
+
+        const [forYouA, forYouB, monthData, radarA, radarB] = await Promise.all(
+          urls.map(url => url ? fetchTmdbJson(url).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }))
+        );
+
+        if (token !== upcomingLoadToken) return;
+
+        let forYou = [];
+        if (preferredGenreIds.length) {
+          forYou = dedupeMovies([...(forYouA.results || []), ...(forYouB.results || [])])
+            .filter(item =>
+              item.poster_path &&
+              item.release_date &&
+              !excluded.has(uniqueKey(item))
+            )
+            .map(item => {
+              const genreMatchCount = (item.genre_names || [])
+                .map(name => GENRE_NAME_TO_ID[name])
+                .filter(id => preferredGenreIds.includes(id)).length;
+
+              const voteAverage = Number(item.vote_average) || 0;
+              const popularity = Number(item.popularity) || 0;
+              const releaseBoost = (() => {
+                const days = daysUntil(item.release_date);
+                if (days === null) return 0;
+                if (days <= 14) return 2;
+                if (days <= 45) return 1;
+                return 0;
+              })();
+
+              return {
+                ...item,
+                _score: genreMatchCount * 6 + voteAverage + popularity / 20 + releaseBoost
+              };
+            })
+            .sort((a,b) => b._score - a._score)
+            .slice(0, 10)
+            .map(({ _score, ...rest }) => rest);
+        }
+
+        const month = dedupeMovies(monthData.results || [])
+          .filter(item =>
+            item.poster_path &&
+            item.release_date &&
+            !excluded.has(uniqueKey(item))
+          )
+          .sort((a,b) => {
+            const da = daysUntil(a.release_date);
+            const dbb = daysUntil(b.release_date);
+            return (da ?? 9999) - (dbb ?? 9999);
+          })
+          .slice(0, 12);
+
+        const radar = dedupeMovies([...(radarA.results || []), ...(radarB.results || [])])
+          .filter(item =>
+            item.poster_path &&
+            item.release_date &&
+            !excluded.has(uniqueKey(item))
+          )
+          .map(item => ({
+            ...item,
+            _score: scoreRadarMovie(item, preferredGenreIds)
+          }))
+          .sort((a,b) => b._score - a._score)
+          .slice(0, 12)
+          .map(({ _score, ...rest }) => rest);
+
+        const payload = { forYou, month, radar };
+        applyUpcomingPayload(payload);
+        saveUpcomingCache(payload);
+
+        if (!forYou.length) {
+          if (!preferredGenreIds.length) {
+            upcomingForYouEmpty.textContent = "Vota alcuni film con almeno 7 per sbloccare una selezione più personale.";
+          } else {
+            upcomingForYouEmpty.textContent = "Non ho trovato abbastanza uscite compatibili con i tuoi gusti in questo momento.";
+          }
+        }
+
+        if (!month.length) {
+          upcomingMonthEmpty.textContent = "Nessuna uscita nuova trovata per questo mese.";
+        }
+
+        if (!radar.length) {
+          watchRadarEmpty.textContent = "Nessun film promettente trovato al momento.";
+        }
+      } catch (error) {
+        if (token !== upcomingLoadToken) return;
+
+        upcomingForYouShelf.innerHTML = "";
+        upcomingMonthShelf.innerHTML = "";
+        watchRadarShelf.innerHTML = "";
+
+        upcomingForYouEmpty.textContent = "Errore nel caricamento delle uscite.";
+        upcomingMonthEmpty.textContent = "Errore nel caricamento delle uscite.";
+        watchRadarEmpty.textContent = "Errore nel caricamento delle uscite.";
+
+        upcomingForYouEmpty.classList.remove("hidden");
+        upcomingMonthEmpty.classList.remove("hidden");
+        watchRadarEmpty.classList.remove("hidden");
+      }
+    }
+
     async function searchTitles() {
       const q = searchInput.value.trim();
 
@@ -2048,7 +2581,7 @@
       db.seen.unshift(item);
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
       saveDB();
-      renderAll();
+      renderAll(true);
       openDetail(item);
       showToast(`"${item.title}" aggiunto ai visti.`, "success", "Titolo salvato");
       haptic([12, 20, 12]);
@@ -2060,7 +2593,7 @@
       if (!inSeen(item) && !inWatch(item)) {
         db.watchlist.unshift(item);
         saveDB();
-        renderAll();
+        renderAll(true);
         showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
         haptic([10]);
       }
@@ -2085,7 +2618,7 @@
       }
 
       saveDB();
-      renderAll();
+      renderAll(true);
       showToast(`"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
       haptic([12, 20, 12]);
     }
@@ -2094,7 +2627,7 @@
       const item = db.seen.find(x => uniqueKey(x) === key);
       db.seen = db.seen.filter(x => uniqueKey(x) !== key);
       saveDB();
-      renderAll();
+      renderAll(true);
 
       if (currentDetail && uniqueKey(currentDetail) === key) {
         switchScreen("home");
@@ -2110,7 +2643,7 @@
       const item = db.watchlist.find(x => uniqueKey(x) === key);
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
       saveDB();
-      renderAll();
+      renderAll(true);
 
       if (currentDetail && uniqueKey(currentDetail) === key) {
         openDetail(currentDetail);
@@ -2132,10 +2665,11 @@
       renderTasteMap();
     }
 
-    function renderAll() {
+    function renderAll(forceUpcomingReload = false) {
       renderHomeShelves();
       renderLibraryList();
       renderStats();
+      loadUpcomingShelves(forceUpcomingReload);
     }
 
     function getUserTasteProfile() {
@@ -2152,10 +2686,10 @@
         const decade = decadeOf(item.year);
         decadeCount[decade] = (decadeCount[decade] || 0) + 1;
 
-        const voteNum = parseFloat(item.vote);
+        const voteNum = parseUserVote(item.vote);
         (item.genre_names || []).forEach(g => {
           genreCount[g] = (genreCount[g] || 0) + 1;
-          if (!isNaN(voteNum)) {
+          if (Number.isFinite(voteNum)) {
             if (!genreVotes[g]) genreVotes[g] = [];
             genreVotes[g].push(voteNum);
           }
@@ -2181,8 +2715,8 @@
       });
 
       const overallVotes = db.seen
-        .map(x => parseFloat(x.vote))
-        .filter(v => !isNaN(v));
+        .map(x => parseUserVote(x.vote))
+        .filter(v => Number.isFinite(v));
 
       const avgVote = overallVotes.length
         ? overallVotes.reduce((a,b) => a + b, 0) / overallVotes.length
@@ -2202,8 +2736,8 @@
 
     function suggestClassic() {
       const pool = db.seen.filter(x => {
-        const v = parseFloat(x.vote);
-        return !isNaN(v) && v >= 7;
+        const v = parseUserVote(x.vote);
+        return Number.isFinite(v) && v >= 7;
       });
 
       if (!pool.length) {
@@ -2213,17 +2747,17 @@
       }
 
       const pick = pool[Math.floor(Math.random() * pool.length)];
-      const voto = parseFloat(pick.vote).toFixed(1);
+      const voto = parseUserVote(pick.vote).toFixed(2).replace(/\.00$/, "").replace(".", ",");
       const tipo = mediaLabel(pick);
 
       let commento = "";
-      if (voto >= 9) commento = "Uno dei tuoi assoluti — un ottimo motivo per rivederlo.";
-      else if (voto >= 8) commento = "L'hai amato. Ogni tanto certi titoli vanno rivisti.";
+      if (parseUserVote(pick.vote) >= 9) commento = "Uno dei tuoi assoluti — un ottimo motivo per rivederlo.";
+      else if (parseUserVote(pick.vote) >= 8) commento = "L'hai amato. Ogni tanto certi titoli vanno rivisti.";
       else commento = "Un bel titolo che hai apprezzato — vale una seconda visione.";
 
       tonightSuggestion.innerHTML = `
         <strong>⭐ ${escapeHtml(pick.title)}</strong><br>
-        <span class="muted">${pick.year} · ${tipo} · Il tuo voto: ${voto}</span><br><br>
+        <span class="muted">${pick.year} · ${tipo} · Il tuo voto: ${escapeHtml(pick.vote || voto)}</span><br><br>
         <span style="font-size:13px;">📌 ${commento}</span>
       `;
       haptic([10]);
@@ -2712,6 +3246,10 @@
           animateBarGroups();
         }, 60);
       }
+
+      if (name === "home") {
+        loadUpcomingShelves(false);
+      }
     }
 
     function setLibraryFilter(filter) {
@@ -2768,7 +3306,7 @@
           };
 
           saveDB();
-          renderAll();
+          renderAll(true);
           switchScreen("home");
           showToast("Backup importato correttamente.", "success", "Backup");
           haptic([12, 20, 12]);
@@ -2809,6 +3347,7 @@
       facts.push(`Anno: ${source.year}`);
       if (source.genre_names?.length) facts.push(`Generi: ${source.genre_names.join(", ")}`);
       if (source.director && source.media_type === "movie") facts.push(`Regista: ${source.director}`);
+      if (source.release_date && source.media_type === "movie") facts.push(`Uscita: ${formatReleaseDate(source.release_date)}`);
       if (inSeen(source)) facts.push("Stato: visto");
       else if (inWatch(source)) facts.push("Stato: in watchlist");
       else facts.push("Stato: non salvato");
@@ -2824,11 +3363,28 @@
       switchScreen("detail");
     }
 
+    function validateVoteOrShowToast(rawVote) {
+      const cleaned = sanitizeVoteInput(rawVote);
+      if (!rawVote || !String(rawVote).trim()) {
+        return { ok: true, value: "" };
+      }
+
+      if (!cleaned || !Number.isFinite(parseUserVote(cleaned))) {
+        showToast("Voto non valido. Usa per esempio 7, 7+, 7,5 oppure 8-.", "error", "Voto");
+        return { ok: false, value: "" };
+      }
+
+      return { ok: true, value: cleaned };
+    }
+
     function saveDetailNotes() {
       if (!currentDetail) return;
 
+      const voteCheck = validateVoteOrShowToast(detailVoteInput.value);
+      if (!voteCheck.ok) return;
+
       const key = uniqueKey(currentDetail);
-      const vote = detailVoteInput.value.trim();
+      const vote = voteCheck.value;
       const comment = detailCommentInput.value.trim();
 
       let target = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
@@ -2842,7 +3398,7 @@
       target.comment = comment;
 
       saveDB();
-      renderAll();
+      renderAll(true);
       openDetail(target);
 
       showToast("Voto e commento salvati.", "success", "Scheda aggiornata");
@@ -2858,7 +3414,7 @@
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
       saveDB();
-      renderAll();
+      renderAll(true);
       switchScreen("home");
       showToast(`"${title}" rimosso dalla libreria.`, "info", "Titolo rimosso");
       haptic([14]);
@@ -2873,6 +3429,7 @@
       const moveWatchBtn = e.target.closest(".move-watch-seen");
       const openStoredBtn = e.target.closest(".open-stored-detail");
       const openTonightBtn = e.target.closest(".open-tonight-detail");
+      const openUpcomingBtn = e.target.closest(".open-upcoming-detail");
       const genreFilterBtn = e.target.closest("[data-genre-filter]");
       const genericTap = e.target.closest("button, .navBtn, .tab, .filterPill, .seeAllBtn, .shelfCard, .tonightCard");
 
@@ -2901,6 +3458,10 @@
 
         if (openTonightBtn) {
           await showDetails(openTonightBtn.dataset.type, openTonightBtn.dataset.id);
+        }
+
+        if (openUpcomingBtn) {
+          await showDetails(openUpcomingBtn.dataset.type, openUpcomingBtn.dataset.id);
         }
       } catch (err) {
         showToast("C'è stato un problema. Riprova.", "error", "Errore");
@@ -2960,15 +3521,18 @@
     detailSeenBtn.addEventListener("click", () => {
       if (!currentDetail) return;
 
+      const voteCheck = validateVoteOrShowToast(detailVoteInput.value);
+      if (!voteCheck.ok) return;
+
       if (!inSeen(currentDetail)) {
         db.seen.unshift({
           ...currentDetail,
-          vote: detailVoteInput.value.trim(),
+          vote: voteCheck.value,
           comment: detailCommentInput.value.trim()
         });
         db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
         saveDB();
-        renderAll();
+        renderAll(true);
         showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Titolo salvato");
         haptic([12, 20, 12]);
       } else {
@@ -2981,14 +3545,17 @@
     detailWatchBtn.addEventListener("click", () => {
       if (!currentDetail) return;
 
+      const voteCheck = validateVoteOrShowToast(detailVoteInput.value);
+      if (!voteCheck.ok) return;
+
       if (!inSeen(currentDetail) && !inWatch(currentDetail)) {
         db.watchlist.unshift({
           ...currentDetail,
-          vote: detailVoteInput.value.trim(),
+          vote: voteCheck.value,
           comment: detailCommentInput.value.trim()
         });
         saveDB();
-        renderAll();
+        renderAll(true);
         showToast(`"${currentDetail.title}" aggiunto alla watchlist.`, "success", "Watchlist");
         haptic([10]);
       } else if (inWatch(currentDetail)) {
@@ -3008,7 +3575,7 @@
       removeCurrentDetail();
     });
 
-    renderAll();
+    renderAll(true);
   </script>
 
   <script>
