@@ -1131,15 +1131,7 @@
 
       <div class="section">
         <div class="shelfHeader">
-          <h2>📅 In uscita questo mese</h2>
-        </div>
-        <div id="upcomingMonthShelf" class="shelfScroller"></div>
-        <div id="upcomingMonthEmpty" class="empty">Nessuna uscita trovata per il resto di questo mese.</div>
-      </div>
-
-      <div class="section">
-        <div class="shelfHeader">
-          <h2>👀 Da tenere d’occhio</h2>
+          <h2>🚀 Radar uscite</h2>
         </div>
         <div id="watchRadarShelf" class="shelfScroller"></div>
         <div id="watchRadarEmpty" class="empty">Sto cercando i film più interessanti dei prossimi 120 giorni.</div>
@@ -1429,8 +1421,6 @@
     const resultCount = document.getElementById("resultCount");
     const tabs = [...document.querySelectorAll(".tab")];
 
-    const upcomingMonthShelf = document.getElementById("upcomingMonthShelf");
-    const upcomingMonthEmpty = document.getElementById("upcomingMonthEmpty");
     const watchRadarShelf = document.getElementById("watchRadarShelf");
     const watchRadarEmpty = document.getElementById("watchRadarEmpty");
 
@@ -2105,22 +2095,6 @@
       return copy;
     }
 
-    function getMonthBounds() {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = now.getMonth();
-      const start = new Date(y, m, 1);
-      const end = new Date(y, m + 1, 0);
-      return {
-        start: toISODate(start),
-        end: toISODate(end)
-      };
-    }
-
-    function maxDateString(a, b) {
-      return a > b ? a : b;
-    }
-
     function formatReleaseDate(dateStr) {
       if (!dateStr) return "Data non disponibile";
       const d = new Date(dateStr + "T00:00:00");
@@ -2170,24 +2144,15 @@
       return [...map.values()];
     }
 
-    function renderUpcomingShelf(container, items, mode = "generic") {
+    function renderUpcomingShelf(container, items) {
       container.innerHTML = items.map(item => {
         const label = releaseLabel(item.release_date);
         const tags = [];
+        const avg = Number(item.vote_average) || 0;
 
-        if (mode === "month") {
-          tags.push(`<div class="miniTag blue">questo mese</div>`);
-        }
-
-        if (mode === "radar") {
-          const avg = Number(item.vote_average) || 0;
-          if (avg >= 7) tags.push(`<div class="miniTag gold">buon rating</div>`);
-          if ((item.popularity || 0) >= 40) tags.push(`<div class="miniTag blue">molto atteso</div>`);
-        }
-
-        if (inWatch(item)) {
-          tags.push(`<div class="miniTag green">in watchlist</div>`);
-        }
+        if (avg >= 7) tags.push(`<div class="miniTag gold">buon rating</div>`);
+        if ((item.popularity || 0) >= 40) tags.push(`<div class="miniTag blue">molto atteso</div>`);
+        if (inWatch(item)) tags.push(`<div class="miniTag green">in watchlist</div>`);
 
         const tmdbScore = Number(item.vote_average) || 0;
         if (tmdbScore > 0) {
@@ -2210,13 +2175,8 @@
     }
 
     function setUpcomingLoadingState() {
-      upcomingMonthShelf.innerHTML = "";
       watchRadarShelf.innerHTML = "";
-
-      upcomingMonthEmpty.textContent = "Sto caricando le uscite del mese...";
       watchRadarEmpty.textContent = "Sto cercando i film più interessanti dei prossimi 120 giorni...";
-
-      upcomingMonthEmpty.classList.remove("hidden");
       watchRadarEmpty.classList.remove("hidden");
     }
 
@@ -2237,53 +2197,76 @@
       try {
         localStorage.setItem("cineTrackerUpcomingCache", JSON.stringify({
           timestamp: Date.now(),
-          month: payload.month || [],
           radar: payload.radar || []
         }));
       } catch {}
     }
 
     function applyUpcomingPayload(payload) {
-      const month = Array.isArray(payload.month) ? payload.month.map(normalizedItem) : [];
       const radar = Array.isArray(payload.radar) ? payload.radar.map(normalizedItem) : [];
-
-      upcomingMonthEmpty.classList.toggle("hidden", month.length > 0);
       watchRadarEmpty.classList.toggle("hidden", radar.length > 0);
-
-      if (!month.length) {
-        upcomingMonthShelf.innerHTML = "";
-      } else {
-        renderUpcomingShelf(upcomingMonthShelf, month, "month");
-      }
 
       if (!radar.length) {
         watchRadarShelf.innerHTML = "";
       } else {
-        renderUpcomingShelf(watchRadarShelf, radar, "radar");
+        renderUpcomingShelf(watchRadarShelf, radar);
       }
     }
 
     function scoreRadarMovie(item) {
-      let score = 0;
+      const profile = getUserTasteProfile();
+
+      const popularity = Number(item.popularity) || 0;
       const voteAverage = Number(item.vote_average) || 0;
       const voteCount = Number(item.vote_count) || 0;
-      const popularity = Number(item.popularity) || 0;
 
-      score += Math.min(5, voteAverage / 1.8);
-      score += Math.min(4.5, popularity / 18);
-      score += Math.min(2.5, voteCount / 200);
+      let hypeScore = 0;
+      let qualityScore = 0;
+      let tasteScore = 0;
+
+      /* 50% HYPE */
+      hypeScore += Math.min(10, popularity / 10);
+
+      if (voteCount > 500) hypeScore += 3;
+      else if (voteCount > 200) hypeScore += 2;
+      else if (voteCount > 50) hypeScore += 1;
 
       const days = daysUntil(item.release_date);
       if (days !== null) {
-        if (days <= 14) score += 2.5;
-        else if (days <= 30) score += 2;
-        else if (days <= 60) score += 1.5;
-        else if (days <= 120) score += 0.8;
+        if (days <= 7) hypeScore += 3;
+        else if (days <= 30) hypeScore += 2;
+        else if (days <= 60) hypeScore += 1;
       }
 
-      if (inWatch(item)) score += 3;
+      hypeScore = Math.min(15, hypeScore);
 
-      return score;
+      /* 30% QUALITÀ */
+      qualityScore += voteAverage * 1.8;
+      if (voteCount > 300) qualityScore += 2;
+      qualityScore = Math.min(10, qualityScore);
+
+      /* 20% GUSTI */
+      const genres = item.genre_ids
+        ? item.genre_ids.map(id => GENRE_MAP[id])
+        : item.genre_names || [];
+
+      genres.forEach(g => {
+        if (profile.topGenres.includes(g)) tasteScore += 2;
+        if (profile.genreAverages[g]) tasteScore += (profile.genreAverages[g] - 6) * 0.6;
+      });
+
+      if (profile.topDecade && decadeOf(item.year) === profile.topDecade) {
+        tasteScore += 1.5;
+      }
+
+      tasteScore = Math.min(6, tasteScore);
+
+      const finalScore =
+        hypeScore * 0.5 +
+        qualityScore * 0.3 +
+        tasteScore * 0.2;
+
+      return finalScore;
     }
 
     async function loadUpcomingShelves(force = false) {
@@ -2301,33 +2284,18 @@
 
       const excluded = getExcludedMovieKeys();
       const today = getTodayISO();
-      const { start: monthStart, end: monthEnd } = getMonthBounds();
-      const monthStartEffective = maxDateString(today, monthStart);
       const radarEnd = toISODate(addDays(new Date(), RADAR_DAYS));
 
       try {
-        const monthUrl = `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=primary_release_date.asc&primary_release_date.gte=${monthStartEffective}&primary_release_date.lte=${monthEnd}&with_release_type=2|3&page=1`;
         const radarUrlA = `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=popularity.desc&primary_release_date.gte=${today}&primary_release_date.lte=${radarEnd}&with_release_type=2|3&page=1`;
         const radarUrlB = `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=vote_count.desc&vote_count.gte=40&primary_release_date.gte=${today}&primary_release_date.lte=${radarEnd}&with_release_type=2|3&page=1`;
 
-        const [monthData, radarA, radarB] = await Promise.all([
-          fetchTmdbJson(monthUrl).catch(() => ({ results: [] })),
+        const [radarA, radarB] = await Promise.all([
           fetchTmdbJson(radarUrlA).catch(() => ({ results: [] })),
           fetchTmdbJson(radarUrlB).catch(() => ({ results: [] }))
         ]);
 
         if (token !== upcomingLoadToken) return;
-
-        const month = dedupeMovies(monthData.results || [])
-          .filter(item =>
-            item.poster_path &&
-            item.release_date &&
-            daysUntil(item.release_date) !== null &&
-            daysUntil(item.release_date) >= 0 &&
-            !excluded.has(uniqueKey(item))
-          )
-          .sort((a,b) => (daysUntil(a.release_date) ?? 9999) - (daysUntil(b.release_date) ?? 9999))
-          .slice(0, 12);
 
         const radar = dedupeMovies([...(radarA.results || []), ...(radarB.results || [])])
           .filter(item =>
@@ -2346,13 +2314,9 @@
           .slice(0, 12)
           .map(({ _score, ...rest }) => rest);
 
-        const payload = { month, radar };
+        const payload = { radar };
         applyUpcomingPayload(payload);
         saveUpcomingCache(payload);
-
-        if (!month.length) {
-          upcomingMonthEmpty.textContent = "Non ci sono altre uscite previste per il resto di questo mese.";
-        }
 
         if (!radar.length) {
           watchRadarEmpty.textContent = "Non ho trovato film forti da seguire nei prossimi 120 giorni.";
@@ -2360,13 +2324,8 @@
       } catch (error) {
         if (token !== upcomingLoadToken) return;
 
-        upcomingMonthShelf.innerHTML = "";
         watchRadarShelf.innerHTML = "";
-
-        upcomingMonthEmpty.textContent = "Errore nel caricamento delle uscite.";
         watchRadarEmpty.textContent = "Errore nel caricamento delle uscite.";
-
-        upcomingMonthEmpty.classList.remove("hidden");
         watchRadarEmpty.classList.remove("hidden");
       }
     }
