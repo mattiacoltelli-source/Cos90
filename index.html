@@ -1131,18 +1131,10 @@
 
       <div class="section">
         <div class="shelfHeader">
-          <h2>🎯 In uscita per te</h2>
-        </div>
-        <div id="upcomingForYouShelf" class="shelfScroller"></div>
-        <div id="upcomingForYouEmpty" class="empty">Salva e vota alcuni film con voto da 7 in su per vedere uscite più adatte ai tuoi gusti.</div>
-      </div>
-
-      <div class="section">
-        <div class="shelfHeader">
           <h2>📅 In uscita questo mese</h2>
         </div>
         <div id="upcomingMonthShelf" class="shelfScroller"></div>
-        <div id="upcomingMonthEmpty" class="empty">Nessuna uscita interessante trovata per questo mese.</div>
+        <div id="upcomingMonthEmpty" class="empty">Nessuna uscita trovata per il resto di questo mese.</div>
       </div>
 
       <div class="section">
@@ -1150,7 +1142,7 @@
           <h2>👀 Da tenere d’occhio</h2>
         </div>
         <div id="watchRadarShelf" class="shelfScroller"></div>
-        <div id="watchRadarEmpty" class="empty">Sto ancora cercando film futuri promettenti per te.</div>
+        <div id="watchRadarEmpty" class="empty">Sto cercando i film più interessanti dei prossimi 120 giorni.</div>
       </div>
 
       <div class="section">
@@ -1373,6 +1365,7 @@
     const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
     const SUGGEST_HISTORY_MAX = 40;
     const UPCOMING_CACHE_MS = 1000 * 60 * 30;
+    const RADAR_DAYS = 120;
 
     const GENRE_MAP = {
       28:"Azione",
@@ -1436,8 +1429,6 @@
     const resultCount = document.getElementById("resultCount");
     const tabs = [...document.querySelectorAll(".tab")];
 
-    const upcomingForYouShelf = document.getElementById("upcomingForYouShelf");
-    const upcomingForYouEmpty = document.getElementById("upcomingForYouEmpty");
     const upcomingMonthShelf = document.getElementById("upcomingMonthShelf");
     const upcomingMonthEmpty = document.getElementById("upcomingMonthEmpty");
     const watchRadarShelf = document.getElementById("watchRadarShelf");
@@ -1715,14 +1706,12 @@
 
       value = value.replace(/\s+/g, "");
       value = value.replace(/\./g, ",");
-      value = value.replace(/,/g, ",");
 
       const mapSimple = {
         "6½": "6,5",
         "7½": "7,5",
         "8½": "8,5",
-        "9½": "9,5",
-        "10½": "10,5"
+        "9½": "9,5"
       };
       if (mapSimple[value]) value = mapSimple[value];
 
@@ -1733,11 +1722,11 @@
         return value.replace(".", ",");
       }
 
-      const match = value.match(/^(\d{1,2})([+-])$/);
-      if (match) {
-        const base = Number(match[1]);
+      const plusMinusMatch = value.match(/^(\d{1,2})([+-])$/);
+      if (plusMinusMatch) {
+        const base = Number(plusMinusMatch[1]);
         if (!Number.isFinite(base) || base < 0 || base > 10) return "";
-        return `${base}${match[2]}`;
+        return `${base}${plusMinusMatch[2]}`;
       }
 
       const halfMatch = value.match(/^(\d{1,2}),5$/);
@@ -1774,17 +1763,6 @@
 
       const num = Number(value.replace(",", "."));
       return Number.isFinite(num) ? num : NaN;
-    }
-
-    function formatParsedVote(value) {
-      if (!Number.isFinite(value)) return "";
-      const rounded = Math.round(value * 100) / 100;
-      return rounded % 1 === 0 ? String(rounded.toFixed(0)) : String(rounded).replace(".", ",");
-    }
-
-    function normalizeGenresNamesList(list) {
-      if (!Array.isArray(list)) return [];
-      return list.filter(Boolean).map(x => String(x).trim()).filter(Boolean);
     }
 
     function normalizedItem(item) {
@@ -1943,7 +1921,7 @@
 
       topRatedList.innerHTML = rated.map((item, i) => `
         <div class="insightItem">
-          ${i + 1}. <strong>${escapeHtml(item.title)}</strong> ⭐ ${escapeHtml(item.vote || formatParsedVote(parseUserVote(item.vote)))}
+          ${i + 1}. <strong>${escapeHtml(item.title)}</strong> ⭐ ${escapeHtml(item.vote)}
         </div>
       `).join("");
     }
@@ -2114,25 +2092,33 @@
       return new Date().toISOString().slice(0, 10);
     }
 
+    function toISODate(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function addDays(date, days) {
+      const copy = new Date(date);
+      copy.setDate(copy.getDate() + days);
+      return copy;
+    }
+
     function getMonthBounds() {
       const now = new Date();
       const y = now.getFullYear();
       const m = now.getMonth();
-
       const start = new Date(y, m, 1);
       const end = new Date(y, m + 1, 0);
-
       return {
         start: toISODate(start),
         end: toISODate(end)
       };
     }
 
-    function toISODate(date) {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const d = String(date.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
+    function maxDateString(a, b) {
+      return a > b ? a : b;
     }
 
     function formatReleaseDate(dateStr) {
@@ -2168,37 +2154,6 @@
       ]);
     }
 
-    function getQualifiedSeenMoviesForTaste() {
-      return db.seen.filter(item =>
-        item.media_type === "movie" &&
-        Number.isFinite(parseUserVote(item.vote)) &&
-        parseUserVote(item.vote) >= 7
-      );
-    }
-
-    function getPreferredGenreIdsFromVotes() {
-      const qualified = getQualifiedSeenMoviesForTaste();
-      if (!qualified.length) return [];
-
-      const genreScores = {};
-
-      qualified.forEach(item => {
-        const voteNum = parseUserVote(item.vote);
-        const weight = Math.max(1, voteNum - 6.5);
-
-        (item.genre_names || []).forEach(name => {
-          const genreId = GENRE_NAME_TO_ID[name];
-          if (!genreId) return;
-          genreScores[genreId] = (genreScores[genreId] || 0) + weight;
-        });
-      });
-
-      return Object.entries(genreScores)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([genreId]) => Number(genreId));
-    }
-
     async function fetchTmdbJson(url) {
       const res = await fetch(url);
       if (!res.ok) throw new Error("Errore TMDb");
@@ -2220,10 +2175,6 @@
         const label = releaseLabel(item.release_date);
         const tags = [];
 
-        if (mode === "forYou") {
-          tags.push(`<div class="miniTag gold">nei tuoi generi</div>`);
-        }
-
         if (mode === "month") {
           tags.push(`<div class="miniTag blue">questo mese</div>`);
         }
@@ -2232,6 +2183,10 @@
           const avg = Number(item.vote_average) || 0;
           if (avg >= 7) tags.push(`<div class="miniTag gold">buon rating</div>`);
           if ((item.popularity || 0) >= 40) tags.push(`<div class="miniTag blue">molto atteso</div>`);
+        }
+
+        if (inWatch(item)) {
+          tags.push(`<div class="miniTag green">in watchlist</div>`);
         }
 
         const tmdbScore = Number(item.vote_average) || 0;
@@ -2255,15 +2210,12 @@
     }
 
     function setUpcomingLoadingState() {
-      upcomingForYouShelf.innerHTML = "";
       upcomingMonthShelf.innerHTML = "";
       watchRadarShelf.innerHTML = "";
 
-      upcomingForYouEmpty.textContent = "Sto cercando uscite basate sui tuoi gusti...";
       upcomingMonthEmpty.textContent = "Sto caricando le uscite del mese...";
-      watchRadarEmpty.textContent = "Sto cercando film futuri da tenere d’occhio...";
+      watchRadarEmpty.textContent = "Sto cercando i film più interessanti dei prossimi 120 giorni...";
 
-      upcomingForYouEmpty.classList.remove("hidden");
       upcomingMonthEmpty.classList.remove("hidden");
       watchRadarEmpty.classList.remove("hidden");
     }
@@ -2285,7 +2237,6 @@
       try {
         localStorage.setItem("cineTrackerUpcomingCache", JSON.stringify({
           timestamp: Date.now(),
-          forYou: payload.forYou || [],
           month: payload.month || [],
           radar: payload.radar || []
         }));
@@ -2293,19 +2244,11 @@
     }
 
     function applyUpcomingPayload(payload) {
-      const forYou = Array.isArray(payload.forYou) ? payload.forYou.map(normalizedItem) : [];
       const month = Array.isArray(payload.month) ? payload.month.map(normalizedItem) : [];
       const radar = Array.isArray(payload.radar) ? payload.radar.map(normalizedItem) : [];
 
-      upcomingForYouEmpty.classList.toggle("hidden", forYou.length > 0);
       upcomingMonthEmpty.classList.toggle("hidden", month.length > 0);
       watchRadarEmpty.classList.toggle("hidden", radar.length > 0);
-
-      if (!forYou.length) {
-        upcomingForYouShelf.innerHTML = "";
-      } else {
-        renderUpcomingShelf(upcomingForYouShelf, forYou, "forYou");
-      }
 
       if (!month.length) {
         upcomingMonthShelf.innerHTML = "";
@@ -2320,28 +2263,25 @@
       }
     }
 
-    function scoreRadarMovie(item, preferredGenreIds) {
+    function scoreRadarMovie(item) {
       let score = 0;
-      const itemGenreIds = Array.isArray(item.genre_ids) ? item.genre_ids : [];
-
-      itemGenreIds.forEach(id => {
-        if (preferredGenreIds.includes(id)) score += 5;
-      });
-
       const voteAverage = Number(item.vote_average) || 0;
       const voteCount = Number(item.vote_count) || 0;
       const popularity = Number(item.popularity) || 0;
 
-      score += Math.min(4, voteAverage / 2.2);
-      score += Math.min(4, popularity / 18);
-      score += Math.min(2.5, voteCount / 250);
+      score += Math.min(5, voteAverage / 1.8);
+      score += Math.min(4.5, popularity / 18);
+      score += Math.min(2.5, voteCount / 200);
 
       const days = daysUntil(item.release_date);
       if (days !== null) {
-        if (days <= 30) score += 3;
-        else if (days <= 60) score += 2;
-        else if (days <= 120) score += 1;
+        if (days <= 14) score += 2.5;
+        else if (days <= 30) score += 2;
+        else if (days <= 60) score += 1.5;
+        else if (days <= 120) score += 0.8;
       }
+
+      if (inWatch(item)) score += 3;
 
       return score;
     }
@@ -2360,125 +2300,72 @@
       setUpcomingLoadingState();
 
       const excluded = getExcludedMovieKeys();
-      const preferredGenreIds = getPreferredGenreIdsFromVotes();
       const today = getTodayISO();
       const { start: monthStart, end: monthEnd } = getMonthBounds();
+      const monthStartEffective = maxDateString(today, monthStart);
+      const radarEnd = toISODate(addDays(new Date(), RADAR_DAYS));
 
       try {
-        const urls = [];
+        const monthUrl = `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=primary_release_date.asc&primary_release_date.gte=${monthStartEffective}&primary_release_date.lte=${monthEnd}&with_release_type=2|3&page=1`;
+        const radarUrlA = `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=popularity.desc&primary_release_date.gte=${today}&primary_release_date.lte=${radarEnd}&with_release_type=2|3&page=1`;
+        const radarUrlB = `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=vote_count.desc&vote_count.gte=40&primary_release_date.gte=${today}&primary_release_date.lte=${radarEnd}&with_release_type=2|3&page=1`;
 
-        if (preferredGenreIds.length) {
-          urls.push(
-            `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=popularity.desc&release_date.gte=${today}&with_genres=${preferredGenreIds.join(",")}&page=1`,
-            `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=vote_average.desc&vote_count.gte=40&release_date.gte=${today}&with_genres=${preferredGenreIds.join(",")}&page=1`
-          );
-        } else {
-          urls.push(null, null);
-        }
-
-        urls.push(
-          `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=popularity.desc&release_date.gte=${monthStart}&release_date.lte=${monthEnd}&page=1`,
-          `${BASE_URL}/movie/upcoming?api_key=${API_KEY}&language=it-IT&region=IT&page=1`,
-          `${BASE_URL}/movie/upcoming?api_key=${API_KEY}&language=it-IT&region=IT&page=2`
-        );
-
-        const [forYouA, forYouB, monthData, radarA, radarB] = await Promise.all(
-          urls.map(url => url ? fetchTmdbJson(url).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }))
-        );
+        const [monthData, radarA, radarB] = await Promise.all([
+          fetchTmdbJson(monthUrl).catch(() => ({ results: [] })),
+          fetchTmdbJson(radarUrlA).catch(() => ({ results: [] })),
+          fetchTmdbJson(radarUrlB).catch(() => ({ results: [] }))
+        ]);
 
         if (token !== upcomingLoadToken) return;
-
-        let forYou = [];
-        if (preferredGenreIds.length) {
-          forYou = dedupeMovies([...(forYouA.results || []), ...(forYouB.results || [])])
-            .filter(item =>
-              item.poster_path &&
-              item.release_date &&
-              !excluded.has(uniqueKey(item))
-            )
-            .map(item => {
-              const genreMatchCount = (item.genre_names || [])
-                .map(name => GENRE_NAME_TO_ID[name])
-                .filter(id => preferredGenreIds.includes(id)).length;
-
-              const voteAverage = Number(item.vote_average) || 0;
-              const popularity = Number(item.popularity) || 0;
-              const releaseBoost = (() => {
-                const days = daysUntil(item.release_date);
-                if (days === null) return 0;
-                if (days <= 14) return 2;
-                if (days <= 45) return 1;
-                return 0;
-              })();
-
-              return {
-                ...item,
-                _score: genreMatchCount * 6 + voteAverage + popularity / 20 + releaseBoost
-              };
-            })
-            .sort((a,b) => b._score - a._score)
-            .slice(0, 10)
-            .map(({ _score, ...rest }) => rest);
-        }
 
         const month = dedupeMovies(monthData.results || [])
           .filter(item =>
             item.poster_path &&
             item.release_date &&
+            daysUntil(item.release_date) !== null &&
+            daysUntil(item.release_date) >= 0 &&
             !excluded.has(uniqueKey(item))
           )
-          .sort((a,b) => {
-            const da = daysUntil(a.release_date);
-            const dbb = daysUntil(b.release_date);
-            return (da ?? 9999) - (dbb ?? 9999);
-          })
+          .sort((a,b) => (daysUntil(a.release_date) ?? 9999) - (daysUntil(b.release_date) ?? 9999))
           .slice(0, 12);
 
         const radar = dedupeMovies([...(radarA.results || []), ...(radarB.results || [])])
           .filter(item =>
             item.poster_path &&
             item.release_date &&
+            daysUntil(item.release_date) !== null &&
+            daysUntil(item.release_date) >= 0 &&
+            daysUntil(item.release_date) <= RADAR_DAYS &&
             !excluded.has(uniqueKey(item))
           )
           .map(item => ({
             ...item,
-            _score: scoreRadarMovie(item, preferredGenreIds)
+            _score: scoreRadarMovie(item)
           }))
           .sort((a,b) => b._score - a._score)
           .slice(0, 12)
           .map(({ _score, ...rest }) => rest);
 
-        const payload = { forYou, month, radar };
+        const payload = { month, radar };
         applyUpcomingPayload(payload);
         saveUpcomingCache(payload);
 
-        if (!forYou.length) {
-          if (!preferredGenreIds.length) {
-            upcomingForYouEmpty.textContent = "Vota alcuni film con almeno 7 per sbloccare una selezione più personale.";
-          } else {
-            upcomingForYouEmpty.textContent = "Non ho trovato abbastanza uscite compatibili con i tuoi gusti in questo momento.";
-          }
-        }
-
         if (!month.length) {
-          upcomingMonthEmpty.textContent = "Nessuna uscita nuova trovata per questo mese.";
+          upcomingMonthEmpty.textContent = "Non ci sono altre uscite previste per il resto di questo mese.";
         }
 
         if (!radar.length) {
-          watchRadarEmpty.textContent = "Nessun film promettente trovato al momento.";
+          watchRadarEmpty.textContent = "Non ho trovato film forti da seguire nei prossimi 120 giorni.";
         }
       } catch (error) {
         if (token !== upcomingLoadToken) return;
 
-        upcomingForYouShelf.innerHTML = "";
         upcomingMonthShelf.innerHTML = "";
         watchRadarShelf.innerHTML = "";
 
-        upcomingForYouEmpty.textContent = "Errore nel caricamento delle uscite.";
         upcomingMonthEmpty.textContent = "Errore nel caricamento delle uscite.";
         watchRadarEmpty.textContent = "Errore nel caricamento delle uscite.";
 
-        upcomingForYouEmpty.classList.remove("hidden");
         upcomingMonthEmpty.classList.remove("hidden");
         watchRadarEmpty.classList.remove("hidden");
       }
@@ -2747,7 +2634,7 @@
       }
 
       const pick = pool[Math.floor(Math.random() * pool.length)];
-      const voto = parseUserVote(pick.vote).toFixed(2).replace(/\.00$/, "").replace(".", ",");
+      const voto = pick.vote || parseUserVote(pick.vote).toFixed(2).replace(/\.00$/, "").replace(".", ",");
       const tipo = mediaLabel(pick);
 
       let commento = "";
@@ -2757,7 +2644,7 @@
 
       tonightSuggestion.innerHTML = `
         <strong>⭐ ${escapeHtml(pick.title)}</strong><br>
-        <span class="muted">${pick.year} · ${tipo} · Il tuo voto: ${escapeHtml(pick.vote || voto)}</span><br><br>
+        <span class="muted">${pick.year} · ${tipo} · Il tuo voto: ${escapeHtml(voto)}</span><br><br>
         <span style="font-size:13px;">📌 ${commento}</span>
       `;
       haptic([10]);
