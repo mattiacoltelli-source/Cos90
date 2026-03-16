@@ -51,6 +51,14 @@
     .app{
       max-width:720px;
       margin:0 auto;
+      opacity:0;
+      transform:translateY(10px);
+      transition:opacity .6s ease, transform .6s ease;
+    }
+
+    .app.appReady{
+      opacity:1;
+      transform:translateY(0);
     }
 
     .topbar{
@@ -1061,6 +1069,11 @@
       to{opacity:1; transform:translateY(0);}
     }
 
+    @keyframes splashLoad{
+      from{width:0%}
+      to{width:100%}
+    }
+
     .toastWrap{
       position:fixed;
       left:14px;
@@ -1142,6 +1155,48 @@
   </style>
 </head>
 <body>
+  <div id="splashScreen" style="
+    position:fixed;
+    inset:0;
+    background:#0b0f14;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    z-index:99999;
+    transition:opacity .6s ease;
+  ">
+    <div style="font-size:38px;margin-bottom:12px;">🎬</div>
+
+    <div style="
+      font-size:26px;
+      font-weight:800;
+      letter-spacing:.5px;
+      margin-bottom:8px;
+    ">CineTracker</div>
+
+    <div style="
+      color:#9aa7b5;
+      font-size:14px;
+      margin-bottom:24px;
+    ">La tua serata cinema parte da qui</div>
+
+    <div style="
+      width:120px;
+      height:4px;
+      background:#1a2230;
+      border-radius:999px;
+      overflow:hidden;
+    ">
+      <div style="
+        height:100%;
+        width:0%;
+        background:linear-gradient(90deg,#f5c451,#ffd777);
+        animation:splashLoad 1s ease forwards;
+      "></div>
+    </div>
+  </div>
+
   <div class="app">
     <div class="topbar">
       <div>
@@ -3463,8 +3518,26 @@
     });
 
     renderAll(true);
-  </script>
 
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        const splash = document.getElementById("splashScreen");
+        const app = document.querySelector(".app");
+
+        if (app) {
+          app.classList.add("appReady");
+        }
+
+        if (!splash) return;
+
+        splash.style.opacity = "0";
+
+        setTimeout(() => {
+          splash.remove();
+        }, 600);
+      }, 900);
+    });
+  </script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
