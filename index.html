@@ -2070,7 +2070,7 @@
         year: yearOf(item),
         poster_path: item.poster_path || "",
         backdrop_path: item.backdrop_path || "",
-        overview: item.overview || "",
+        overview: item.overview ? (item.overview.length > 300 ? item.overview.slice(0,300) + "..." : item.overview) : "",
         vote: sanitizeVoteInput(item.vote || ""),
         comment: item.comment || "",
         vote_average: item.vote_average || 0,
