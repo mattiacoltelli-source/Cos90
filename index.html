@@ -1337,6 +1337,42 @@
       }
     }
 
+    .rankingToggleRow{
+      display:flex;
+      gap:8px;
+      margin-bottom:14px;
+    }
+
+    .rankingToggleBtn{
+      flex:1;
+      padding:10px 12px;
+      border-radius:12px;
+      background:#111a27;
+      color:var(--muted);
+      border:1px solid var(--line);
+      font-weight:700;
+      font-size:14px;
+      cursor:pointer;
+      box-shadow:none;
+      transition:
+        background var(--normal) ease,
+        color var(--normal) ease,
+        border-color var(--normal) ease,
+        box-shadow var(--normal) ease,
+        transform var(--fast) ease;
+    }
+
+    .rankingToggleBtn.active{
+      background:linear-gradient(180deg,#1f2d42,#1c283a);
+      color:#fff;
+      border-color:#385175;
+      box-shadow:0 8px 20px rgba(77,163,255,.14);
+    }
+
+    .rankingToggleBtn:active{
+      transform:translateY(1px) scale(.985);
+    }
+
     @media (max-width:380px){
       .grid{grid-template-columns:1fr;}
       .detailTop{grid-template-columns:82px 1fr;}
@@ -1439,14 +1475,6 @@
 
       <div class="section">
         <div class="shelfHeader">
-          <h2>🚀 Radar uscite</h2>
-        </div>
-        <div id="watchRadarShelf" class="shelfScroller"></div>
-        <div id="watchRadarEmpty" class="empty">Sto cercando i film più interessanti dei prossimi 120 giorni.</div>
-      </div>
-
-      <div class="section">
-        <div class="shelfHeader">
           <h2>Watchlist</h2>
           <div id="openWatchAll" class="seeAllBtn">Vedi tutto →</div>
         </div>
@@ -1518,21 +1546,47 @@
 
           <div class="tasteBlock">
             <div class="top100Wrap">
-              <div class="top100Header">
-                <div class="top100Title">
-                  <h3>🏆 Top 100 film</h3>
-                  <div class="muted">Ordinati in base al tuo voto personale</div>
+
+              <!-- Toggle switch Film / Serie TV -->
+              <div class="rankingToggleRow">
+                <button id="rankingToggleMovies" class="rankingToggleBtn active">🎬 Film</button>
+                <button id="rankingToggleSeries" class="rankingToggleBtn">📺 Serie TV</button>
+              </div>
+
+              <!-- FILM -->
+              <div id="rankingPanelMovies">
+                <div class="top100Header">
+                  <div class="top100Title">
+                    <h3>🏆 Top film</h3>
+                    <div class="muted">Ordinati in base al tuo voto personale</div>
+                  </div>
+                  <div id="top100CountBadge" class="top100Badge">0 titoli</div>
                 </div>
-                <div id="top100CountBadge" class="top100Badge">0 titoli</div>
+                <div id="top100Podium" class="podiumGrid">
+                  <div class="insightItem">Valuta alcuni film per vedere il podio.</div>
+                </div>
+                <div id="top100List" class="rankingList">
+                  <div class="insightItem">Aggiungi voti ai film visti per creare la tua classifica completa.</div>
+                </div>
               </div>
 
-              <div id="top100Podium" class="podiumGrid">
-                <div class="insightItem">Valuta alcuni film per vedere il podio.</div>
+              <!-- SERIE TV -->
+              <div id="rankingPanelSeries" class="hidden">
+                <div class="top100Header">
+                  <div class="top100Title">
+                    <h3>🏆 Top serie TV</h3>
+                    <div class="muted">Ordinate in base al tuo voto personale</div>
+                  </div>
+                  <div id="top100SeriesCountBadge" class="top100Badge">0 titoli</div>
+                </div>
+                <div id="top100SeriesPodium" class="podiumGrid">
+                  <div class="insightItem">Valuta alcune serie per vedere il podio.</div>
+                </div>
+                <div id="top100SeriesList" class="rankingList">
+                  <div class="insightItem">Aggiungi voti alle serie viste per creare la tua classifica completa.</div>
+                </div>
               </div>
 
-              <div id="top100List" class="rankingList">
-                <div class="insightItem">Aggiungi voti ai film visti per creare la tua classifica completa.</div>
-              </div>
             </div>
           </div>
         </div>
@@ -1663,8 +1717,6 @@
     const TONIGHT_AUTO_COOLDOWN_MS = 20000;
     const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
     const SUGGEST_HISTORY_MAX = 40;
-    const UPCOMING_CACHE_MS = 1000 * 60 * 30;
-    const RADAR_DAYS = 120;
 
     const GENRE_MAP = {
       28:"Azione",
@@ -1728,9 +1780,6 @@
     const resultCount = document.getElementById("resultCount");
     const tabs = [...document.querySelectorAll(".tab")];
 
-    const watchRadarShelf = document.getElementById("watchRadarShelf");
-    const watchRadarEmpty = document.getElementById("watchRadarEmpty");
-
     const watchShelf = document.getElementById("watchShelf");
     const seenMovieShelf = document.getElementById("seenMovieShelf");
     const seenSeriesShelf = document.getElementById("seenSeriesShelf");
@@ -1760,6 +1809,9 @@
     const top100Podium = document.getElementById("top100Podium");
     const top100List = document.getElementById("top100List");
     const top100CountBadge = document.getElementById("top100CountBadge");
+    const top100SeriesPodium = document.getElementById("top100SeriesPodium");
+    const top100SeriesList = document.getElementById("top100SeriesList");
+    const top100SeriesCountBadge = document.getElementById("top100SeriesCountBadge");
 
     const genreSelect = document.getElementById("genreSelect");
     const recommendBtn = document.getElementById("recommendBtn");
@@ -1807,8 +1859,6 @@
     let lastHapticAt = 0;
     let statAnimationFrame = null;
     let barAnimationFrame = null;
-    let upcomingLoadToken = 0;
-
     let db;
     try {
       const rawDB = localStorage.getItem("cineTrackerDB");
@@ -2220,6 +2270,21 @@
         .slice(0, 100);
     }
 
+    function getRankedSeries() {
+      return db.seen
+        .filter(item => item.media_type === "tv" && Number.isFinite(parseUserVote(item.vote)))
+        .sort((a, b) => {
+          const voteDiff = parseUserVote(b.vote) - parseUserVote(a.vote);
+          if (voteDiff !== 0) return voteDiff;
+
+          const yearDiff = Number(b.year || 0) - Number(a.year || 0);
+          if (yearDiff !== 0) return yearDiff;
+
+          return titleOf(a).localeCompare(titleOf(b), "it");
+        })
+        .slice(0, 100);
+    }
+
     function renderTop100() {
       const ranked = getRankedMovies();
       top100CountBadge.textContent = `${ranked.length} titoli`;
@@ -2271,12 +2336,66 @@
       `).join("");
     }
 
+    function renderTop100Series() {
+      const ranked = getRankedSeries();
+      top100SeriesCountBadge.textContent = `${ranked.length} titoli`;
+
+      if (!ranked.length) {
+        top100SeriesPodium.innerHTML = `<div class="insightItem">Valuta alcune serie per vedere il podio.</div>`;
+        top100SeriesList.innerHTML = `<div class="insightItem">Aggiungi voti alle serie viste per creare la tua classifica completa.</div>`;
+        return;
+      }
+
+      const podium = ranked.slice(0, 3);
+      const rest = ranked.slice(3);
+
+      if (!podium.length) {
+        top100SeriesPodium.innerHTML = `<div class="insightItem">Valuta alcune serie per vedere il podio.</div>`;
+      } else {
+        const medals = [
+          { icon: "🥇", cls: "gold" },
+          { icon: "🥈", cls: "silver" },
+          { icon: "🥉", cls: "bronze" }
+        ];
+
+        top100SeriesPodium.innerHTML = podium.map((item, index) => `
+          <div class="podiumCard ${medals[index].cls}">
+            <div class="podiumMedal">${medals[index].icon}</div>
+            <div class="podiumPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+            <div class="podiumName">${escapeHtml(item.title)}</div>
+            <div class="podiumMeta">${escapeHtml(item.year)} · Serie TV</div>
+            <div class="podiumVote">⭐ ${escapeHtml(item.vote)}</div>
+          </div>
+        `).join("");
+      }
+
+      if (!rest.length) {
+        top100SeriesList.innerHTML = `<div class="insightItem">Per ora hai solo il podio. Continua a votare per riempire tutta la classifica.</div>`;
+        return;
+      }
+
+      top100SeriesList.innerHTML = rest.map((item, index) => `
+        <div class="rankingRow">
+          <div class="rankingPos">${index + 4}</div>
+          <div class="rankingPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+          <div class="rankingInfo">
+            <div class="rankingTitle">${escapeHtml(item.title)}</div>
+            <div class="rankingMeta">${escapeHtml(item.year)} · Serie TV</div>
+          </div>
+          <div class="rankingVote">⭐ ${escapeHtml(item.vote)}</div>
+        </div>
+      `).join("");
+    }
+
     function renderTasteMap() {
       if (db.seen.length < 3) {
         genreBars.innerHTML = `<div class="muted">Salva almeno 3 titoli visti.</div>`;
         top100CountBadge.textContent = `0 titoli`;
         top100Podium.innerHTML = `<div class="insightItem">Valuta alcuni film per vedere il podio.</div>`;
         top100List.innerHTML = `<div class="insightItem">Aggiungi voti ai film visti per creare la tua classifica completa.</div>`;
+        top100SeriesCountBadge.textContent = `0 titoli`;
+        top100SeriesPodium.innerHTML = `<div class="insightItem">Valuta alcune serie per vedere il podio.</div>`;
+        top100SeriesList.innerHTML = `<div class="insightItem">Aggiungi voti alle serie viste per creare la tua classifica completa.</div>`;
         return;
       }
 
@@ -2295,6 +2414,7 @@
 
       buildBars(genreBars, topGenres);
       renderTop100();
+      renderTop100Series();
     }
 
     function renderShelf(container, items) {
@@ -2413,231 +2533,6 @@
       return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
     }
 
-    function daysUntil(dateStr) {
-      if (!dateStr) return null;
-      const target = new Date(dateStr + "T00:00:00");
-      const now = new Date();
-      const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const diff = target.getTime() - startToday.getTime();
-      return Math.round(diff / 86400000);
-    }
-
-    function releaseLabel(dateStr) {
-      const days = daysUntil(dateStr);
-      if (days === null) return "Data n.d.";
-      if (days < 0) return `Uscito il ${formatReleaseDate(dateStr)}`;
-      if (days === 0) return "Esce oggi";
-      if (days === 1) return "Esce domani";
-      if (days <= 14) return `Esce tra ${days} giorni`;
-      return `Esce il ${formatReleaseDate(dateStr)}`;
-    }
-
-    function getExcludedMovieKeys() {
-      return new Set([
-        ...db.seen.filter(x => x.media_type === "movie").map(x => uniqueKey(x)),
-        ...db.watchlist.filter(x => x.media_type === "movie").map(x => uniqueKey(x))
-      ]);
-    }
-
-    async function fetchTmdbJson(url) {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Errore TMDb");
-      return res.json();
-    }
-
-    function dedupeMovies(items) {
-      const map = new Map();
-      items.forEach(item => {
-        if (!item || !item.id) return;
-        const normalized = normalizedItem({ ...item, media_type: "movie" });
-        map.set(uniqueKey(normalized), normalized);
-      });
-      return [...map.values()];
-    }
-
-    function renderUpcomingShelf(container, items) {
-      container.innerHTML = items.map(item => {
-        const label = releaseLabel(item.release_date);
-        const tags = [];
-        const avg = Number(item.vote_average) || 0;
-
-        if (avg >= 7) tags.push(`<div class="miniTag gold">buon rating</div>`);
-        if ((item.popularity || 0) >= 40) tags.push(`<div class="miniTag blue">molto atteso</div>`);
-        if (inWatch(item)) tags.push(`<div class="miniTag green">in watchlist</div>`);
-
-        const tmdbScore = Number(item.vote_average) || 0;
-        if (tmdbScore > 0) {
-          tags.push(`<div class="miniTag green">⭐ ${tmdbScore.toFixed(1)}</div>`);
-        }
-
-        return `
-          <div class="shelfCard open-upcoming-detail" data-id="${item.id}" data-type="movie">
-            <div class="shelfPoster" style="background-image:url('${posterUrl(item.poster_path)}')">
-              <div class="badge badge-film">Film</div>
-            </div>
-            <div class="shelfInfo">
-              <div class="shelfTitle">${escapeHtml(item.title)}</div>
-              <div class="shelfMeta">${escapeHtml(label)}</div>
-              <div class="upcomingTagRow">${tags.join("")}</div>
-            </div>
-          </div>
-        `;
-      }).join("");
-    }
-
-    function setUpcomingLoadingState() {
-      watchRadarShelf.innerHTML = "";
-      watchRadarEmpty.textContent = "Sto cercando i film più interessanti dei prossimi 120 giorni...";
-      watchRadarEmpty.classList.remove("hidden");
-    }
-
-    function readUpcomingCache() {
-      try {
-        const raw = localStorage.getItem("cineTrackerUpcomingCache");
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !parsed.timestamp) return null;
-        if (Date.now() - parsed.timestamp > UPCOMING_CACHE_MS) return null;
-        return parsed;
-      } catch {
-        return null;
-      }
-    }
-
-    function saveUpcomingCache(payload) {
-      try {
-        localStorage.setItem("cineTrackerUpcomingCache", JSON.stringify({
-          timestamp: Date.now(),
-          radar: payload.radar || []
-        }));
-      } catch {}
-    }
-
-    function applyUpcomingPayload(payload) {
-      const radar = Array.isArray(payload.radar) ? payload.radar.map(normalizedItem) : [];
-      watchRadarEmpty.classList.toggle("hidden", radar.length > 0);
-
-      if (!radar.length) {
-        watchRadarShelf.innerHTML = "";
-      } else {
-        renderUpcomingShelf(watchRadarShelf, radar);
-      }
-    }
-
-    function scoreRadarMovie(item) {
-      const profile = getUserTasteProfile();
-
-      const popularity = Number(item.popularity) || 0;
-      const voteAverage = Number(item.vote_average) || 0;
-      const voteCount = Number(item.vote_count) || 0;
-
-      let hypeScore = 0;
-      let qualityScore = 0;
-      let tasteScore = 0;
-
-      hypeScore += Math.min(10, popularity / 10);
-
-      if (voteCount > 500) hypeScore += 3;
-      else if (voteCount > 200) hypeScore += 2;
-      else if (voteCount > 50) hypeScore += 1;
-
-      const days = daysUntil(item.release_date);
-      if (days !== null) {
-        if (days <= 7) hypeScore += 3;
-        else if (days <= 30) hypeScore += 2;
-        else if (days <= 60) hypeScore += 1;
-      }
-
-      hypeScore = Math.min(15, hypeScore);
-
-      qualityScore += voteAverage * 1.8;
-      if (voteCount > 300) qualityScore += 2;
-      qualityScore = Math.min(10, qualityScore);
-
-      const genres = item.genre_ids
-        ? item.genre_ids.map(id => GENRE_MAP[id])
-        : item.genre_names || [];
-
-      genres.forEach(g => {
-        if (profile.topGenres.includes(g)) tasteScore += 2;
-        if (profile.genreAverages[g]) tasteScore += (profile.genreAverages[g] - 6) * 0.6;
-      });
-
-      if (profile.topDecade && decadeOf(item.year) === profile.topDecade) {
-        tasteScore += 1.5;
-      }
-
-      tasteScore = Math.min(6, tasteScore);
-
-      const finalScore =
-        hypeScore * 0.5 +
-        qualityScore * 0.3 +
-        tasteScore * 0.2;
-
-      return finalScore;
-    }
-
-    async function loadUpcomingShelves(force = false) {
-      const token = ++upcomingLoadToken;
-
-      if (!force) {
-        const cache = readUpcomingCache();
-        if (cache) {
-          applyUpcomingPayload(cache);
-          return;
-        }
-      }
-
-      setUpcomingLoadingState();
-
-      const excluded = getExcludedMovieKeys();
-      const today = getTodayISO();
-      const radarEnd = toISODate(addDays(new Date(), RADAR_DAYS));
-
-      try {
-        const radarUrlA = `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=popularity.desc&primary_release_date.gte=${today}&primary_release_date.lte=${radarEnd}&with_release_type=2|3&page=1`;
-        const radarUrlB = `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=it-IT&region=IT&sort_by=vote_count.desc&vote_count.gte=40&primary_release_date.gte=${today}&primary_release_date.lte=${radarEnd}&with_release_type=2|3&page=1`;
-
-        const [radarA, radarB] = await Promise.all([
-          fetchTmdbJson(radarUrlA).catch(() => ({ results: [] })),
-          fetchTmdbJson(radarUrlB).catch(() => ({ results: [] }))
-        ]);
-
-        if (token !== upcomingLoadToken) return;
-
-        const radar = dedupeMovies([...(radarA.results || []), ...(radarB.results || [])])
-          .filter(item =>
-            item.poster_path &&
-            item.release_date &&
-            daysUntil(item.release_date) !== null &&
-            daysUntil(item.release_date) >= 0 &&
-            daysUntil(item.release_date) <= RADAR_DAYS &&
-            !excluded.has(uniqueKey(item))
-          )
-          .map(item => ({
-            ...item,
-            _score: scoreRadarMovie(item)
-          }))
-          .sort((a,b) => b._score - a._score)
-          .slice(0, 12)
-          .map(({ _score, ...rest }) => rest);
-
-        const payload = { radar };
-        applyUpcomingPayload(payload);
-        saveUpcomingCache(payload);
-
-        if (!radar.length) {
-          watchRadarEmpty.textContent = "Non ho trovato film forti da seguire nei prossimi 120 giorni.";
-        }
-      } catch (error) {
-        if (token !== upcomingLoadToken) return;
-
-        watchRadarShelf.innerHTML = "";
-        watchRadarEmpty.textContent = "Errore nel caricamento delle uscite.";
-        watchRadarEmpty.classList.remove("hidden");
-      }
-    }
-
     async function searchTitles() {
       const q = searchInput.value.trim();
 
@@ -2735,7 +2630,7 @@
       db.seen.unshift(item);
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
       saveDB();
-      renderAll(true);
+      renderAll();
       openDetail(item);
       showToast(`"${item.title}" aggiunto ai visti.`, "success", "Titolo salvato");
       haptic([12, 20, 12]);
@@ -2747,7 +2642,7 @@
       if (!inSeen(item) && !inWatch(item)) {
         db.watchlist.unshift(item);
         saveDB();
-        renderAll(true);
+        renderAll();
         showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
         haptic([10]);
       }
@@ -2772,7 +2667,7 @@
       }
 
       saveDB();
-      renderAll(true);
+      renderAll();
       showToast(`"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
       haptic([12, 20, 12]);
     }
@@ -2781,7 +2676,7 @@
       const item = db.seen.find(x => uniqueKey(x) === key);
       db.seen = db.seen.filter(x => uniqueKey(x) !== key);
       saveDB();
-      renderAll(true);
+      renderAll();
 
       if (currentDetail && uniqueKey(currentDetail) === key) {
         switchScreen("home");
@@ -2797,7 +2692,7 @@
       const item = db.watchlist.find(x => uniqueKey(x) === key);
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
       saveDB();
-      renderAll(true);
+      renderAll();
 
       if (currentDetail && uniqueKey(currentDetail) === key) {
         openDetail(currentDetail);
@@ -2819,11 +2714,10 @@
       renderTasteMap();
     }
 
-    function renderAll(forceUpcomingReload = false) {
+    function renderAll() {
       renderHomeShelves();
       renderLibraryList();
       renderStats();
-      loadUpcomingShelves(forceUpcomingReload);
     }
 
     function getUserTasteProfile() {
@@ -3391,6 +3285,16 @@
         b.classList.toggle("active", b.dataset.screen === name);
       });
 
+      // Gestione tasto indietro Android/browser
+      const currentState = history.state;
+      if (name === "home") {
+        // Alla home: rimpiazza lo stato senza pushare
+        history.replaceState({ screen: "home" }, "");
+      } else if (!currentState || currentState.screen !== name) {
+        // Schermata interna: pusha solo se non siamo già su questo stato
+        history.pushState({ screen: name }, "");
+      }
+
       if (name === "tonight") {
         maybeAutoRecommendTonight();
       }
@@ -3400,11 +3304,30 @@
           animateBarGroups();
         }, 60);
       }
-
-      if (name === "home") {
-        loadUpcomingShelves(false);
-      }
     }
+
+    window.addEventListener("popstate", (e) => {
+      const name = e.state?.screen || "home";
+      if (screens[name]) {
+        // Naviga senza pushare di nuovo
+        if (name !== "detail") previousScreen = name;
+
+        Object.values(screens).forEach(s => {
+          s.classList.add("hidden");
+          s.classList.remove("screenFade");
+        });
+
+        screens[name].classList.remove("hidden");
+        screens[name].classList.add("screenFade");
+
+        document.querySelectorAll(".navBtn[data-screen]").forEach(b => {
+          b.classList.toggle("active", b.dataset.screen === name);
+        });
+
+        if (name === "tonight") maybeAutoRecommendTonight();
+        if (name === "stats") setTimeout(() => animateBarGroups(), 60);
+      }
+    });
 
     function setLibraryFilter(filter) {
       currentLibraryFilter = filter;
@@ -3460,7 +3383,7 @@
           };
 
           saveDB();
-          renderAll(true);
+          renderAll();
           switchScreen("home");
           showToast("Backup importato correttamente.", "success", "Backup");
           haptic([12, 20, 12]);
@@ -3552,7 +3475,7 @@
       target.comment = comment;
 
       saveDB();
-      renderAll(true);
+      renderAll();
       openDetail(target);
 
       showToast("Voto e commento salvati.", "success", "Scheda aggiornata");
@@ -3568,7 +3491,7 @@
       db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
       saveDB();
-      renderAll(true);
+      renderAll();
       switchScreen("home");
       showToast(`"${title}" rimosso dalla libreria.`, "info", "Titolo rimosso");
       haptic([14]);
@@ -3583,7 +3506,6 @@
       const moveWatchBtn = e.target.closest(".move-watch-seen");
       const openStoredBtn = e.target.closest(".open-stored-detail");
       const openTonightBtn = e.target.closest(".open-tonight-detail");
-      const openUpcomingBtn = e.target.closest(".open-upcoming-detail");
       const genreFilterBtn = e.target.closest("[data-genre-filter]");
       const genericTap = e.target.closest("button, .navBtn, .tab, .filterPill, .seeAllBtn, .shelfCard, .tonightCard");
 
@@ -3613,10 +3535,6 @@
         if (openTonightBtn) {
           await showDetails(openTonightBtn.dataset.type, openTonightBtn.dataset.id);
         }
-
-        if (openUpcomingBtn) {
-          await showDetails(openUpcomingBtn.dataset.type, openUpcomingBtn.dataset.id);
-        }
       } catch (err) {
         showToast("C'è stato un problema. Riprova.", "error", "Errore");
       }
@@ -3640,6 +3558,28 @@
 
     searchInput.addEventListener("keydown", e => {
       if (e.key === "Enter") searchTitles();
+    });
+
+    // Ranking toggle Film / Serie TV
+    const rankingToggleMovies = document.getElementById("rankingToggleMovies");
+    const rankingToggleSeries = document.getElementById("rankingToggleSeries");
+    const rankingPanelMovies = document.getElementById("rankingPanelMovies");
+    const rankingPanelSeries = document.getElementById("rankingPanelSeries");
+
+    rankingToggleMovies.addEventListener("click", () => {
+      rankingToggleMovies.classList.add("active");
+      rankingToggleSeries.classList.remove("active");
+      rankingPanelMovies.classList.remove("hidden");
+      rankingPanelSeries.classList.add("hidden");
+      haptic([8]);
+    });
+
+    rankingToggleSeries.addEventListener("click", () => {
+      rankingToggleSeries.classList.add("active");
+      rankingToggleMovies.classList.remove("active");
+      rankingPanelSeries.classList.remove("hidden");
+      rankingPanelMovies.classList.add("hidden");
+      haptic([8]);
     });
 
     openWatchAll.addEventListener("click", () => openLibrary("watch", "all"));
@@ -3686,7 +3626,7 @@
         });
         db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
         saveDB();
-        renderAll(true);
+        renderAll();
         showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Titolo salvato");
         haptic([12, 20, 12]);
       } else {
@@ -3709,7 +3649,7 @@
           comment: detailCommentInput.value.trim()
         });
         saveDB();
-        renderAll(true);
+        renderAll();
         showToast(`"${currentDetail.title}" aggiunto alla watchlist.`, "success", "Watchlist");
         haptic([10]);
       } else if (inWatch(currentDetail)) {
@@ -3729,7 +3669,10 @@
       removeCurrentDetail();
     });
 
-    renderAll(true);
+    // Stato iniziale per la home (base della navigazione back)
+    history.replaceState({ screen: "home" }, "");
+
+    renderAll();
 
     window.addEventListener("load", () => {
       setTimeout(() => {
