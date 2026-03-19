@@ -6,291 +6,235 @@
   <title>CineTracker Personal</title>
 
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0b0f14">
+  <meta name="theme-color" content="#080c12">
   <link rel="apple-touch-icon" href="icon-192.png">
 
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="splashScreen" class="splashScreen">
-    <div class="splashOrb"></div>
-    <div class="splashIcon">🎬</div>
-    <div class="splashTitle">CineTracker</div>
-    <div class="splashSubtitle">La tua serata cinema parte da qui</div>
-    <div class="splashBar">
-      <div class="splashBarFill"></div>
+  <div id="splashScreen" class="splash">
+    <div class="splash__orb"></div>
+    <div class="splash__icon">🎬</div>
+    <div class="splash__title">CineTracker</div>
+    <div class="splash__sub">La tua serata cinema parte da qui</div>
+    <div class="splash__bar-track">
+      <div class="splash__bar-fill"></div>
     </div>
   </div>
 
   <div class="app" id="appRoot">
-    <header class="topHero">
-      <div class="heroGlow heroGlowA"></div>
-      <div class="heroGlow heroGlowB"></div>
-
-      <div class="heroText">
-        <div class="eyebrow">Personal movie companion</div>
-        <h1 class="title">CineTracker</h1>
-        <p class="subtitle">Film, serie TV e anime in un'unica app personale</p>
+    <header class="topbar">
+      <div>
+        <div class="topbar__title">CineTracker</div>
+        <div class="topbar__sub">Film, serie TV e anime in un'unica app personale</div>
       </div>
     </header>
 
-    <section id="screen-home" class="screenSection">
-      <div class="card heroSearchCard">
-        <div class="searchCardTop">
-          <div>
-            <div class="sectionMiniTitle">Ricerca rapida</div>
-            <div class="sectionMiniText">Cerca e salva subito quello che vuoi guardare o che hai già visto.</div>
-          </div>
+    <!-- HOME -->
+    <section id="screen-home">
+      <div class="hero-card">
+        <div class="hero-card__glow"></div>
+        <div class="hero-card__inner">
+          <div class="hero-card__eyebrow">La tua libreria cinema personale</div>
+          <div class="hero-card__title">Trova, salva, vota e scegli meglio cosa guardare</div>
+          <div class="hero-card__sub">Cerca film e serie, crea la watchlist, tieni traccia dei visti e lascia decidere all'app cosa vedere stasera.</div>
         </div>
+      </div>
 
-        <div class="searchRow">
-          <input id="searchInput" type="text" placeholder="Cerca film, serie o anime..." />
-          <button id="searchBtn">Cerca</button>
+      <div class="search-box">
+        <div class="search-row">
+          <input id="searchInput" type="text" placeholder="Cerca film, serie o anime…" />
+          <button class="btn" id="searchBtn">Cerca</button>
         </div>
 
         <div class="tabs">
-          <div class="tab active" data-type="multi">Tutto</div>
-          <div class="tab" data-type="movie">Film</div>
-          <div class="tab" data-type="tv">Serie TV</div>
+          <button class="tab active" data-type="multi">Tutto</button>
+          <button class="tab" data-type="movie">Film</button>
+          <button class="tab" data-type="tv">Serie TV</button>
         </div>
       </div>
 
       <div id="resultsSection" class="section hidden">
-        <div class="resultsHeader">
-          <div>
-            <h2>Risultati ricerca</h2>
-            <div class="sectionMiniText">Apri la scheda, salva in watchlist o segna come visto.</div>
-          </div>
-          <span id="resultCount" class="muted"></span>
+        <div class="results-header">
+          <h2 class="section__title">Risultati ricerca</h2>
+          <span id="resultCount" class="results-count"></span>
         </div>
-        <div id="results" class="grid"></div>
-        <div id="resultsEmpty" class="empty">Nessun risultato trovato.</div>
+        <div id="results" class="results-grid"></div>
+        <div id="resultsEmpty" class="empty-state">Nessun risultato trovato.</div>
       </div>
 
       <div class="section">
-        <div class="shelfHeader">
-          <div>
-            <h2>Watchlist</h2>
-            <div class="sectionMiniText">I titoli che vuoi recuperare prossimamente.</div>
-          </div>
-          <div id="openWatchAll" class="seeAllBtn">Vedi tutto →</div>
+        <div class="section__header">
+          <h2 class="section__title">Watchlist</h2>
+          <span id="openWatchAll" class="see-all">Vedi tutto →</span>
         </div>
-        <div id="watchShelf" class="shelfScroller"></div>
-        <div id="watchShelfEmpty" class="empty">La tua watchlist è vuota.</div>
+        <div id="watchShelf" class="shelf"></div>
+        <div id="watchShelfEmpty" class="empty-state">La tua watchlist è vuota.</div>
       </div>
 
       <div class="section">
-        <div class="shelfHeader">
-          <div>
-            <h2>🎬 Ultimi film visti</h2>
-            <div class="sectionMiniText">I film che hai salvato più di recente.</div>
-          </div>
-          <div id="openSeenMovies" class="seeAllBtn">Vedi tutto →</div>
+        <div class="section__header">
+          <h2 class="section__title">🎬 Ultimi film visti</h2>
+          <span id="openSeenMovies" class="see-all">Vedi tutto →</span>
         </div>
-        <div id="seenMovieShelf" class="shelfScroller"></div>
-        <div id="seenMovieShelfEmpty" class="empty">Non hai ancora film salvati tra i visti.</div>
+        <div id="seenMovieShelf" class="shelf"></div>
+        <div id="seenMovieShelfEmpty" class="empty-state">Non hai ancora film tra i visti.</div>
       </div>
 
       <div class="section">
-        <div class="shelfHeader">
-          <div>
-            <h2>📺 Ultime serie TV viste</h2>
-            <div class="sectionMiniText">Serie, anime o show che hai già archiviato.</div>
-          </div>
-          <div id="openSeenSeries" class="seeAllBtn">Vedi tutto →</div>
+        <div class="section__header">
+          <h2 class="section__title">📺 Ultime serie TV viste</h2>
+          <span id="openSeenSeries" class="see-all">Vedi tutto →</span>
         </div>
-        <div id="seenSeriesShelf" class="shelfScroller"></div>
-        <div id="seenSeriesShelfEmpty" class="empty">Non hai ancora serie TV salvate tra i visti.</div>
+        <div id="seenSeriesShelf" class="shelf"></div>
+        <div id="seenSeriesShelfEmpty" class="empty-state">Non hai ancora serie TV tra i visti.</div>
       </div>
     </section>
 
-    <section id="screen-library" class="screenSection hidden">
-      <button class="secondary backBtn" id="libraryBackBtn">← Torna alla home</button>
+    <!-- LIBRARY -->
+    <section id="screen-library" class="hidden">
+      <button class="library-back-btn" id="libraryBackBtn">← Torna alla home</button>
 
       <div class="section">
-        <div class="listHeader">
-          <div>
-            <h2 id="libraryTitle">Libreria</h2>
-            <div class="sectionMiniText">Filtra velocemente quello che hai salvato.</div>
-          </div>
+        <h2 id="libraryTitle" class="section__title section__title--mb">Libreria</h2>
+
+        <div id="libraryFilters" class="filter-bar">
+          <button class="filter-pill active" data-filter="all">Tutti</button>
+          <button class="filter-pill" data-filter="movie">Film</button>
+          <button class="filter-pill" data-filter="series">Serie TV</button>
         </div>
 
-        <div id="libraryFilters" class="libraryFilters">
-          <div class="filterPill active" data-filter="all">Tutti</div>
-          <div class="filterPill" data-filter="movie">Film</div>
-          <div class="filterPill" data-filter="series">Serie TV</div>
-        </div>
-
-        <div id="genreFiltersTitle" class="genreFiltersTitle hidden">Filtra per genere</div>
-        <div id="libraryGenreFilters" class="libraryFilters hidden"></div>
+        <div id="genreFiltersTitle" class="genre-filters-title hidden">Filtra per genere</div>
+        <div id="libraryGenreFilters" class="filter-bar hidden"></div>
 
         <div id="libraryList" class="list"></div>
-        <div id="libraryEmpty" class="empty">Nessun titolo disponibile.</div>
+        <div id="libraryEmpty" class="empty-state hidden">Nessun titolo disponibile.</div>
       </div>
     </section>
 
-    <section id="screen-stats" class="screenSection hidden">
+    <!-- STATS -->
+    <section id="screen-stats" class="hidden">
       <div class="section">
-        <div class="sectionHead">
-          <div>
-            <h2>Statistiche personali</h2>
-            <div class="sectionMiniText">Una vista rapida della tua libreria e dei tuoi gusti.</div>
-          </div>
-        </div>
+        <h2 class="section__title section__title--mb">Le tue statistiche</h2>
 
-        <div class="stats premiumStats">
-          <div class="stat statGold">
-            <div id="statSeen" class="num">0</div>
-            <div class="lab">Titoli visti</div>
+        <div class="stats-grid">
+          <div class="stat-card stat-card--gold">
+            <div id="statSeen" class="stat-card__num">0</div>
+            <div class="stat-card__label">Titoli visti</div>
           </div>
-          <div class="stat statBlue">
-            <div id="statWatch" class="num">0</div>
-            <div class="lab">In watchlist</div>
+          <div class="stat-card stat-card--blue">
+            <div id="statWatch" class="stat-card__num">0</div>
+            <div class="stat-card__label">In watchlist</div>
           </div>
-          <div class="stat">
-            <div id="statMovies" class="num">0</div>
-            <div class="lab">Film visti</div>
+          <div class="stat-card stat-card--gold">
+            <div id="statMovies" class="stat-card__num">0</div>
+            <div class="stat-card__label">Film visti</div>
           </div>
-          <div class="stat">
-            <div id="statSeries" class="num">0</div>
-            <div class="lab">Serie / anime visti</div>
+          <div class="stat-card stat-card--blue">
+            <div id="statSeries" class="stat-card__num">0</div>
+            <div class="stat-card__label">Serie viste</div>
           </div>
         </div>
       </div>
 
       <div class="section">
-        <div class="sectionHead">
-          <div>
-            <h2>Mappa dei gusti</h2>
-            <div class="sectionMiniText">Generi più presenti e classifiche personali.</div>
+        <div class="taste-block">
+          <div class="taste-block__title">Generi preferiti</div>
+          <div id="genreBars">
+            <p class="empty-hint">Salva almeno 3 titoli visti.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="ranking-toggle">
+          <button id="rankingToggleMovies" class="ranking-toggle-btn active">🎬 Film</button>
+          <button id="rankingToggleSeries" class="ranking-toggle-btn">📺 Serie TV</button>
+        </div>
+
+        <div id="rankingPanelMovies">
+          <div class="ranking-head">
+            <h3 class="ranking-head__title">🏆 Top Film</h3>
+            <span id="top100CountBadge" class="count-badge count-badge--gold">0</span>
+          </div>
+          <div id="top100Podium" class="podium-grid">
+            <p class="empty-hint">Vota alcuni film per vedere il podio.</p>
+          </div>
+          <div id="top100List" class="ranking-list">
+            <p class="empty-hint">Aggiungi voti ai film per la classifica completa.</p>
           </div>
         </div>
 
-        <div class="tasteGrid">
-          <div class="tasteBlock premiumPanel">
-            <div class="blockTopLine">
-              <h3>Generi preferiti</h3>
-              <div class="miniBadge">Taste map</div>
-            </div>
-            <div id="genreBars" class="barList">
-              <div class="muted">Salva almeno 3 titoli visti.</div>
-            </div>
+        <div id="rankingPanelSeries" class="hidden">
+          <div class="ranking-head">
+            <h3 class="ranking-head__title">🏆 Top Serie TV</h3>
+            <span id="top100SeriesCountBadge" class="count-badge count-badge--blue">0</span>
           </div>
-
-          <div class="tasteBlock premiumPanel">
-            <div class="top100Wrap">
-              <div class="rankingToggleRow">
-                <button id="rankingToggleMovies" class="rankingToggleBtn active">🎬 Film</button>
-                <button id="rankingToggleSeries" class="rankingToggleBtn">📺 Serie TV</button>
-              </div>
-
-              <div id="rankingPanelMovies">
-                <div class="top100Header">
-                  <div class="top100Title">
-                    <h3>🏆 Top film</h3>
-                    <div class="muted">Ordinati in base al tuo voto personale</div>
-                  </div>
-                  <div id="top100CountBadge" class="top100Badge">0 titoli</div>
-                </div>
-                <div id="top100Podium" class="podiumGrid">
-                  <div class="insightItem">Valuta alcuni film per vedere il podio.</div>
-                </div>
-                <div id="top100List" class="rankingList">
-                  <div class="insightItem">Aggiungi voti ai film visti per creare la tua classifica completa.</div>
-                </div>
-              </div>
-
-              <div id="rankingPanelSeries" class="hidden">
-                <div class="top100Header">
-                  <div class="top100Title">
-                    <h3>🏆 Top serie TV</h3>
-                    <div class="muted">Ordinate in base al tuo voto personale</div>
-                  </div>
-                  <div id="top100SeriesCountBadge" class="top100Badge">0 titoli</div>
-                </div>
-                <div id="top100SeriesPodium" class="podiumGrid">
-                  <div class="insightItem">Valuta alcune serie per vedere il podio.</div>
-                </div>
-                <div id="top100SeriesList" class="rankingList">
-                  <div class="insightItem">Aggiungi voti alle serie viste per creare la tua classifica completa.</div>
-                </div>
-              </div>
-            </div>
+          <div id="top100SeriesPodium" class="podium-grid">
+            <p class="empty-hint">Vota alcune serie per vedere il podio.</p>
+          </div>
+          <div id="top100SeriesList" class="ranking-list">
+            <p class="empty-hint">Aggiungi voti alle serie per la classifica completa.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="screen-tonight" class="screenSection hidden">
+    <!-- TONIGHT -->
+    <section id="screen-tonight" class="hidden">
       <div class="section">
-        <div class="sectionHead">
-          <div>
-            <h2>Stasera cosa guardo?</h2>
-            <div class="sectionMiniText">Più chiaro, più premium, più utile per decidere davvero.</div>
-          </div>
-        </div>
+        <h2 class="section__title section__title--mb">Stasera cosa guardo?</h2>
 
-        <div class="card tonightHeroCard">
-          <div class="tonightLayout">
-            <div class="tonightMainActions">
-              <div class="tonightRowTop">
-                <select id="genreSelect">
-                  <option value="all">Qualsiasi genere</option>
-                  <option value="Azione">Azione</option>
-                  <option value="Avventura">Avventura</option>
-                  <option value="Animazione">Animazione</option>
-                  <option value="Commedia">Commedia</option>
-                  <option value="Crime">Crime</option>
-                  <option value="Drama">Drama</option>
-                  <option value="Fantascienza">Fantascienza</option>
-                  <option value="Fantasy">Fantasy</option>
-                  <option value="Horror">Horror</option>
-                  <option value="Mistero">Mistero</option>
-                  <option value="Romance">Romance</option>
-                  <option value="Thriller">Thriller</option>
-                  <option value="Guerra">Guerra</option>
-                  <option value="Western">Western</option>
-                </select>
-
-                <button id="discoverBtn" class="secondary discoverInlineBtn">✨ Scopri qualcosa di nuovo</button>
-              </div>
-
-              <button id="recommendBtn" class="primaryHeroBtn">⭐ 5 consigli per te</button>
-              <button id="classicBtn" class="secondary bigSecondaryBtn">⭐ Rivedi un classico</button>
-            </div>
-
-            <div class="tonightHint">
-              <div class="tonightHintTitle">Come usarlo meglio</div>
-              <div class="tonightHintText">
-                Scegli un genere se vuoi un consiglio più mirato, oppure lascia tutto aperto per farti sorprendere.
-              </div>
-            </div>
+        <div class="tonight-panel">
+          <div class="tonight-panel__top">
+            <div class="tonight-panel__label">Scegli un genere e scopri qualcosa di nuovo</div>
+            <select id="genreSelect">
+              <option value="all">Qualsiasi genere</option>
+              <option value="Azione">Azione</option>
+              <option value="Avventura">Avventura</option>
+              <option value="Animazione">Animazione</option>
+              <option value="Commedia">Commedia</option>
+              <option value="Crime">Crime</option>
+              <option value="Drama">Drama</option>
+              <option value="Fantascienza">Fantascienza</option>
+              <option value="Fantasy">Fantasy</option>
+              <option value="Horror">Horror</option>
+              <option value="Mistero">Mistero</option>
+              <option value="Romance">Romance</option>
+              <option value="Thriller">Thriller</option>
+              <option value="Guerra">Guerra</option>
+              <option value="Western">Western</option>
+            </select>
+            <button class="btn btn--secondary btn--full" id="discoverBtn">✨ Scopri qualcosa di nuovo</button>
           </div>
 
-          <div id="tonightSuggestion" class="suggestion premiumSuggestion">
-            Premi un pulsante per ricevere un consiglio personalizzato.
+          <button class="tonight-main-btn" id="recommendBtn">⭐ 5 consigli personalizzati per te</button>
+
+          <div class="tonight-secondary-actions">
+            <button class="btn btn--ghost btn--sm" id="classicBtn">⭐ Rivedi un classico</button>
+          </div>
+
+          <div id="tonightSuggestion" class="tonight-suggestion-area">
+            <p class="tonight__hint">Premi un pulsante per ricevere un consiglio personalizzato.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="screen-backup" class="screenSection hidden">
+    <!-- BACKUP -->
+    <section id="screen-backup" class="hidden">
       <div class="section">
-        <div class="sectionHead">
-          <div>
-            <h2>Backup dati</h2>
-            <div class="sectionMiniText">Esporta o ripristina la tua libreria personale in modo semplice.</div>
-          </div>
-        </div>
+        <h2 class="section__title section__title--mb">Backup dati</h2>
 
-        <div class="backupHero">
-          <div class="backupMini">
-            Salva una copia dei tuoi titoli visti, della watchlist, dei voti e dei commenti. Utile se cambi telefono o vuoi tenere una copia di sicurezza.
-          </div>
+        <div class="backup-hero">
+          <p class="backup-hero__desc">
+            Esporta o ripristina la tua libreria personale. Salva una copia dei titoli visti,
+            della watchlist, dei voti e dei commenti.
+          </p>
 
-          <div class="backupButtons">
-            <button id="exportBtn2">Esporta backup</button>
-            <button class="secondary" id="importBtn">Importa backup</button>
+          <div class="backup-actions">
+            <button class="btn btn--full" id="exportBtn">Esporta backup</button>
+            <button class="btn btn--secondary btn--full" id="importBtn">Importa backup</button>
           </div>
 
           <input id="importFileInput" type="file" accept=".json,application/json" class="hidden" />
@@ -298,77 +242,79 @@
       </div>
     </section>
 
-    <section id="screen-detail" class="screenSection hidden">
-      <button class="secondary backBtn" id="detailBackBtn">← Torna indietro</button>
+    <!-- DETAIL -->
+    <section id="screen-detail" class="hidden">
+      <button class="detail-back-btn" id="detailBackBtn">← Torna indietro</button>
 
-      <div class="detailHero">
-        <div id="detailBackdrop" class="detailBackdrop"></div>
-        <div class="detailOverlay"></div>
+      <div class="detail-hero">
+        <div id="detailBackdrop" class="detail-backdrop"></div>
+        <div class="detail-overlay"></div>
 
-        <div class="detailTop">
-          <div id="detailPoster" class="detailPoster"></div>
+        <div class="detail-top">
+          <div id="detailPoster" class="detail-poster"></div>
+
           <div>
-            <div id="detailTitle" class="detailTitle">Titolo</div>
-            <div id="detailMeta" class="meta">Anno · Tipo</div>
-            <div id="detailGenres" class="chips detailChips"></div>
+            <div id="detailTitle" class="detail-title">Titolo</div>
+            <div class="detail-year-type">
+              <span id="detailYear" class="detail-year">—</span>
+              <span id="detailType" class="detail-type-badge">Film</span>
+            </div>
+            <div id="detailGenres" class="detail-genres"></div>
           </div>
         </div>
       </div>
 
-      <div class="detailBody">
-        <div class="detailCard">
-          <h3>Trama</h3>
-          <div id="detailOverview" class="muted">Nessuna trama disponibile.</div>
+      <div class="detail-body">
+        <div class="detail-card">
+          <div class="detail-card__title">Trama</div>
+          <div id="detailOverview" class="detail-overview">Nessuna trama disponibile.</div>
         </div>
 
-        <div class="detailCard">
-          <h3>Dati principali</h3>
-          <div id="detailFacts" class="muted"></div>
+        <div class="detail-card">
+          <div class="detail-card__title">Dati principali</div>
+          <div id="detailFacts" class="detail-facts"></div>
         </div>
 
-        <div class="detailCard">
-          <h3>La tua scheda personale</h3>
+        <div class="detail-card">
+          <div class="detail-card__title">La tua scheda personale</div>
 
-          <label class="label" for="detailVoteInput">Il tuo voto</label>
+          <label class="detail-form-label" for="detailVoteInput">Il tuo voto</label>
           <input id="detailVoteInput" type="text" placeholder="Es. 7, 7+, 7,5, 8-" />
 
-          <div class="space10"></div>
+          <div class="detail-spacer"></div>
 
-          <label class="label" for="detailCommentInput">Il tuo commento</label>
+          <label class="detail-form-label" for="detailCommentInput">Il tuo commento</label>
           <textarea id="detailCommentInput" placeholder="Cosa ne pensi?"></textarea>
 
-          <div class="actions">
-            <button class="ok" id="detailSeenBtn">Segna come visto</button>
-            <button class="secondary" id="detailWatchBtn">Aggiungi a watchlist</button>
-            <button class="secondary" id="detailSaveNoteBtn">Salva voto/commento</button>
-            <button class="danger" id="detailRemoveBtn">Rimuovi dalla libreria</button>
+          <div class="detail-actions">
+            <div class="detail-actions-row">
+              <button class="btn btn--ok" id="detailSeenBtn">Segna come visto</button>
+              <button class="btn btn--secondary" id="detailWatchBtn">Aggiungi a watchlist</button>
+            </div>
+            <div class="detail-actions-row">
+              <button class="btn btn--ghost" id="detailSaveNoteBtn">Salva voto / commento</button>
+              <button class="btn btn--danger" id="detailRemoveBtn">Rimuovi</button>
+            </div>
           </div>
         </div>
       </div>
     </section>
   </div>
 
-  <nav class="bottomNav">
-    <div class="bottomNavInner">
-      <div class="navBtn active" data-screen="home">Home</div>
-      <div class="navBtn" data-screen="stats">Statistiche</div>
-      <div class="navBtn" data-screen="tonight">Stasera</div>
-      <div class="navBtn" data-screen="backup">Backup</div>
+  <nav class="bottom-nav">
+    <div class="bottom-nav__inner">
+      <button class="nav__btn active" data-screen="home">Home</button>
+      <button class="nav__btn" data-screen="stats">Statistiche</button>
+      <button class="nav__btn" data-screen="tonight">Stasera</button>
+      <button class="nav__btn" data-screen="backup">Backup</button>
     </div>
   </nav>
 
-  <div id="toastWrap" class="toastWrap"></div>
+  <div id="toastWrap"></div>
 
-  <script src="cine-core.js"></script>
+  <script src="storage.js"></script>
+  <script src="tmdb.js"></script>
+  <script src="ui.js"></script>
   <script src="app.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js")
-          .then(() => console.log("Service Worker registrato"))
-          .catch(err => console.log("Errore Service Worker:", err));
-      });
-    }
-  </script>
 </body>
 </html>
