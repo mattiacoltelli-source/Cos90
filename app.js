@@ -33,10 +33,10 @@ function sanitizeVoteInput(raw) {
   if (!v) return "";
 
   const mapSimple = {
-    "6½":"6,5",
-    "7½":"7,5",
-    "8½":"8,5",
-    "9½":"9,5"
+    "6½": "6,5",
+    "7½": "7,5",
+    "8½": "8,5",
+    "9½": "9,5"
   };
   if (mapSimple[v]) v = mapSimple[v];
 
@@ -544,7 +544,7 @@ function openDetail(item) {
   if (detailOverview) detailOverview.textContent = src.overview || "Nessuna trama disponibile.";
 
   if (detailFacts) {
-    detailFacts.innerHTML = renderDetailFacts(src, !!inSeen(src), !!inWatch(src));
+    detailFacts.innerHTML = renderDetailFacts(src, inSeen, inWatch);
   }
 
   if (detailGenres) {
@@ -774,7 +774,7 @@ async function recommendTonightFive(isAuto = false) {
       ? "Ho allargato un po' la ricerca per trovare 5 proposte."
       : "";
 
-    el.innerHTML = renderTonightFive(enriched, note);
+    el.innerHTML = renderTonightFive(enriched, null, note);
 
     if (!isAuto) haptic([10]);
     if (isAuto) lastAutoRecommendAt = Date.now();
@@ -933,6 +933,14 @@ function importBackup(file) {
   };
 
   reader.readAsText(file);
+}
+
+function hideComingSoonButton() {
+  const buttons = [...document.querySelectorAll("#screen-tonight button")];
+  const target = buttons.find(btn => btn.textContent.trim().toLowerCase().includes("prossimamente"));
+  if (target) {
+    target.remove();
+  }
 }
 
 function bindEvents() {
@@ -1120,7 +1128,7 @@ function bindEvents() {
     const tonightBtn = e.target.closest(".open-tonight-detail");
     const genreBtn = e.target.closest("[data-genre-filter]");
 
-    if (e.target.closest("button,.nav__btn,.tab,.filter-pill,.shelf-card,.tonight-card,.poster-card")) {
+    if (e.target.closest("button,.nav__btn,.tab,.filter-pill,.shelf-card,.tonight-card,.poster-card,.podium-card,.rank-row")) {
       haptic([8]);
     }
 
@@ -1131,17 +1139,41 @@ function bindEvents() {
         return;
       }
 
-      if (seenBtn) await doAddSeen(seenBtn.dataset.type, seenBtn.dataset.id);
-      if (watchBtn) await doAddWatch(watchBtn.dataset.type, watchBtn.dataset.id);
-      if (detailsBtn) await doShowDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
-      if (removeSeenBtn) doRemoveSeen(removeSeenBtn.dataset.key);
-      if (removeWatchBtn) doRemoveWatch(removeWatchBtn.dataset.key);
-      if (moveWatchBtn) doMoveToSeen(moveWatchBtn.dataset.key);
+      if (seenBtn) {
+        await doAddSeen(seenBtn.dataset.type, seenBtn.dataset.id);
+        return;
+      }
+
+      if (watchBtn) {
+        await doAddWatch(watchBtn.dataset.type, watchBtn.dataset.id);
+        return;
+      }
+
+      if (detailsBtn) {
+        await doShowDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
+        return;
+      }
+
+      if (removeSeenBtn) {
+        doRemoveSeen(removeSeenBtn.dataset.key);
+        return;
+      }
+
+      if (removeWatchBtn) {
+        doRemoveWatch(removeWatchBtn.dataset.key);
+        return;
+      }
+
+      if (moveWatchBtn) {
+        doMoveToSeen(moveWatchBtn.dataset.key);
+        return;
+      }
 
       if (storedBtn) {
         const key = storedBtn.dataset.key;
         const item = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
         if (item) openDetail(item);
+        return;
       }
 
       if (tonightBtn) {
@@ -1179,6 +1211,7 @@ function bindEvents() {
 function bootApp() {
   try {
     initScreens();
+    hideComingSoonButton();
     bindEvents();
     history.replaceState({ screen: "home" }, "");
     renderAll();
