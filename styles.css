@@ -120,7 +120,6 @@ h1,h2,h3,h4{
   to{opacity:1;transform:translateY(0)}
 }
 
-/* Splash */
 #splashScreen{
   position:fixed;
   inset:0;
@@ -174,7 +173,6 @@ h1,h2,h3,h4{
   to{width:100%}
 }
 
-/* Topbar / hero */
 .topbar{
   display:grid;
   grid-template-columns:minmax(0,1fr);
@@ -250,7 +248,6 @@ h1,h2,h3,h4{
   opacity:.72;
 }
 
-/* Cards and panels */
 .search-box,
 .searchBox,
 .taste-block,
@@ -278,7 +275,6 @@ h1,h2,h3,h4{
   -webkit-backdrop-filter:blur(12px);
 }
 
-/* Search box */
 .search-box,
 .searchBox{
   padding:16px;
@@ -444,7 +440,6 @@ button.small{
   box-shadow:0 10px 24px rgba(77,163,255,.10);
 }
 
-/* Home text reduced / cleaner */
 .home-kicker,
 .search-kicker,
 .search-mini{
@@ -470,7 +465,6 @@ button.small{
   line-height:1.5;
 }
 
-/* Results */
 .results-grid,
 .grid{
   display:grid;
@@ -593,7 +587,6 @@ button.small{
   border-color:rgba(77,163,255,.34);
 }
 
-/* Shelf */
 .shelf,
 .shelfScroller{
   display:flex;
@@ -687,7 +680,6 @@ button.small{
   margin-top:3px;
 }
 
-/* Empty states */
 .empty-state,
 .empty{
   border-radius:20px;
@@ -704,7 +696,6 @@ button.small{
   font-size:13px;
 }
 
-/* Library */
 .library-back-btn,
 .backBtn,
 .detail-back-btn{
@@ -857,7 +848,6 @@ button.small{
   margin-top:8px;
 }
 
-/* Stats */
 .stats-grid,
 .stats{
   display:grid;
@@ -915,7 +905,6 @@ button.small{
   margin-top:5px;
 }
 
-/* Taste */
 .taste-block{
   padding:18px;
   margin-bottom:14px;
@@ -982,7 +971,6 @@ button.small{
   will-change:width;
 }
 
-/* Ranking */
 .ranking-toggle,
 .rankingToggleRow{
   display:flex;
@@ -1168,66 +1156,49 @@ button.small{
   white-space:nowrap;
 }
 
-/* TONIGHT — improved block */
+/* ===== STASERA: più compatta e raffinata ===== */
+
 .tonight-discover-block{
   position:relative;
-  padding:16px;
-  border-radius:28px;
+  padding:14px;
+  border-radius:24px;
   background:
-    radial-gradient(circle at top center, rgba(77,163,255,.07), transparent 65%),
-    linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.012));
-  margin-bottom:14px;
-}
-
-.tonight-discover-block::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:28px;
-  pointer-events:none;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+    radial-gradient(circle at top center, rgba(77,163,255,.05), transparent 65%),
+    linear-gradient(180deg, rgba(255,255,255,.022), rgba(255,255,255,.012));
+  margin-bottom:12px;
+  display:grid;
+  gap:10px;
 }
 
 .tonight-discover-block__label{
   display:none;
 }
 
-/* Custom select look */
 .tonight-discover-block select,
 #genreSelect{
   appearance:none;
   -webkit-appearance:none;
   -moz-appearance:none;
-  min-height:74px;
-  padding:0 64px 0 18px;
-  border-radius:24px;
-  background:
-    linear-gradient(180deg,#0d1623,#0f1a29);
+  min-height:62px;
+  padding:0 56px 0 18px;
+  border-radius:21px;
+  background:linear-gradient(180deg,#0d1623,#0f1a29);
   border:1px solid rgba(77,163,255,.18);
   color:#f5f8fc;
   font-family:var(--font-display);
-  font-size:18px;
+  font-size:16px;
   font-weight:700;
-  letter-spacing:-.02em;
+  letter-spacing:-.01em;
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
-}
-
-.tonight-discover-block{
-  display:grid;
-  gap:12px;
-}
-
-.tonight-discover-block{
-  position:relative;
 }
 
 .tonight-discover-block::after{
   content:"";
   position:absolute;
-  top:38px;
-  right:34px;
-  width:14px;
-  height:14px;
+  top:34px;
+  right:30px;
+  width:13px;
+  height:13px;
   border-right:4px solid #d9e6f8;
   border-bottom:4px solid #d9e6f8;
   transform:rotate(45deg);
@@ -1238,35 +1209,35 @@ button.small{
 #discoverBtn,
 .tonight-discover-block .btn--secondary,
 .tonight-discover-block .btn{
-  min-height:76px;
+  min-height:60px;
   width:100%;
-  border-radius:24px;
+  border-radius:20px;
   font-family:var(--font-display);
-  font-size:17px;
+  font-size:15px;
   font-weight:800;
   border:1px solid rgba(77,163,255,.20);
   background:
-    radial-gradient(circle at center, rgba(77,163,255,.05), transparent 72%),
+    radial-gradient(circle at center, rgba(77,163,255,.04), transparent 72%),
     linear-gradient(180deg,#162438,#142236);
   color:#f3f7fd;
-  box-shadow:0 0 0 1px rgba(77,163,255,.10), 0 14px 28px rgba(77,163,255,.10);
+  box-shadow:0 0 0 1px rgba(77,163,255,.08), 0 10px 22px rgba(77,163,255,.08);
 }
 
 #discoverBtn:hover{
   background:
-    radial-gradient(circle at center, rgba(77,163,255,.08), transparent 72%),
+    radial-gradient(circle at center, rgba(77,163,255,.07), transparent 72%),
     linear-gradient(180deg,#192842,#17263d);
 }
 
 #recommendBtn,
 .tonight-main-btn{
   width:100%;
-  min-height:80px;
-  border-radius:28px;
-  font-size:18px;
+  min-height:66px;
+  border-radius:22px;
+  font-size:16px;
   font-weight:900;
-  letter-spacing:-.02em;
-  margin-bottom:14px;
+  letter-spacing:-.01em;
+  margin-bottom:10px;
 }
 
 .tonight-secondary-actions{
@@ -1276,11 +1247,11 @@ button.small{
 }
 
 #classicBtn{
-  min-height:68px;
+  min-height:58px;
   width:100%;
-  border-radius:22px;
+  border-radius:20px;
   font-family:var(--font-display);
-  font-size:16px;
+  font-size:15px;
   font-weight:800;
   background:linear-gradient(180deg,#162438,#142236);
   color:#f0f5fb;
@@ -1288,11 +1259,16 @@ button.small{
   box-shadow:var(--glow-blue);
 }
 
-/* suggestion output */
+/* TOGLIE PROSSIMAMENTE SENZA TOCCARE HTML */
+.tonight-secondary-actions button[disabled],
+.tonight-secondary-actions .btn[disabled]{
+  display:none !important;
+}
+
 .tonight-suggestion-area,
 .suggestion{
-  margin-top:14px;
-  min-height:56px;
+  margin-top:12px;
+  min-height:50px;
 }
 
 .tonight__hint{
@@ -1321,12 +1297,12 @@ button.small{
 .tonight-card,
 .tonightCard{
   display:grid;
-  grid-template-columns:104px 1fr;
+  grid-template-columns:92px 1fr;
   gap:0;
   overflow:hidden;
   background:linear-gradient(180deg,#101823,#0f1620);
   border:1px solid rgba(255,255,255,.07);
-  border-radius:24px;
+  border-radius:22px;
   transition:transform var(--t-mid) var(--ease), border-color var(--t-mid), box-shadow var(--t-mid);
 }
 
@@ -1339,7 +1315,7 @@ button.small{
 .tonight-card__poster,
 .tonightPoster{
   position:relative;
-  min-height:150px;
+  min-height:136px;
   background:#0d1520 center/cover no-repeat;
   border-right:1px solid rgba(255,255,255,.06);
 }
@@ -1347,27 +1323,27 @@ button.small{
 .tonight-card__affinity,
 .affinity{
   position:absolute;
-  left:10px;
-  bottom:10px;
-  padding:6px 10px;
+  left:8px;
+  bottom:8px;
+  padding:5px 9px;
   border-radius:999px;
   background:rgba(12,18,28,.85);
   border:1px solid rgba(245,196,81,.25);
   color:var(--gold2);
   font-family:var(--font-display);
-  font-size:12px;
+  font-size:11px;
   font-weight:800;
   backdrop-filter:blur(6px);
 }
 
 .tonight-card__body{
-  padding:14px 14px 14px 16px;
+  padding:12px 12px 12px 14px;
 }
 
 .tonight-card__title,
 .tonightTitle{
   font-family:var(--font-display);
-  font-size:18px;
+  font-size:17px;
   font-weight:800;
   line-height:1.15;
   margin-bottom:4px;
@@ -1377,32 +1353,32 @@ button.small{
 .tonightSub{
   color:var(--text4);
   font-size:13px;
-  margin-bottom:8px;
+  margin-bottom:7px;
 }
 
 .tonight-card__reason,
 .tonightReason{
   color:var(--text2);
   font-size:13px;
-  line-height:1.42;
+  line-height:1.4;
 }
 
 .discover-result,
 .classic-result{
   display:grid;
-  grid-template-columns:88px 1fr;
-  gap:14px;
-  padding:14px;
-  border-radius:22px;
+  grid-template-columns:84px 1fr;
+  gap:12px;
+  padding:13px;
+  border-radius:20px;
   background:linear-gradient(180deg,#101823,#0f1620);
   border:1px solid rgba(255,255,255,.07);
 }
 
 .discover-poster,
 .classic-result__poster{
-  width:88px;
-  height:132px;
-  border-radius:14px;
+  width:84px;
+  height:126px;
+  border-radius:12px;
   background:#0e1620 center/cover no-repeat;
   border:1px solid rgba(255,255,255,.06);
 }
@@ -1410,7 +1386,7 @@ button.small{
 .discover-result__title,
 .classic-result__title{
   font-family:var(--font-display);
-  font-size:17px;
+  font-size:16px;
   font-weight:800;
   margin-bottom:4px;
 }
@@ -1419,17 +1395,18 @@ button.small{
 .classic-result__meta{
   color:var(--text4);
   font-size:12px;
-  margin-bottom:8px;
+  margin-bottom:7px;
 }
 
 .discover-result__why,
 .classic-result__why{
   color:var(--text2);
   font-size:13px;
-  line-height:1.45;
+  line-height:1.42;
 }
 
-/* Detail */
+/* ===== fine sezione Stasera ===== */
+
 #screen-detail{
   padding-bottom:16px;
 }
@@ -1574,7 +1551,6 @@ button.small{
   gap:8px;
 }
 
-/* Backup */
 .backup-hero{
   padding:20px;
   border-radius:26px;
@@ -1608,7 +1584,6 @@ button.small{
   gap:10px;
 }
 
-/* Toast */
 #toastWrap,
 .toastWrap{
   position:fixed;
@@ -1676,7 +1651,7 @@ button.small{
   line-height:1.35;
 }
 
-/* Bottom nav — COMPACT FIX */
+/* Bottom nav: NON toccata grossa, solo mantenuta */
 .bottom-nav,
 .bottomNav{
   position:fixed;
@@ -1756,13 +1731,11 @@ button.small{
   transform:translateY(1px) scale(.98);
 }
 
-/* Utility */
 .resultsSection .empty-state,
 #resultsSection .empty-state{
   margin-top:10px;
 }
 
-/* Responsive */
 @media (max-width:620px){
   .topbar__title,
   .title{
@@ -1771,12 +1744,12 @@ button.small{
 
   .tonight-card,
   .tonightCard{
-    grid-template-columns:92px 1fr;
+    grid-template-columns:88px 1fr;
   }
 
   .tonight-card__poster,
   .tonightPoster{
-    min-height:138px;
+    min-height:130px;
   }
 }
 
@@ -1873,5 +1846,25 @@ button.small{
   .navBtn svg{
     width:21px;
     height:21px;
+  }
+
+  #genreSelect{
+    min-height:58px;
+    font-size:15px;
+  }
+
+  #discoverBtn{
+    min-height:56px;
+    font-size:14px;
+  }
+
+  #recommendBtn{
+    min-height:62px;
+    font-size:15px;
+  }
+
+  #classicBtn{
+    min-height:54px;
+    font-size:14px;
   }
 }
