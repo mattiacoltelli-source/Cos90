@@ -310,26 +310,9 @@
 
   <div id="toastWrap"></div>
 
-  <script>
-    window.addEventListener("load", function () {
-      setTimeout(function () {
-        var splash = document.getElementById("splashScreen");
-        var app = document.querySelector(".app");
-        if (app) app.classList.add("app--ready");
-        if (splash) {
-          splash.style.opacity = "0";
-          setTimeout(function () {
-            if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
-          }, 650);
-        }
-      }, 1800);
-    });
-  </script>
-
   <script src="storage.js"></script>
   <script src="tmdb.js"></script>
   <script src="ui.js"></script>
   <script src="app.js"></script>
-
 </body>
 </html>
