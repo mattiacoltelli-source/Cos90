@@ -1,1986 +1,1204 @@
-(() => {
-  const CORE = window.CINE_CORE || {};
+const TONIGHT_COOLDOWN_MS = 20000;
 
-  const API_KEY = CORE.API_KEY || "f8d5e378edf5128176f0d89f49310151";
-  const BASE_URL = CORE.BASE_URL || "https://api.themoviedb.org/3";
-  const IMG = CORE.IMG || "https://image.tmdb.org/t/p/w500";
-  const TONIGHT_AUTO_COOLDOWN_MS = CORE.TONIGHT_AUTO_COOLDOWN_MS || 20000;
-  const SUGGEST_HISTORY_KEY = CORE.SUGGEST_HISTORY_KEY || "cineTrackerSuggestHistory";
-  const SUGGEST_HISTORY_MAX = CORE.SUGGEST_HISTORY_MAX || 40;
+let db = loadDB();
+let suggestHistory = loadSuggestHistory();
 
-  const GENRE_MAP = CORE.GENRE_MAP || {
-    28:"Azione",
-    12:"Avventura",
-    16:"Animazione",
-    35:"Commedia",
-    80:"Crime",
-    99:"Documentario",
-    18:"Drama",
-    10751:"Famiglia",
-    14:"Fantasy",
-    36:"Storia",
-    27:"Horror",
-    10402:"Musica",
-    9648:"Mistero",
-    10749:"Romance",
-    878:"Fantascienza",
-    10770:"TV Movie",
-    53:"Thriller",
-    10752:"Guerra",
-    37:"Western",
-    10759:"Azione & Avventura",
-    10762:"Bambini",
-    10763:"News",
-    10764:"Reality",
-    10765:"Sci-Fi & Fantasy",
-    10766:"Soap",
-    10767:"Talk",
-    10768:"War & Politics"
+let currentType = "multi";
+let currentDetail = null;
+let currentLibraryMode = "watch";
+let currentLibraryFilter = "all";
+let currentLibraryGenre = "all";
+let lastAutoRecommendAt = 0;
+let tonightReqCounter = 0;
+
+function uniqueKey(item) {
+  return `${item.media_type}_${item.id}`;
+}
+
+function inSeen(item) {
+  return db.seen.find(x => uniqueKey(x) === uniqueKey(item));
+}
+
+function inWatch(item) {
+  return db.watchlist.find(x => uniqueKey(x) === uniqueKey(item));
+}
+
+function getStoredItem(item) {
+  return inSeen(item) || inWatch(item) || null;
+}
+
+function sanitizeVoteInput(raw) {
+  if (raw == null) return "";
+  let v = String(raw).trim().replace(/\s+/g, "").replace(/\./g, ",");
+  if (!v) return "";
+
+  const mapSimple = {
+    "6½":"6,5",
+    "7½":"7,5",
+    "8½":"8,5",
+    "9½":"9,5"
   };
+  if (mapSimple[v]) v = mapSimple[v];
 
-  const GENRE_NAME_TO_ID = CORE.GENRE_NAME_TO_ID || {
-    "Azione": 28,
-    "Avventura": 12,
-    "Animazione": 16,
-    "Commedia": 35,
-    "Crime": 80,
-    "Documentario": 99,
-    "Drama": 18,
-    "Dramma": 18,
-    "Famiglia": 10751,
-    "Fantasy": 14,
-    "Storia": 36,
-    "Horror": 27,
-    "Musica": 10402,
-    "Mistero": 9648,
-    "Romance": 10749,
-    "Fantascienza": 878,
-    "Thriller": 53,
-    "Guerra": 10752,
-    "Western": 37,
-    "Azione & Avventura": 10759,
-    "Sci-Fi & Fantasy": 10765
-  };
-
-  const els = {
-    appRoot: document.querySelector(".app"),
-
-    searchInput: document.getElementById("searchInput"),
-    searchBtn: document.getElementById("searchBtn"),
-    resultsSection: document.getElementById("resultsSection"),
-    results: document.getElementById("results"),
-    resultsEmpty: document.getElementById("resultsEmpty"),
-    resultCount: document.getElementById("resultCount"),
-    tabs: [...document.querySelectorAll(".tab")],
-
-    watchShelf: document.getElementById("watchShelf"),
-    seenMovieShelf: document.getElementById("seenMovieShelf"),
-    seenSeriesShelf: document.getElementById("seenSeriesShelf"),
-
-    watchShelfEmpty: document.getElementById("watchShelfEmpty"),
-    seenMovieShelfEmpty: document.getElementById("seenMovieShelfEmpty"),
-    seenSeriesShelfEmpty: document.getElementById("seenSeriesShelfEmpty"),
-
-    openWatchAll: document.getElementById("openWatchAll"),
-    openSeenMovies: document.getElementById("openSeenMovies"),
-    openSeenSeries: document.getElementById("openSeenSeries"),
-
-    libraryBackBtn: document.getElementById("libraryBackBtn"),
-    libraryTitle: document.getElementById("libraryTitle"),
-    libraryList: document.getElementById("libraryList"),
-    libraryEmpty: document.getElementById("libraryEmpty"),
-    libraryFilters: [...document.querySelectorAll(".filterPill[data-filter]")],
-    libraryGenreFilters: document.getElementById("libraryGenreFilters"),
-    genreFiltersTitle: document.getElementById("genreFiltersTitle"),
-
-    statSeen: document.getElementById("statSeen"),
-    statWatch: document.getElementById("statWatch"),
-    statMovies: document.getElementById("statMovies"),
-    statSeries: document.getElementById("statSeries"),
-
-    genreBars: document.getElementById("genreBars"),
-    top100Podium: document.getElementById("top100Podium"),
-    top100List: document.getElementById("top100List"),
-    top100CountBadge: document.getElementById("top100CountBadge"),
-    top100SeriesPodium: document.getElementById("top100SeriesPodium"),
-    top100SeriesList: document.getElementById("top100SeriesList"),
-    top100SeriesCountBadge: document.getElementById("top100SeriesCountBadge"),
-
-    genreSelect: document.getElementById("genreSelect"),
-    recommendBtn: document.getElementById("recommendBtn"),
-    discoverBtn: document.getElementById("discoverBtn"),
-    classicBtn: document.getElementById("classicBtn"),
-    tonightSuggestion: document.getElementById("tonightSuggestion"),
-
-    exportBtn2: document.getElementById("exportBtn2"),
-    importBtn: document.getElementById("importBtn"),
-    importFileInput: document.getElementById("importFileInput"),
-
-    detailBackBtn: document.getElementById("detailBackBtn"),
-    detailBackdrop: document.getElementById("detailBackdrop"),
-    detailPoster: document.getElementById("detailPoster"),
-    detailTitle: document.getElementById("detailTitle"),
-    detailMeta: document.getElementById("detailMeta"),
-    detailGenres: document.getElementById("detailGenres"),
-    detailOverview: document.getElementById("detailOverview"),
-    detailFacts: document.getElementById("detailFacts"),
-    detailVoteInput: document.getElementById("detailVoteInput"),
-    detailCommentInput: document.getElementById("detailCommentInput"),
-    detailSeenBtn: document.getElementById("detailSeenBtn"),
-    detailWatchBtn: document.getElementById("detailWatchBtn"),
-    detailSaveNoteBtn: document.getElementById("detailSaveNoteBtn"),
-    detailRemoveBtn: document.getElementById("detailRemoveBtn"),
-
-    toastWrap: document.getElementById("toastWrap"),
-
-    rankingToggleMovies: document.getElementById("rankingToggleMovies"),
-    rankingToggleSeries: document.getElementById("rankingToggleSeries"),
-    rankingPanelMovies: document.getElementById("rankingPanelMovies"),
-    rankingPanelSeries: document.getElementById("rankingPanelSeries"),
-
-    screens: {
-      home: document.getElementById("screen-home"),
-      library: document.getElementById("screen-library"),
-      stats: document.getElementById("screen-stats"),
-      tonight: document.getElementById("screen-tonight"),
-      backup: document.getElementById("screen-backup"),
-      detail: document.getElementById("screen-detail"),
-    }
-  };
-
-  let currentType = "multi";
-  let currentDetail = null;
-  let previousScreen = "home";
-  let currentLibraryMode = "watch";
-  let currentLibraryFilter = "all";
-  let currentLibraryGenre = "all";
-  let lastAutoRecommendAt = 0;
-  let tonightAutoRequestCounter = 0;
-  let lastHapticAt = 0;
-  let statAnimationFrame = null;
-  let barAnimationFrame = null;
-
-  let db;
-  try {
-    const rawDB = localStorage.getItem("cineTrackerDB");
-    db = rawDB ? JSON.parse(rawDB) : { seen: [], watchlist: [] };
-    if (!db || typeof db !== "object") db = { seen: [], watchlist: [] };
-    if (!Array.isArray(db.seen)) db.seen = [];
-    if (!Array.isArray(db.watchlist)) db.watchlist = [];
-  } catch (error) {
-    db = { seen: [], watchlist: [] };
-    localStorage.setItem("cineTrackerDB", JSON.stringify(db));
+  const numeric = Number(v.replace(",", "."));
+  if (Number.isFinite(numeric)) {
+    if (numeric < 0) return "";
+    if (numeric > 10) return "10";
+    return v.replace(".", ",");
   }
 
-  let suggestHistory;
-  try {
-    const rawHistory = localStorage.getItem(SUGGEST_HISTORY_KEY);
-    suggestHistory = rawHistory ? JSON.parse(rawHistory) : [];
-    if (!Array.isArray(suggestHistory)) suggestHistory = [];
-  } catch (error) {
-    suggestHistory = [];
-    localStorage.setItem(SUGGEST_HISTORY_KEY, JSON.stringify([]));
+  const plusMinus = v.match(/^(\d{1,2})([+-])$/);
+  if (plusMinus) {
+    const base = Number(plusMinus[1]);
+    return Number.isFinite(base) && base >= 0 && base <= 10 ? `${base}${plusMinus[2]}` : "";
   }
 
-  function saveDB() {
-    localStorage.setItem("cineTrackerDB", JSON.stringify(db));
+  const half = v.match(/^(\d{1,2}),5$/);
+  if (half) {
+    const base = Number(half[1]);
+    return Number.isFinite(base) && base >= 0 && base <= 10 ? `${base},5` : "";
   }
 
-  function saveSuggestHistory() {
-    localStorage.setItem(
-      SUGGEST_HISTORY_KEY,
-      JSON.stringify(suggestHistory.slice(0, SUGGEST_HISTORY_MAX))
-    );
+  const intOnly = v.match(/^(\d{1,2})$/);
+  if (intOnly) {
+    const base = Number(intOnly[1]);
+    return Number.isFinite(base) && base >= 0 && base <= 10 ? String(base) : "";
   }
 
-  function escapeHtml(str) {
-    return String(str)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+  return "";
+}
+
+function parseUserVote(raw) {
+  const value = sanitizeVoteInput(raw);
+  if (!value) return NaN;
+
+  if (value.endsWith("+")) {
+    const base = Number(value.slice(0, -1));
+    return Number.isFinite(base) ? Math.min(10, base + 0.25) : NaN;
   }
 
-  function showToast(message, type = "info", title = "") {
-    const toast = document.createElement("div");
-    toast.className = `toast ${type}`;
-
-    const heading = title || (
-      type === "success" ? "Fatto" :
-      type === "error" ? "Attenzione" :
-      "Info"
-    );
-
-    toast.innerHTML = `
-      <div class="toastTitle">${escapeHtml(heading)}</div>
-      <div class="toastText">${escapeHtml(message)}</div>
-    `;
-
-    els.toastWrap.appendChild(toast);
-
-    requestAnimationFrame(() => {
-      toast.classList.add("show");
-    });
-
-    setTimeout(() => {
-      toast.classList.remove("show");
-      setTimeout(() => toast.remove(), 240);
-    }, 2500);
+  if (value.endsWith("-")) {
+    const base = Number(value.slice(0, -1));
+    return Number.isFinite(base) ? Math.max(0, base - 0.25) : NaN;
   }
 
-  function haptic(pattern = 10) {
-    const now = Date.now();
-    if (now - lastHapticAt < 60) return;
-    lastHapticAt = now;
+  const num = Number(value.replace(",", "."));
+  return Number.isFinite(num) ? num : NaN;
+}
 
-    if (navigator.vibrate) {
-      try {
-        navigator.vibrate(pattern);
-      } catch {}
-    }
+function validateVote(rawVote) {
+  const cleaned = sanitizeVoteInput(rawVote);
+
+  if (!rawVote || !String(rawVote).trim()) {
+    return { ok: true, value: "" };
   }
 
-  function animateValue(el, target, duration = 550) {
-    const end = Number(target) || 0;
-    const current = Number(el.dataset.currentValue || 0);
-
-    if (current === end) {
-      el.textContent = String(end);
-      return;
-    }
-
-    const start = current;
-    const startTime = performance.now();
-
-    function tick(now) {
-      const progress = Math.min((now - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const value = Math.round(start + (end - start) * eased);
-      el.textContent = String(value);
-      el.dataset.currentValue = String(value);
-
-      if (progress < 1) {
-        requestAnimationFrame(tick);
-      } else {
-        el.textContent = String(end);
-        el.dataset.currentValue = String(end);
-      }
-    }
-
-    requestAnimationFrame(tick);
+  if (!cleaned || !Number.isFinite(parseUserVote(cleaned))) {
+    showToast("Voto non valido. Usa: 7, 7+, 7,5 oppure 8-.", "error", "Voto");
+    return { ok: false, value: "" };
   }
 
-  function animateStats(seen, watch, movies, series) {
-    if (statAnimationFrame) cancelAnimationFrame(statAnimationFrame);
-    statAnimationFrame = requestAnimationFrame(() => {
-      animateValue(els.statSeen, seen);
-      animateValue(els.statWatch, watch);
-      animateValue(els.statMovies, movies);
-      animateValue(els.statSeries, series);
-    });
-  }
-
-  function animateBarGroups() {
-    if (barAnimationFrame) cancelAnimationFrame(barAnimationFrame);
-
-    const bars = document.querySelectorAll("#screen-stats .barFill[data-width]");
-    if (!bars.length) return;
-
-    bars.forEach(bar => {
-      bar.style.width = "0%";
-    });
-
-    barAnimationFrame = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        bars.forEach((bar, index) => {
-          const target = bar.dataset.width || "0";
-          setTimeout(() => {
-            bar.style.width = `${target}%`;
-          }, index * 55);
-        });
-      });
-    });
-  }
-
-  function normalizeGenres(item) {
-    if (Array.isArray(item.genre_ids)) {
-      return item.genre_ids.map(id => GENRE_MAP[id] || `Genere ${id}`);
-    }
-    if (Array.isArray(item.genres)) {
-      return item.genres.map(g => typeof g === "string" ? g : g.name).filter(Boolean);
-    }
-    if (Array.isArray(item.genre_names)) {
-      return item.genre_names;
-    }
-    return [];
-  }
-
-  function posterUrl(path) {
-    return path ? `${IMG}${path}` : "";
-  }
-
-  function yearOf(item) {
-    const date = item.release_date || item.first_air_date || "";
-    return date ? date.slice(0, 4) : (item.year || "—");
-  }
-
-  function titleOf(item) {
-    return item.title || item.name || "Titolo sconosciuto";
-  }
-
-  function extractDirector(item) {
-    if (item.director) return item.director;
-
-    if (item.media_type === "movie" || item.release_date) {
-      const crew = item.credits?.crew || [];
-      const director = crew.find(person => person.job === "Director");
-      if (director?.name) return director.name;
-    }
-
-    if (item.media_type === "tv" || item.first_air_date) {
-      if (Array.isArray(item.created_by) && item.created_by[0]?.name) {
-        return item.created_by[0].name;
-      }
-    }
-
-    return "";
-  }
-
-  function sanitizeVoteInput(raw) {
-    if (raw === null || raw === undefined) return "";
-    let value = String(raw).trim();
-    if (!value) return "";
-
-    value = value.replace(/\s+/g, "");
-    value = value.replace(/\./g, ",");
-
-    const mapSimple = {
-      "6½": "6,5",
-      "7½": "7,5",
-      "8½": "8,5",
-      "9½": "9,5"
-    };
-    if (mapSimple[value]) value = mapSimple[value];
-
-    const directNumeric = Number(value.replace(",", "."));
-    if (Number.isFinite(directNumeric)) {
-      if (directNumeric < 0) return "";
-      if (directNumeric > 10) value = "10";
-      return value.replace(".", ",");
-    }
-
-    const plusMinusMatch = value.match(/^(\d{1,2})([+-])$/);
-    if (plusMinusMatch) {
-      const base = Number(plusMinusMatch[1]);
-      if (!Number.isFinite(base) || base < 0 || base > 10) return "";
-      return `${base}${plusMinusMatch[2]}`;
-    }
-
-    const halfMatch = value.match(/^(\d{1,2}),5$/);
-    if (halfMatch) {
-      const base = Number(halfMatch[1]);
-      if (!Number.isFinite(base) || base < 0 || base > 10) return "";
-      return `${base},5`;
-    }
-
-    const intMatch = value.match(/^(\d{1,2})$/);
-    if (intMatch) {
-      const base = Number(intMatch[1]);
-      if (!Number.isFinite(base) || base < 0 || base > 10) return "";
-      return String(base);
-    }
-
-    return "";
-  }
-
-  function parseUserVote(raw) {
-    if (raw === null || raw === undefined) return NaN;
-    const value = sanitizeVoteInput(raw);
-    if (!value) return NaN;
-
-    if (value.endsWith("+")) {
-      const base = Number(value.slice(0, -1));
-      return Number.isFinite(base) ? Math.min(10, base + 0.25) : NaN;
-    }
-
-    if (value.endsWith("-")) {
-      const base = Number(value.slice(0, -1));
-      return Number.isFinite(base) ? Math.max(0, base - 0.25) : NaN;
-    }
-
-    const num = Number(value.replace(",", "."));
-    return Number.isFinite(num) ? num : NaN;
-  }
-
-  function normalizedItem(item) {
-    return {
-      id: item.id,
-      media_type: (item.media_type === "tv" || item.first_air_date) ? "tv" : "movie",
-      title: titleOf(item),
-      year: yearOf(item),
-      poster_path: item.poster_path || "",
-      backdrop_path: item.backdrop_path || "",
-      overview: item.overview ? (item.overview.length > 320 ? item.overview.slice(0, 320) + "..." : item.overview) : "",
-      vote: sanitizeVoteInput(item.vote || ""),
-      comment: item.comment || "",
-      vote_average: item.vote_average || 0,
-      vote_count: item.vote_count || 0,
-      popularity: item.popularity || 0,
-      genre_names: normalizeGenres(item),
-      director: extractDirector(item),
-      savedAt: item.savedAt || new Date().toISOString(),
-      release_date: item.release_date || "",
-      first_air_date: item.first_air_date || ""
-    };
-  }
-
-  function uniqueKey(item) {
-    return `${item.media_type}_${item.id}`;
-  }
-
-  function inSeen(item) {
-    return db.seen.find(x => uniqueKey(x) === uniqueKey(item));
-  }
-
-  function inWatch(item) {
-    return db.watchlist.find(x => uniqueKey(x) === uniqueKey(item));
-  }
-
-  function getStoredItem(item) {
-    return db.seen.find(x => uniqueKey(x) === uniqueKey(item)) ||
-           db.watchlist.find(x => uniqueKey(x) === uniqueKey(item)) ||
-           null;
-  }
-
-  function decadeOf(year) {
-    if (!year || year === "—" || isNaN(Number(year))) return "Sconosciuta";
-    const y = Number(year);
-    return `${Math.floor(y / 10) * 10}s`;
-  }
-
-  function mediaLabel(item) {
-    return item.media_type === "movie" ? "Film" : "Serie TV";
-  }
-
-  function mediaBadgeClass(item) {
-    return item.media_type === "movie" ? "badge-film" : "badge-series";
-  }
-
-  function filterByLibraryCategory(items, filter) {
-    if (filter === "all") return items;
-    if (filter === "movie") return items.filter(x => x.media_type === "movie");
-    if (filter === "series") return items.filter(x => x.media_type === "tv");
-    return items;
-  }
-
-  function filterByLibraryGenre(items, genre) {
-    if (genre === "all") return items;
-    return items.filter(item => (item.genre_names || []).includes(genre));
-  }
-
-  function getLibrarySourceItems() {
-    return currentLibraryMode === "watch" ? db.watchlist : db.seen;
-  }
-
-  function getAvailableLibraryGenres() {
-    const baseItems = filterByLibraryCategory(getLibrarySourceItems(), currentLibraryFilter);
-    const genreSet = new Set();
-
-    baseItems.forEach(item => {
-      (item.genre_names || []).forEach(genre => {
-        if (genre && genre.trim()) genreSet.add(genre);
-      });
-    });
-
-    return [...genreSet].sort((a, b) => a.localeCompare(b, "it"));
-  }
-
-  function renderGenreFilters() {
-    const genres = getAvailableLibraryGenres();
-
-    if (!genres.length) {
-      els.libraryGenreFilters.innerHTML = "";
-      els.libraryGenreFilters.classList.add("hidden");
-      els.genreFiltersTitle.classList.add("hidden");
-      currentLibraryGenre = "all";
-      return;
-    }
-
-    if (currentLibraryGenre !== "all" && !genres.includes(currentLibraryGenre)) {
-      currentLibraryGenre = "all";
-    }
-
-    els.genreFiltersTitle.classList.remove("hidden");
-    els.libraryGenreFilters.classList.remove("hidden");
-
-    els.libraryGenreFilters.innerHTML = `
-      <div class="filterPill ${currentLibraryGenre === "all" ? "active" : ""}" data-genre-filter="all">Tutti i generi</div>
-      ${genres.map(genre => `
-        <div class="filterPill ${currentLibraryGenre === genre ? "active" : ""}" data-genre-filter="${escapeHtml(genre)}">
-          ${escapeHtml(genre)}
-        </div>
-      `).join("")}
-    `;
-  }
-
-  function buildBars(container, entries) {
-    if (!entries.length) {
-      container.innerHTML = `<div class="muted">Ancora pochi dati.</div>`;
-      return;
-    }
-
-    const max = entries[0].value || 1;
-    container.innerHTML = entries.map(entry => {
-      const pct = Math.max(12, (entry.value / max) * 100);
-      return `
-        <div class="barRow">
-          <div>
-            <div class="barLabel">${escapeHtml(entry.label)}</div>
-            <div class="barTrack">
-              <div class="barFill" data-width="${pct}"></div>
-            </div>
-          </div>
-          <div class="barValue">${entry.value}</div>
-        </div>
-      `;
-    }).join("");
-  }
-
-  function getRankedMovies() {
-    return db.seen
-      .filter(item => item.media_type === "movie" && Number.isFinite(parseUserVote(item.vote)))
-      .sort((a, b) => {
-        const voteDiff = parseUserVote(b.vote) - parseUserVote(a.vote);
-        if (voteDiff !== 0) return voteDiff;
-
-        const yearDiff = Number(b.year || 0) - Number(a.year || 0);
-        if (yearDiff !== 0) return yearDiff;
-
-        return titleOf(a).localeCompare(titleOf(b), "it");
-      })
-      .slice(0, 100);
-  }
-
-  function getRankedSeries() {
-    return db.seen
-      .filter(item => item.media_type === "tv" && Number.isFinite(parseUserVote(item.vote)))
-      .sort((a, b) => {
-        const voteDiff = parseUserVote(b.vote) - parseUserVote(a.vote);
-        if (voteDiff !== 0) return voteDiff;
-
-        const yearDiff = Number(b.year || 0) - Number(a.year || 0);
-        if (yearDiff !== 0) return yearDiff;
-
-        return titleOf(a).localeCompare(titleOf(b), "it");
-      })
-      .slice(0, 100);
-  }
-
-  function renderTop100() {
-    const ranked = getRankedMovies();
-    els.top100CountBadge.textContent = `${ranked.length} titoli`;
-
-    if (!ranked.length) {
-      els.top100Podium.innerHTML = `<div class="insightItem">Valuta alcuni film per vedere il podio.</div>`;
-      els.top100List.innerHTML = `<div class="insightItem">Aggiungi voti ai film visti per creare la tua classifica completa.</div>`;
-      return;
-    }
-
-    const podium = ranked.slice(0, 3);
-    const rest = ranked.slice(3);
-
-    const medals = [
-      { icon: "🥇", cls: "gold" },
-      { icon: "🥈", cls: "silver" },
-      { icon: "🥉", cls: "bronze" }
-    ];
-
-    els.top100Podium.innerHTML = podium.map((item, index) => `
-      <div class="podiumCard ${medals[index].cls}">
-        <div class="podiumMedal">${medals[index].icon}</div>
-        <div class="podiumPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-        <div class="podiumName">${escapeHtml(item.title)}</div>
-        <div class="podiumMeta">${escapeHtml(item.year)} · Film</div>
-        <div class="podiumVote">⭐ ${escapeHtml(item.vote)}</div>
-      </div>
-    `).join("");
-
-    if (!rest.length) {
-      els.top100List.innerHTML = `<div class="insightItem">Per ora hai solo il podio. Continua a votare per riempire tutta la classifica.</div>`;
-      return;
-    }
-
-    els.top100List.innerHTML = rest.map((item, index) => `
-      <div class="rankingRow">
-        <div class="rankingPos">${index + 4}</div>
-        <div class="rankingPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-        <div class="rankingInfo">
-          <div class="rankingTitle">${escapeHtml(item.title)}</div>
-          <div class="rankingMeta">${escapeHtml(item.year)} · Film</div>
-        </div>
-        <div class="rankingVote">⭐ ${escapeHtml(item.vote)}</div>
-      </div>
-    `).join("");
-  }
-
-  function renderTop100Series() {
-    const ranked = getRankedSeries();
-    els.top100SeriesCountBadge.textContent = `${ranked.length} titoli`;
-
-    if (!ranked.length) {
-      els.top100SeriesPodium.innerHTML = `<div class="insightItem">Valuta alcune serie per vedere il podio.</div>`;
-      els.top100SeriesList.innerHTML = `<div class="insightItem">Aggiungi voti alle serie viste per creare la tua classifica completa.</div>`;
-      return;
-    }
-
-    const podium = ranked.slice(0, 3);
-    const rest = ranked.slice(3);
-
-    const medals = [
-      { icon: "🥇", cls: "gold" },
-      { icon: "🥈", cls: "silver" },
-      { icon: "🥉", cls: "bronze" }
-    ];
-
-    els.top100SeriesPodium.innerHTML = podium.map((item, index) => `
-      <div class="podiumCard ${medals[index].cls}">
-        <div class="podiumMedal">${medals[index].icon}</div>
-        <div class="podiumPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-        <div class="podiumName">${escapeHtml(item.title)}</div>
-        <div class="podiumMeta">${escapeHtml(item.year)} · Serie TV</div>
-        <div class="podiumVote">⭐ ${escapeHtml(item.vote)}</div>
-      </div>
-    `).join("");
-
-    if (!rest.length) {
-      els.top100SeriesList.innerHTML = `<div class="insightItem">Per ora hai solo il podio. Continua a votare per riempire tutta la classifica.</div>`;
-      return;
-    }
-
-    els.top100SeriesList.innerHTML = rest.map((item, index) => `
-      <div class="rankingRow">
-        <div class="rankingPos">${index + 4}</div>
-        <div class="rankingPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-        <div class="rankingInfo">
-          <div class="rankingTitle">${escapeHtml(item.title)}</div>
-          <div class="rankingMeta">${escapeHtml(item.year)} · Serie TV</div>
-        </div>
-        <div class="rankingVote">⭐ ${escapeHtml(item.vote)}</div>
-      </div>
-    `).join("");
-  }
-
-  function renderTasteMap() {
-    if (db.seen.length < 3) {
-      els.genreBars.innerHTML = `<div class="muted">Salva almeno 3 titoli visti.</div>`;
-      els.top100CountBadge.textContent = `0 titoli`;
-      els.top100Podium.innerHTML = `<div class="insightItem">Valuta alcuni film per vedere il podio.</div>`;
-      els.top100List.innerHTML = `<div class="insightItem">Aggiungi voti ai film visti per creare la tua classifica completa.</div>`;
-      els.top100SeriesCountBadge.textContent = `0 titoli`;
-      els.top100SeriesPodium.innerHTML = `<div class="insightItem">Valuta alcune serie per vedere il podio.</div>`;
-      els.top100SeriesList.innerHTML = `<div class="insightItem">Aggiungi voti alle serie viste per creare la tua classifica completa.</div>`;
-      return;
-    }
-
-    const genreCount = {};
-
-    db.seen.forEach(item => {
-      (item.genre_names || []).forEach(name => {
-        genreCount[name] = (genreCount[name] || 0) + 1;
-      });
-    });
-
-    const topGenres = Object.entries(genreCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([label, value]) => ({ label, value }));
-
-    buildBars(els.genreBars, topGenres);
-    renderTop100();
-    renderTop100Series();
-  }
-
-  function renderShelf(container, items) {
-    container.innerHTML = items.map(item => `
-      <div class="shelfCard open-stored-detail" data-key="${uniqueKey(item)}">
-        <div class="shelfPoster" style="background-image:url('${posterUrl(item.poster_path)}')">
-          <div class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</div>
-        </div>
-        <div class="shelfInfo">
-          <div class="shelfTitle">${escapeHtml(item.title)}</div>
-          <div class="shelfMeta">${item.year} · ${mediaLabel(item)}</div>
-        </div>
-      </div>
-    `).join("");
-  }
-
-  function renderLibraryList() {
-    const rawItems = getLibrarySourceItems();
-    renderGenreFilters();
-
-    let items = filterByLibraryCategory(rawItems, currentLibraryFilter);
-    items = filterByLibraryGenre(items, currentLibraryGenre);
-
-    if (currentLibraryMode === "watch") {
-      els.libraryTitle.textContent = currentLibraryGenre === "all"
-        ? "Watchlist"
-        : `Watchlist · ${currentLibraryGenre}`;
-    } else {
-      let baseTitle = "Archivio visti";
-      if (currentLibraryFilter === "movie") baseTitle = "Film visti";
-      else if (currentLibraryFilter === "series") baseTitle = "Serie TV viste";
-
-      els.libraryTitle.textContent = currentLibraryGenre === "all"
-        ? baseTitle
-        : `${baseTitle} · ${currentLibraryGenre}`;
-    }
-
-    els.libraryEmpty.classList.toggle("hidden", items.length > 0);
-
-    if (!items.length) {
-      els.libraryList.innerHTML = "";
-      els.libraryEmpty.textContent = currentLibraryMode === "watch"
-        ? (currentLibraryGenre === "all"
-          ? "La tua watchlist è vuota."
-          : `Nessun titolo in watchlist per il genere ${currentLibraryGenre}.`)
-        : (currentLibraryGenre === "all"
-          ? "Nessun titolo disponibile per questo filtro."
-          : `Nessun titolo visto per il genere ${currentLibraryGenre}.`);
-      return;
-    }
-
-    els.libraryList.innerHTML = items.map(item => `
-      <div class="listItem">
-        <div class="thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-        <div>
-          <div class="liTitle">${escapeHtml(item.title)}</div>
-          <div class="meta">${item.year} · ${mediaLabel(item)}</div>
-          <div class="chips">
-            <div class="chip">${mediaLabel(item)}</div>
-            ${item.genre_names?.[0] ? `<div class="chip">${escapeHtml(item.genre_names[0])}</div>` : ""}
-            ${item.director && item.media_type === "movie" ? `<div class="chip">🎬 ${escapeHtml(item.director)}</div>` : ""}
-            ${item.vote ? `<div class="chip">⭐ ${escapeHtml(item.vote)}</div>` : ""}
-            ${item.comment ? `<div class="chip">${escapeHtml(item.comment).slice(0, 36)}${item.comment.length > 36 ? "..." : ""}</div>` : ""}
-          </div>
-          <div class="actions">
-            ${currentLibraryMode === "watch" ? `<button class="small ok move-watch-seen" data-key="${uniqueKey(item)}">Segna visto</button>` : ""}
-            <button class="small secondary open-stored-detail" data-key="${uniqueKey(item)}">Apri scheda</button>
-            <button class="small danger ${currentLibraryMode === "watch" ? "remove-watch" : "remove-seen"}" data-key="${uniqueKey(item)}">Elimina</button>
-          </div>
-        </div>
-      </div>
-    `).join("");
-  }
-
-  function renderHomeShelves() {
-    const watchPreview = db.watchlist.slice(0, 8);
-    const seenMovies = db.seen.filter(x => x.media_type === "movie").slice(0, 8);
-    const seenSeries = db.seen.filter(x => x.media_type === "tv").slice(0, 8);
-
-    els.watchShelfEmpty.classList.toggle("hidden", watchPreview.length > 0);
-    els.seenMovieShelfEmpty.classList.toggle("hidden", seenMovies.length > 0);
-    els.seenSeriesShelfEmpty.classList.toggle("hidden", seenSeries.length > 0);
-
-    els.openWatchAll.classList.toggle("hidden", db.watchlist.length === 0);
-    els.openSeenMovies.classList.toggle("hidden", db.seen.filter(x => x.media_type === "movie").length === 0);
-    els.openSeenSeries.classList.toggle("hidden", db.seen.filter(x => x.media_type === "tv").length === 0);
-
-    renderShelf(els.watchShelf, watchPreview);
-    renderShelf(els.seenMovieShelf, seenMovies);
-    renderShelf(els.seenSeriesShelf, seenSeries);
-  }
-
-  function formatReleaseDate(dateStr) {
-    if (!dateStr) return "Data non disponibile";
-    const d = new Date(dateStr + "T00:00:00");
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
-  }
-
-  async function searchTitles() {
-    const q = els.searchInput.value.trim();
-
-    if (!q) {
-      els.resultsSection.classList.add("hidden");
-      els.results.innerHTML = "";
-      els.resultCount.textContent = "";
-      els.resultsEmpty.textContent = "Nessun risultato trovato.";
-      return;
-    }
-
-    els.resultsSection.classList.remove("hidden");
-    els.results.innerHTML = "";
-    els.resultCount.textContent = "";
-    els.resultsEmpty.textContent = "Caricamento...";
-    els.resultsEmpty.classList.remove("hidden");
-
-    try {
-      const endpoint = currentType === "movie"
-        ? `${BASE_URL}/search/movie?api_key=${API_KEY}&language=it-IT&query=${encodeURIComponent(q)}`
-        : currentType === "tv"
-        ? `${BASE_URL}/search/tv?api_key=${API_KEY}&language=it-IT&query=${encodeURIComponent(q)}`
-        : `${BASE_URL}/search/multi?api_key=${API_KEY}&language=it-IT&query=${encodeURIComponent(q)}`;
-
-      const res = await fetch(endpoint);
-      const data = await res.json();
-
-      let items = (data.results || []).filter(x => x.media_type !== "person");
-      items = items.slice(0, 20);
-
-      if (!items.length) {
-        els.results.innerHTML = "";
-        els.resultCount.textContent = "";
-        els.resultsEmpty.textContent = "Nessun risultato trovato.";
-        els.resultsEmpty.classList.remove("hidden");
-        showToast("Nessun risultato trovato per questa ricerca.", "info", "Ricerca");
-        return;
-      }
-
-      els.resultsEmpty.classList.add("hidden");
-      els.resultCount.textContent = `${items.length} risultati`;
-
-      els.results.innerHTML = items.map(item => {
-        const n = normalizedItem(item);
-        const seen = !!inSeen(n);
-        const watch = !!inWatch(n);
-
-        return `
-          <div class="posterCard">
-            <div class="poster" style="background-image:url('${posterUrl(n.poster_path)}')">
-              <div class="badge ${mediaBadgeClass(n)}">${mediaLabel(n)}</div>
-            </div>
-            <div class="posterInfo">
-              <div class="posterTitle">${escapeHtml(n.title)}</div>
-              <div class="meta">${n.year} · ${mediaLabel(n)}</div>
-              <div class="actions">
-                <button class="small ok action-seen" data-id="${n.id}" data-type="${n.media_type}">
-                  ${seen ? "Già visto" : "Visto"}
-                </button>
-                <button class="small secondary action-watch" data-id="${n.id}" data-type="${n.media_type}">
-                  ${watch ? "In watchlist" : "Watchlist"}
-                </button>
-                <button class="small secondary action-details" data-id="${n.id}" data-type="${n.media_type}">
-                  Dettagli
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
-    } catch (e) {
-      els.results.innerHTML = "";
-      els.resultCount.textContent = "";
-      els.resultsEmpty.textContent = "Errore nella ricerca. Controlla connessione o API.";
-      els.resultsEmpty.classList.remove("hidden");
-      showToast("Errore nella ricerca. Controlla connessione o API.", "error", "Ricerca");
-    }
-  }
-
-  async function fetchDetail(type, id) {
-    const res = await fetch(`${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=it-IT&append_to_response=credits`);
-    if (!res.ok) throw new Error("Errore nel recupero dettagli");
-    const item = await res.json();
-    return normalizedItem({ ...item, media_type: type });
-  }
-
-  async function addSeen(type, id) {
-    const item = await fetchDetail(type, id);
-
-    if (inSeen(item)) {
-      openDetail(item);
-      return;
-    }
-
-    db.seen.unshift(item);
-    db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
-    saveDB();
-    renderAll();
-    openDetail(item);
-    showToast(`"${item.title}" aggiunto ai visti.`, "success", "Titolo salvato");
-    haptic([12, 20, 12]);
-  }
-
-  async function addWatch(type, id) {
-    const item = await fetchDetail(type, id);
-
-    if (!inSeen(item) && !inWatch(item)) {
-      db.watchlist.unshift(item);
-      saveDB();
-      renderAll();
-      showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
-      haptic([10]);
-    }
-
-    openDetail(item);
-  }
-
-  async function showDetails(type, id) {
-    const item = await fetchDetail(type, id);
-    openDetail(item);
-  }
-
-  function moveWatchToSeen(key) {
-    const item = db.watchlist.find(x => uniqueKey(x) === key);
-    if (!item) return;
-
-    db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
-
-    if (!db.seen.find(x => uniqueKey(x) === key)) {
-      item.savedAt = new Date().toISOString();
-      db.seen.unshift(item);
-    }
-
-    saveDB();
-    renderAll();
-    showToast(`"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
-    haptic([12, 20, 12]);
-  }
-
-  function removeSeen(key) {
-    const item = db.seen.find(x => uniqueKey(x) === key);
-    db.seen = db.seen.filter(x => uniqueKey(x) !== key);
-    saveDB();
-    renderAll();
-
-    if (currentDetail && uniqueKey(currentDetail) === key) {
-      switchScreen("home");
-    }
-
-    if (item) {
-      showToast(`"${item.title}" rimosso dai visti.`, "info", "Titolo rimosso");
-      haptic([14]);
-    }
-  }
-
-  function removeWatch(key) {
-    const item = db.watchlist.find(x => uniqueKey(x) === key);
-    db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
-    saveDB();
-    renderAll();
-
-    if (currentDetail && uniqueKey(currentDetail) === key) {
-      openDetail(currentDetail);
-    }
-
-    if (item) {
-      showToast(`"${item.title}" rimosso dalla watchlist.`, "info", "Titolo rimosso");
-      haptic([14]);
-    }
-  }
-
-  function renderStats() {
-    const seenCount = db.seen.length;
-    const watchCount = db.watchlist.length;
-    const movieCount = db.seen.filter(x => x.media_type === "movie").length;
-    const seriesCount = db.seen.filter(x => x.media_type === "tv").length;
-
-    animateStats(seenCount, watchCount, movieCount, seriesCount);
-    renderTasteMap();
-  }
-
-  function renderAll() {
-    renderHomeShelves();
-    renderLibraryList();
-    renderStats();
-  }
-
-  function getUserTasteProfile() {
-    const genreCount = {};
-    const genreVotes = {};
-    const decadeCount = {};
-    let movieCount = 0;
-    let seriesCount = 0;
-
-    db.seen.forEach(item => {
-      if (item.media_type === "movie") movieCount++;
-      else seriesCount++;
-
-      const decade = decadeOf(item.year);
-      decadeCount[decade] = (decadeCount[decade] || 0) + 1;
-
-      const voteNum = parseUserVote(item.vote);
-      (item.genre_names || []).forEach(g => {
-        genreCount[g] = (genreCount[g] || 0) + 1;
-        if (Number.isFinite(voteNum)) {
-          if (!genreVotes[g]) genreVotes[g] = [];
-          genreVotes[g].push(voteNum);
-        }
-      });
-    });
-
-    const topGenres = Object.entries(genreCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([g]) => g);
-
-    const topDecade = Object.entries(decadeCount)
-      .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-
-    const prefType = movieCount >= seriesCount ? "movie" : "tv";
-
-    const genreAverages = {};
-    Object.keys(genreCount).forEach(g => {
-      const votes = genreVotes[g] || [];
-      genreAverages[g] = votes.length
-        ? votes.reduce((a, b) => a + b, 0) / votes.length
-        : 6.8;
-    });
-
-    const overallVotes = db.seen
-      .map(x => parseUserVote(x.vote))
-      .filter(v => Number.isFinite(v));
-
-    const avgVote = overallVotes.length
-      ? overallVotes.reduce((a, b) => a + b, 0) / overallVotes.length
-      : 7;
-
-    return { topGenres, topDecade, prefType, genreAverages, avgVote };
-  }
-
-  function getSelectedGenre() {
-    return els.genreSelect.value;
-  }
-
-  function getGenreBoostsFromSelection() {
-    const selected = getSelectedGenre();
-    return selected === "all" ? [] : [selected];
-  }
-
-  function suggestClassic() {
-    const pool = db.seen.filter(x => {
-      const v = parseUserVote(x.vote);
-      return Number.isFinite(v) && v >= 7;
-    });
-
-    if (!pool.length) {
-      els.tonightSuggestion.innerHTML = "<span class='muted'>Nessun titolo con voto 7 o più disponibile. Inizia a votare i tuoi preferiti!</span>";
-      showToast("Serve almeno un titolo con voto 7 o più.", "info", "Classico");
-      return;
-    }
-
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    const voto = pick.vote || parseUserVote(pick.vote).toFixed(2).replace(/\.00$/, "").replace(".", ",");
-    const tipo = mediaLabel(pick);
-
-    let commento = "";
-    if (parseUserVote(pick.vote) >= 9) commento = "Uno dei tuoi assoluti — un ottimo motivo per rivederlo.";
-    else if (parseUserVote(pick.vote) >= 8) commento = "L'hai amato. Ogni tanto certi titoli vanno rivisti.";
-    else commento = "Un bel titolo che hai apprezzato — vale una seconda visione.";
-
-    els.tonightSuggestion.innerHTML = `
-      <div class="insightItem">
-        <strong>⭐ ${escapeHtml(pick.title)}</strong><br>
-        <span class="muted">${pick.year} · ${tipo} · Il tuo voto: ${escapeHtml(voto)}</span><br><br>
-        <span style="font-size:13px;">📌 ${commento}</span>
-      </div>
-    `;
-    haptic([10]);
-  }
-
-  function rawNumberToFixed(value, digits = 1, fallback = "n.d.") {
-    const num = Number(value);
-    return Number.isFinite(num) && num > 0 ? num.toFixed(digits) : fallback;
-  }
-
-  function buildDateRange(startYear, endYear, type) {
-    if (!startYear || !endYear) return "";
-    if (type === "movie") {
-      return `&primary_release_date.gte=${startYear}-01-01&primary_release_date.lte=${endYear}-12-31`;
-    }
-    return `&first_air_date.gte=${startYear}-01-01&first_air_date.lte=${endYear}-12-31`;
-  }
-
-  function randomPage(max = 3) {
-    return Math.floor(Math.random() * max) + 1;
-  }
-
-  function buildFallbackQueries(profile, forcedType, options = {}) {
-    const useSelectedGenre = options.useSelectedGenre === true;
-    const selectedGenre = getSelectedGenre();
-    const selectedGenreId = (useSelectedGenre && selectedGenre !== "all") ? GENRE_NAME_TO_ID[selectedGenre] : null;
-
-    const type = forcedType || profile.prefType;
-    const selectedBoosts = useSelectedGenre ? getGenreBoostsFromSelection() : [];
-    const mergedGenres = [...new Set(
-      selectedGenreId ? [selectedGenre, ...profile.topGenres] : profile.topGenres
-    )];
-    const genreIds = mergedGenres.map(g => GENRE_NAME_TO_ID[g]).filter(Boolean);
-
-    const primaryGenre = selectedGenreId || genreIds[0] || "";
-    const secondaryGenre = genreIds[1] || "";
-    const comboGenres = selectedGenreId
-      ? [selectedGenreId, genreIds[0]].filter(Boolean).slice(0, 2).join(",")
-      : genreIds.slice(0, 2).join(",");
-
-    let preciseDate = "";
-    let widerDate = "";
-    if (profile.topDecade) {
-      const decadeYear = parseInt(profile.topDecade, 10);
-      if (!isNaN(decadeYear)) {
-        preciseDate = buildDateRange(decadeYear, decadeYear + 9, type);
-        widerDate = buildDateRange(Math.max(1970, decadeYear - 10), decadeYear + 14, type);
-      }
-    }
-
-    const minVotes = type === "movie" ? "&vote_count.gte=120" : "&vote_count.gte=40";
-    const page1 = randomPage(3);
-    const page2 = randomPage(3);
-    const page3 = randomPage(3);
-    const page4 = randomPage(3);
-
-    return {
-      type,
-      selectedBoosts,
-      levels: [
-        {
-          label: "ricerca precisa",
-          urls: [
-            `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}${preciseDate}&sort_by=popularity.desc${minVotes}&page=${page1}`,
-            `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${preciseDate}&sort_by=vote_average.desc${minVotes}&page=${page2}`
-          ]
-        },
-        {
-          label: "ricerca più ampia",
-          urls: [
-            `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}${widerDate}&sort_by=popularity.desc${minVotes}&page=${page3}`,
-            `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${secondaryGenre ? `&with_genres=${secondaryGenre}` : ""}${widerDate}&sort_by=vote_count.desc${minVotes}&page=${page4}`
-          ]
-        },
-        {
-          label: "solo genere",
-          urls: [
-            `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}&sort_by=popularity.desc${minVotes}&page=${randomPage(4)}`,
-            `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}&sort_by=vote_average.desc${minVotes}&page=${randomPage(4)}`
-          ]
-        },
-        {
-          label: "fallback finale",
-          urls: [
-            `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=popularity.desc${minVotes}&page=${randomPage(4)}`,
-            `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=vote_count.desc${minVotes}&page=${randomPage(4)}`
-          ]
-        }
-      ]
-    };
-  }
-
-  async function fetchDiscoverLevel(urls, type, excludedKeys) {
-    const candidatesMap = new Map();
-
-    const responses = await Promise.all(
-      urls.map(async url => {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) return [];
-          const data = await res.json();
-          return data.results || [];
-        } catch {
-          return [];
-        }
-      })
-    );
-
-    responses.flat().forEach(raw => {
-      const item = normalizedItem({ ...raw, media_type: type });
-      const key = uniqueKey(item);
-
-      if (excludedKeys.has(key)) return;
-      if (!item.poster_path) return;
-      if (!item.title || item.title === "Titolo sconosciuto") return;
-      if ((item.vote_count || 0) < 20) return;
-
-      candidatesMap.set(key, item);
-    });
-
-    return [...candidatesMap.values()];
-  }
-
-  function getHistoryPenalty(key) {
-    const now = Date.now();
-    let penalty = 0;
-
-    suggestHistory.forEach(entry => {
-      if (entry.key !== key) return;
-      const hoursAgo = (now - entry.at) / (1000 * 60 * 60);
-
-      if (hoursAgo < 6) penalty += 5;
-      else if (hoursAgo < 24) penalty += 3.5;
-      else if (hoursAgo < 72) penalty += 2;
-      else if (hoursAgo < 168) penalty += 1;
-    });
-
-    return penalty;
-  }
-
-  function registerSuggestedItems(items) {
-    const now = Date.now();
-    const additions = items.map(item => ({
-      key: uniqueKey(item),
-      at: now
-    }));
-
-    suggestHistory = [...additions, ...suggestHistory].slice(0, SUGGEST_HISTORY_MAX);
-    saveSuggestHistory();
-  }
-
-  function calculateAffinity(item, profile) {
-    const itemGenres = item.genre_names || [];
-    let genreBase = 0;
-    let matchedGenres = 0;
-
-    itemGenres.forEach(g => {
-      if (profile.genreAverages[g]) {
-        genreBase += profile.genreAverages[g];
-        matchedGenres++;
-      } else if (profile.topGenres.includes(g)) {
-        genreBase += 7.5;
-        matchedGenres++;
+  return { ok: true, value: cleaned };
+}
+
+function decadeScoreLabel(year) {
+  return decadeOf(year);
+}
+
+function getUserTasteProfile() {
+  const genreCount = {};
+  const genreVotes = {};
+  const decadeCount = {};
+  let movieCount = 0;
+  let seriesCount = 0;
+
+  db.seen.forEach(item => {
+    if (item.media_type === "movie") movieCount++;
+    else seriesCount++;
+
+    const decade = decadeScoreLabel(item.year);
+    decadeCount[decade] = (decadeCount[decade] || 0) + 1;
+
+    const voteNum = parseUserVote(item.vote);
+    (item.genre_names || []).forEach(g => {
+      genreCount[g] = (genreCount[g] || 0) + 1;
+      if (Number.isFinite(voteNum)) {
+        if (!genreVotes[g]) genreVotes[g] = [];
+        genreVotes[g].push(voteNum);
       }
     });
-
-    if (!matchedGenres) {
-      genreBase = Math.max(6.4, profile.avgVote);
-      matchedGenres = 1;
-    }
-
-    let score10 = genreBase / matchedGenres;
-
-    if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score10 += 0.35;
-    if (item.media_type === profile.prefType) score10 += 0.25;
-
-    const tmdb = Number(item.vote_average) || 0;
-    if (tmdb > 0) score10 += Math.min(0.45, (tmdb - 6) * 0.10);
-
-    score10 = Math.max(6.2, Math.min(9.6, score10));
-    return Math.round(score10 * 10);
-  }
-
-  function scoreRecommendationCandidate(item, profile, options = {}) {
-    let score = 0;
-    const itemGenres = item.genre_names || [];
-    const selectedBoosts = options.selectedBoosts || [];
-
-    itemGenres.forEach(g => {
-      if (profile.topGenres.includes(g)) score += 4;
-      if (profile.genreAverages[g]) score += Math.max(0, profile.genreAverages[g] - 5.5);
-      if (selectedBoosts.includes(g)) score += 3;
-    });
-
-    if (profile.topDecade && decadeOf(item.year) === profile.topDecade) score += 2;
-    if (item.media_type === profile.prefType) score += 1;
-
-    const voteAverage = item.vote_average || 0;
-    const voteCount = item.vote_count || 0;
-    score += Math.min(2.5, voteAverage / 4);
-    score += Math.min(2, voteCount / 1200);
-
-    score -= getHistoryPenalty(uniqueKey(item));
-    return score;
-  }
-
-  function buildReason(item, profile, affinity) {
-    const bits = [];
-    const genres = item.genre_names || [];
-    const matchGenres = genres.filter(g => profile.topGenres.includes(g));
-
-    if (matchGenres.length) bits.push(`match con ${matchGenres.slice(0, 2).join(" + ")}`);
-    if (profile.topDecade && decadeOf(item.year) === profile.topDecade) bits.push(`decade che guardi spesso`);
-    if (affinity >= 88) bits.push(`compatibilità molto alta`);
-    else if (affinity >= 80) bits.push(`buona sintonia con i tuoi gusti`);
-
-    return bits.slice(0, 3);
-  }
-
-  function getPrimaryGenre(item) {
-    return (item.genre_names && item.genre_names[0]) ? item.genre_names[0] : "Altro";
-  }
-
-  function pickDiverseRecommendations(ranked, count = 5) {
-    const selected = [];
-    const usedKeys = new Set();
-    const usedGenres = new Map();
-
-    for (const entry of ranked) {
-      if (selected.length >= count) break;
-
-      const key = uniqueKey(entry.item);
-      if (usedKeys.has(key)) continue;
-
-      const primaryGenre = getPrimaryGenre(entry.item);
-      const genreUsage = usedGenres.get(primaryGenre) || 0;
-
-      if (genreUsage >= 2 && selected.length < count - 1) continue;
-
-      selected.push(entry);
-      usedKeys.add(key);
-      usedGenres.set(primaryGenre, genreUsage + 1);
-    }
-
-    if (selected.length < count) {
-      for (const entry of ranked) {
-        if (selected.length >= count) break;
-        const key = uniqueKey(entry.item);
-        if (usedKeys.has(key)) continue;
-        selected.push(entry);
-        usedKeys.add(key);
-      }
-    }
-
-    return selected.slice(0, count);
-  }
-
-  async function recommendTonightFive(options = {}) {
-    const isAuto = options.auto === true;
-    const requestId = ++tonightAutoRequestCounter;
-
-    if (db.seen.length < 3) {
-      els.tonightSuggestion.innerHTML = "<span class='muted'>Aggiungi almeno 3 titoli visti per ricevere 5 consigli personalizzati.</span>";
-      showToast("Aggiungi almeno 3 titoli visti per usare i consigli personalizzati.", "info", "Consigli");
-      return;
-    }
-
-    els.tonightSuggestion.innerHTML = "<span class='muted'>🔍 Sto cercando 5 titoli adatti ai tuoi gusti...</span>";
-
-    const profile = getUserTasteProfile();
-    const { type, levels } = buildFallbackQueries(profile, null, { useSelectedGenre: false });
-
-    const excludedKeys = new Set([
-      ...db.seen.map(x => uniqueKey(x)),
-      ...db.watchlist.map(x => uniqueKey(x))
-    ]);
-
-    try {
-      let candidates = [];
-      let usedLevelLabel = "";
-
-      for (const level of levels) {
-        const found = await fetchDiscoverLevel(level.urls, type, excludedKeys);
-        candidates = [...candidates, ...found];
-
-        const map = new Map();
-        candidates.forEach(item => map.set(uniqueKey(item), item));
-        candidates = [...map.values()];
-
-        if (candidates.length >= 5) {
-          usedLevelLabel = level.label;
-          break;
-        }
-      }
-
-      if (requestId !== tonightAutoRequestCounter) return;
-
-      if (!candidates.length) {
-        els.tonightSuggestion.innerHTML = "<span class='muted'>Non ho trovato consigli adatti. Riprova più tardi.</span>";
-        showToast("Non ho trovato consigli adatti al momento.", "info", "Consigli");
-        return;
-      }
-
-      const ranked = candidates
-        .map(item => {
-          const affinity = calculateAffinity(item, profile);
-          const rankScore =
-            scoreRecommendationCandidate(item, profile) +
-            affinity / 20 +
-            Math.random() * 1.1;
-
-          return { item, affinity, rankScore };
-        })
-        .sort((a, b) => b.rankScore - a.rankScore)
-        .slice(0, 18);
-
-      const finalFive = pickDiverseRecommendations(ranked, 5)
-        .sort((a, b) => b.affinity - a.affinity);
-
-      if (!finalFive.length) {
-        els.tonightSuggestion.innerHTML = "<span class='muted'>Non ho trovato consigli adatti. Riprova più tardi.</span>";
-        showToast("Non ho trovato consigli adatti al momento.", "info", "Consigli");
-        return;
-      }
-
-      registerSuggestedItems(finalFive.map(entry => entry.item));
-
-      const note = usedLevelLabel && usedLevelLabel !== "ricerca precisa"
-        ? `<div class="muted" style="font-size:12px;margin-bottom:10px;">Ho allargato un po' la ricerca per trovarti comunque 5 proposte.</div>`
-        : "";
-
-      els.tonightSuggestion.innerHTML = `
-        ${note}
-        <div class="tonightList">
-          ${finalFive.map(entry => {
-            const item = entry.item;
-            const reasons = buildReason(item, profile, entry.affinity);
-            return `
-              <div class="tonightCard open-tonight-detail" data-id="${item.id}" data-type="${item.media_type}">
-                <div class="tonightPoster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
-                <div>
-                  <div class="tonightTitleRow">
-                    <div class="tonightTitle">${escapeHtml(item.title)}</div>
-                    <div class="affinity">${entry.affinity}%</div>
-                  </div>
-                  <div class="tonightSub">
-                    ${escapeHtml(item.year)} · ${mediaLabel(item)} · ⭐ ${rawNumberToFixed(item.vote_average, 1)}
-                  </div>
-                  <div class="tonightReason">
-                    ${reasons.length ? `🎯 ${escapeHtml(reasons.join(" · "))}` : "🎯 Consigliato in base ai tuoi gusti"}
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join("")}
-        </div>
-      `;
-
-      if (!isAuto) haptic([10]);
-      if (isAuto) lastAutoRecommendAt = Date.now();
-    } catch (err) {
-      if (requestId !== tonightAutoRequestCounter) return;
-      els.tonightSuggestion.innerHTML = "<span class='muted'>Errore nella ricerca. Controlla la connessione.</span>";
-      showToast("Errore nella ricerca dei consigli. Controlla la connessione.", "error", "Consigli");
-    }
-  }
-
-  async function maybeAutoRecommendTonight() {
-    const now = Date.now();
-    const elapsed = now - lastAutoRecommendAt;
-    if (elapsed < TONIGHT_AUTO_COOLDOWN_MS) return;
-    await recommendTonightFive({ auto: true });
-  }
-
-  async function discoverByTaste() {
-    if (db.seen.length < 3) {
-      els.tonightSuggestion.innerHTML = "<span class='muted'>Aggiungi almeno 3 titoli visti per ricevere consigli personalizzati.</span>";
-      showToast("Aggiungi almeno 3 titoli visti per usare questa funzione.", "info", "Scopri");
-      return;
-    }
-
-    els.tonightSuggestion.innerHTML = "<span class='muted'>🔍 Sto cercando qualcosa di nuovo per te...</span>";
-
-    const profile = getUserTasteProfile();
-    const queryConfig = buildFallbackQueries(profile, null, { useSelectedGenre: true });
-    const { type, levels, selectedBoosts } = queryConfig;
-
-    const excludedKeys = new Set([
-      ...db.seen.map(x => uniqueKey(x)),
-      ...db.watchlist.map(x => uniqueKey(x))
-    ]);
-
-    try {
-      let candidates = [];
-      let usedLevelLabel = "";
-
-      for (const level of levels) {
-        const found = await fetchDiscoverLevel(level.urls, type, excludedKeys);
-        if (found.length > 0) {
-          candidates = found;
-          usedLevelLabel = level.label;
-          break;
-        }
-      }
-
-      if (!candidates.length) {
-        els.tonightSuggestion.innerHTML = "<span class='muted'>Nessun risultato trovato. Riprova più tardi.</span>";
-        showToast("Non ho trovato nulla di adatto al momento.", "info", "Scopri");
-        return;
-      }
-
-      const scored = candidates
-        .map(item => ({
-          item,
-          score: scoreRecommendationCandidate(item, profile, { selectedBoosts }) + Math.random() * 1.3
-        }))
-        .sort((a, b) => b.score - a.score);
-
-      const pickPool = scored.slice(0, Math.min(12, scored.length));
-      const chosen = pickPool[Math.floor(Math.random() * pickPool.length)].item;
-
-      registerSuggestedItems([chosen]);
-
-      const itemGenres = chosen.genre_names || [];
-      const matchGenres = itemGenres.filter(g => profile.topGenres.includes(g));
-      const selectedGenre = getSelectedGenre();
-      const year = chosen.year;
-      const rating = rawNumberToFixed(chosen.vote_average || 0, 1, "n.d.");
-      const poster = chosen.poster_path
-        ? `<img src="${IMG}${chosen.poster_path}" alt="${escapeHtml(chosen.title)}" style="width:74px;border-radius:12px;float:right;margin-left:12px;border:1px solid rgba(255,255,255,.08);">`
-        : "";
-
-      const whyBits = [];
-      if (selectedGenre !== "all" && itemGenres.includes(selectedGenre)) whyBits.push(`hai scelto il genere ${selectedGenre}`);
-      if (matchGenres.length) whyBits.push(`ami il genere ${matchGenres[0]}`);
-      if (profile.topDecade && decadeOf(chosen.year) === profile.topDecade) whyBits.push(`ti piacciono spesso gli ${profile.topDecade}`);
-
-      const fallbackNote = usedLevelLabel !== "ricerca precisa"
-        ? ` Ho allargato la ricerca per trovarti comunque qualcosa.`
-        : "";
-
-      if (!whyBits.length) whyBits.push("ha un buon match con i tuoi gusti");
-
-      els.tonightSuggestion.innerHTML = `
-        <div class="insightItem">
-          ${poster}
-          <strong>✨ ${escapeHtml(chosen.title)}</strong><br>
-          <span class="muted">${year} · ${mediaLabel(chosen)} · ⭐ ${rating}/10</span><br><br>
-          <span style="font-size:13px;">🎯 Scelto perché ${whyBits.join(", ")}. Non è nella tua libreria.${fallbackNote}</span>
-          <div style="clear:both"></div>
-        </div>
-      `;
-      haptic([10]);
-    } catch (err) {
-      els.tonightSuggestion.innerHTML = "<span class='muted'>Errore nella ricerca. Controlla la connessione.</span>";
-      showToast("Errore nella ricerca. Controlla la connessione.", "error", "Scopri");
-    }
-  }
-
-  function switchScreen(name, options = {}) {
-    const skipHistory = options.skipHistory === true;
-
-    if (name !== "detail") previousScreen = name;
-
-    Object.values(els.screens).forEach(s => {
-      s.classList.add("hidden");
-      s.classList.remove("screenFade");
-    });
-
-    els.screens[name].classList.remove("hidden");
-    els.screens[name].classList.add("screenFade");
-
-    document.querySelectorAll(".navBtn[data-screen]").forEach(b => {
-      b.classList.toggle("active", b.dataset.screen === name);
-    });
-
-    if (!skipHistory) {
-      const currentState = history.state;
-      if (name === "home") {
-        history.replaceState({ screen: "home" }, "");
-      } else if (!currentState || currentState.screen !== name) {
-        history.pushState({ screen: name }, "");
-      }
-    }
-
-    if (name === "tonight") {
-      maybeAutoRecommendTonight();
-    }
-
-    if (name === "stats") {
-      setTimeout(() => {
-        animateBarGroups();
-      }, 60);
-    }
-  }
-
-  window.addEventListener("popstate", (e) => {
-    const name = e.state?.screen || "home";
-    if (els.screens[name]) {
-      switchScreen(name, { skipHistory: true });
+  });
+
+  const topGenres = Object.entries(genreCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([g]) => g);
+
+  const topDecade = Object.entries(decadeCount)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  const prefType = movieCount >= seriesCount ? "movie" : "tv";
+
+  const genreAverages = {};
+  Object.keys(genreCount).forEach(g => {
+    const votes = genreVotes[g] || [];
+    genreAverages[g] = votes.length
+      ? votes.reduce((a, b) => a + b, 0) / votes.length
+      : 6.8;
+  });
+
+  const overallVotes = db.seen
+    .map(x => parseUserVote(x.vote))
+    .filter(v => Number.isFinite(v));
+
+  const avgVote = overallVotes.length
+    ? overallVotes.reduce((a, b) => a + b, 0) / overallVotes.length
+    : 7;
+
+  return { topGenres, topDecade, prefType, genreAverages, avgVote };
+}
+
+function getHistoryPenalty(key) {
+  const now = Date.now();
+  let penalty = 0;
+
+  suggestHistory.forEach(entry => {
+    if (entry.key !== key) return;
+    const hoursAgo = (now - entry.at) / (1000 * 60 * 60);
+
+    if (hoursAgo < 6) penalty += 5;
+    else if (hoursAgo < 24) penalty += 3.5;
+    else if (hoursAgo < 72) penalty += 2;
+    else if (hoursAgo < 168) penalty += 1;
+  });
+
+  return penalty;
+}
+
+function calculateAffinity(item, profile) {
+  const genres = item.genre_names || [];
+  let genreBase = 0;
+  let matched = 0;
+
+  genres.forEach(g => {
+    if (profile.genreAverages[g]) {
+      genreBase += profile.genreAverages[g];
+      matched++;
+    } else if (profile.topGenres.includes(g)) {
+      genreBase += 7.5;
+      matched++;
     }
   });
 
-  function setLibraryFilter(filter) {
-    currentLibraryFilter = filter;
-    currentLibraryGenre = "all";
-    els.libraryFilters.forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.filter === filter);
+  if (!matched) {
+    genreBase = Math.max(6.4, profile.avgVote);
+    matched = 1;
+  }
+
+  let score10 = genreBase / matched;
+
+  if (profile.topDecade && decadeScoreLabel(item.year) === profile.topDecade) score10 += 0.35;
+  if (item.media_type === profile.prefType) score10 += 0.25;
+
+  const tmdbVote = Number(item.vote_average) || 0;
+  if (tmdbVote > 0) score10 += Math.min(0.45, (tmdbVote - 6) * 0.1);
+
+  score10 = Math.max(6.2, Math.min(9.6, score10));
+  return Math.round(score10 * 10);
+}
+
+function scoreCandidate(item, profile, selectedBoosts = []) {
+  let score = 0;
+  const genres = item.genre_names || [];
+
+  genres.forEach(g => {
+    if (profile.topGenres.includes(g)) score += 4;
+    if (profile.genreAverages[g]) score += Math.max(0, profile.genreAverages[g] - 5.5);
+    if (selectedBoosts.includes(g)) score += 3;
+  });
+
+  if (profile.topDecade && decadeScoreLabel(item.year) === profile.topDecade) score += 2;
+  if (item.media_type === profile.prefType) score += 1;
+
+  score += Math.min(2.5, (item.vote_average || 0) / 4);
+  score += Math.min(2, (item.vote_count || 0) / 1200);
+  score -= getHistoryPenalty(uniqueKey(item));
+
+  return score;
+}
+
+function buildReason(item, profile, affinity) {
+  const reasons = [];
+  const matches = (item.genre_names || []).filter(g => profile.topGenres.includes(g));
+
+  if (matches.length) reasons.push(`match con ${matches.slice(0, 2).join(" + ")}`);
+  if (profile.topDecade && decadeScoreLabel(item.year) === profile.topDecade) reasons.push("decade che guardi spesso");
+  if (affinity >= 88) reasons.push("compatibilità molto alta");
+  else if (affinity >= 80) reasons.push("buona sintonia con i tuoi gusti");
+
+  return reasons.slice(0, 3);
+}
+
+function pickDiverse(ranked, count = 5) {
+  const selected = [];
+  const usedKeys = new Set();
+  const usedGenres = new Map();
+
+  for (const entry of ranked) {
+    if (selected.length >= count) break;
+
+    const key = uniqueKey(entry.item);
+    if (usedKeys.has(key)) continue;
+
+    const primaryGenre = (entry.item.genre_names && entry.item.genre_names[0]) || "Altro";
+    const usage = usedGenres.get(primaryGenre) || 0;
+
+    if (usage >= 2 && selected.length < count - 1) continue;
+
+    selected.push(entry);
+    usedKeys.add(key);
+    usedGenres.set(primaryGenre, usage + 1);
+  }
+
+  if (selected.length < count) {
+    for (const entry of ranked) {
+      if (selected.length >= count) break;
+      const key = uniqueKey(entry.item);
+      if (usedKeys.has(key)) continue;
+      selected.push(entry);
+      usedKeys.add(key);
+    }
+  }
+
+  return selected.slice(0, count);
+}
+
+function registerSuggested(items) {
+  const now = Date.now();
+  suggestHistory = [
+    ...items.map(item => ({ key: uniqueKey(item), at: now })),
+    ...suggestHistory
+  ].slice(0, 40);
+
+  saveSuggestHistory(suggestHistory);
+}
+
+function toggleHidden(id, shouldHide) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle("hidden", shouldHide);
+}
+
+function renderHomeShelves() {
+  const watchPrev = db.watchlist.slice(0, 8);
+  const seenMovies = db.seen.filter(x => x.media_type === "movie").slice(0, 8);
+  const seenSeries = db.seen.filter(x => x.media_type === "tv").slice(0, 8);
+
+  toggleHidden("watchShelfEmpty", watchPrev.length > 0);
+  toggleHidden("seenMovieShelfEmpty", seenMovies.length > 0);
+  toggleHidden("seenSeriesShelfEmpty", seenSeries.length > 0);
+
+  toggleHidden("openWatchAll", db.watchlist.length === 0);
+  toggleHidden("openSeenMovies", db.seen.filter(x => x.media_type === "movie").length === 0);
+  toggleHidden("openSeenSeries", db.seen.filter(x => x.media_type === "tv").length === 0);
+
+  renderShelf("watchShelf", watchPrev);
+  renderShelf("seenMovieShelf", seenMovies);
+  renderShelf("seenSeriesShelf", seenSeries);
+}
+
+function getAvailableGenres() {
+  const source = currentLibraryMode === "watch" ? db.watchlist : db.seen;
+
+  let filtered = source;
+  if (currentLibraryFilter === "movie") filtered = source.filter(x => x.media_type === "movie");
+  if (currentLibraryFilter === "series") filtered = source.filter(x => x.media_type === "tv");
+
+  const set = new Set();
+  filtered.forEach(item => {
+    (item.genre_names || []).forEach(g => {
+      if (g && g.trim()) set.add(g);
     });
-    renderLibraryList();
-  }
+  });
 
-  function setLibraryGenre(genre) {
-    currentLibraryGenre = genre;
-    renderLibraryList();
-  }
+  return [...set].sort((a, b) => a.localeCompare(b, "it"));
+}
 
-  function openLibrary(mode, filter = "all") {
-    currentLibraryMode = mode;
+function doRenderLibrary() {
+  const source = currentLibraryMode === "watch" ? db.watchlist : db.seen;
+  const genres = getAvailableGenres();
+
+  if (currentLibraryGenre !== "all" && !genres.includes(currentLibraryGenre)) {
     currentLibraryGenre = "all";
-    setLibraryFilter(filter);
-    renderLibraryList();
-    switchScreen("library");
   }
 
-  function exportBackup() {
-    const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "cineTracker-backup.json";
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast("Backup esportato correttamente.", "success", "Backup");
-    haptic([12, 20, 12]);
+  renderGenreFilters(genres, currentLibraryGenre);
+
+  let items = source;
+  if (currentLibraryFilter === "movie") items = items.filter(x => x.media_type === "movie");
+  if (currentLibraryFilter === "series") items = items.filter(x => x.media_type === "tv");
+  if (currentLibraryGenre !== "all") items = items.filter(x => (x.genre_names || []).includes(currentLibraryGenre));
+
+  let baseTitle = "Archivio visti";
+  if (currentLibraryMode === "watch") baseTitle = "Watchlist";
+  else if (currentLibraryFilter === "movie") baseTitle = "Film visti";
+  else if (currentLibraryFilter === "series") baseTitle = "Serie TV viste";
+
+  const libraryTitle = document.getElementById("libraryTitle");
+  if (libraryTitle) {
+    libraryTitle.textContent = currentLibraryGenre === "all"
+      ? baseTitle
+      : `${baseTitle} · ${currentLibraryGenre}`;
   }
 
-  function importBackup(file) {
-    const reader = new FileReader();
+  document.querySelectorAll(".filter-pill[data-filter]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.filter === currentLibraryFilter);
+  });
 
-    reader.onload = function(e) {
-      try {
-        const imported = JSON.parse(e.target.result);
+  const listEl = document.getElementById("libraryList");
+  const emptyEl = document.getElementById("libraryEmpty");
+  if (!listEl || !emptyEl) return;
 
-        if (!imported || !Array.isArray(imported.seen) || !Array.isArray(imported.watchlist)) {
-          showToast("File backup non valido.", "error", "Backup");
-          return;
-        }
-
-        const confirmReplace = confirm("Vuoi sostituire i dati attuali con quelli del backup?");
-        if (!confirmReplace) return;
-
-        db = {
-          seen: imported.seen.map(normalizedItem),
-          watchlist: imported.watchlist.map(normalizedItem)
-        };
-
-        saveDB();
-        renderAll();
-        switchScreen("home");
-        showToast("Backup importato correttamente.", "success", "Backup");
-        haptic([12, 20, 12]);
-      } catch (err) {
-        showToast("Impossibile leggere il file backup.", "error", "Backup");
-      }
-    };
-
-    reader.readAsText(file);
+  if (!items.length) {
+    listEl.innerHTML = "";
+    emptyEl.classList.remove("hidden");
+    emptyEl.textContent = currentLibraryMode === "watch"
+      ? (currentLibraryGenre === "all"
+        ? "La tua watchlist è vuota."
+        : `Nessun titolo in watchlist per "${currentLibraryGenre}".`)
+      : (currentLibraryGenre === "all"
+        ? "Nessun titolo per questo filtro."
+        : `Nessun titolo visto per "${currentLibraryGenre}".`);
+    return;
   }
 
-  function openDetail(item) {
-    currentDetail = item;
+  emptyEl.classList.add("hidden");
+  listEl.innerHTML = renderLibraryList(items, currentLibraryMode);
+}
 
-    const stored = getStoredItem(item);
-    const source = stored || item;
+function openLibrary(mode, filter = "all") {
+  currentLibraryMode = mode;
+  currentLibraryFilter = filter;
+  currentLibraryGenre = "all";
+  doRenderLibrary();
+  switchScreen("library");
+}
 
-    els.detailBackdrop.style.backgroundImage = source.backdrop_path
-      ? `url('${posterUrl(source.backdrop_path)}')`
-      : `url('${posterUrl(source.poster_path)}')`;
+function getRanked(type) {
+  return db.seen
+    .filter(x => x.media_type === type && Number.isFinite(parseUserVote(x.vote)))
+    .sort((a, b) => {
+      const voteDiff = parseUserVote(b.vote) - parseUserVote(a.vote);
+      if (voteDiff !== 0) return voteDiff;
 
-    els.detailPoster.style.backgroundImage = `url('${posterUrl(source.poster_path)}')`;
-    els.detailTitle.textContent = source.title;
-    els.detailMeta.textContent = `${source.year} · ${mediaLabel(source)}`;
+      const yearDiff = Number(b.year || 0) - Number(a.year || 0);
+      if (yearDiff !== 0) return yearDiff;
 
-    const chips = [];
-    chips.push(`<div class="chip">${mediaLabel(source)}</div>`);
-    chips.push(`<div class="chip">${source.year}</div>`);
-    (source.genre_names || []).slice(0, 3).forEach(g => {
-      chips.push(`<div class="chip">${escapeHtml(g)}</div>`);
+      return (a.title || "").localeCompare(b.title || "", "it");
+    })
+    .slice(0, 100);
+}
+
+function resetRanking() {
+  const empty = `<p class="empty-hint">Aggiungi voti per vedere la classifica.</p>`;
+
+  const ids = ["top100Podium", "top100List", "top100SeriesPodium", "top100SeriesList"];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = empty;
+  });
+
+  const badges = ["top100CountBadge", "top100SeriesCountBadge"];
+  badges.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = "0";
+  });
+}
+
+function renderRanking() {
+  const movies = getRanked("movie");
+  const series = getRanked("tv");
+
+  const badgeMovies = document.getElementById("top100CountBadge");
+  const badgeSeries = document.getElementById("top100SeriesCountBadge");
+
+  if (badgeMovies) badgeMovies.textContent = String(movies.length);
+  if (badgeSeries) badgeSeries.textContent = String(series.length);
+
+  renderPodium(document.getElementById("top100Podium"), movies.slice(0, 3), "Film");
+  renderRankingList(document.getElementById("top100List"), movies.slice(3), 4, "Film");
+  renderPodium(document.getElementById("top100SeriesPodium"), series.slice(0, 3), "Serie TV");
+  renderRankingList(document.getElementById("top100SeriesList"), series.slice(3), 4, "Serie TV");
+}
+
+function renderStats() {
+  const seen = db.seen.length;
+  const watch = db.watchlist.length;
+  const movies = db.seen.filter(x => x.media_type === "movie").length;
+  const series = db.seen.filter(x => x.media_type === "tv").length;
+
+  animateStats(seen, watch, movies, series);
+
+  if (db.seen.length < 3) {
+    renderGenreBars([]);
+    resetRanking();
+    return;
+  }
+
+  const genreCount = {};
+  db.seen.forEach(item => {
+    (item.genre_names || []).forEach(g => {
+      genreCount[g] = (genreCount[g] || 0) + 1;
     });
-    els.detailGenres.innerHTML = chips.join("");
+  });
 
-    els.detailOverview.textContent = source.overview || "Nessuna trama disponibile.";
+  const topGenres = Object.entries(genreCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([label, value]) => ({ label, value }));
 
-    const facts = [];
-    facts.push(`Tipo: ${mediaLabel(source)}`);
-    facts.push(`Anno: ${source.year}`);
-    if (source.genre_names?.length) facts.push(`Generi: ${source.genre_names.join(", ")}`);
-    if (source.director && source.media_type === "movie") facts.push(`Regista: ${source.director}`);
-    if (source.release_date && source.media_type === "movie") facts.push(`Uscita: ${formatReleaseDate(source.release_date)}`);
-    if (inSeen(source)) facts.push("Stato: visto");
-    else if (inWatch(source)) facts.push("Stato: in watchlist");
-    else facts.push("Stato: non salvato");
+  renderGenreBars(topGenres);
+  renderRanking();
+}
 
-    els.detailFacts.innerHTML = facts.map(x => `<div>${escapeHtml(x)}</div>`).join("");
+function renderAll() {
+  renderHomeShelves();
+  doRenderLibrary();
+  renderStats();
+}
 
-    els.detailVoteInput.value = source.vote || "";
-    els.detailCommentInput.value = source.comment || "";
+async function doSearch() {
+  const input = document.getElementById("searchInput");
+  const sec = document.getElementById("resultsSection");
+  const res = document.getElementById("results");
+  const empty = document.getElementById("resultsEmpty");
+  const count = document.getElementById("resultCount");
 
-    els.detailSeenBtn.textContent = inSeen(source) ? "Già tra i visti" : "Segna come visto";
-    els.detailWatchBtn.textContent = inWatch(source) ? "Già in watchlist" : "Aggiungi a watchlist";
+  if (!input || !sec || !res || !empty || !count) return;
 
-    switchScreen("detail");
+  const q = input.value.trim();
+
+  if (!q) {
+    sec.classList.add("hidden");
+    res.innerHTML = "";
+    count.textContent = "";
+    empty.textContent = "Nessun risultato trovato.";
+    return;
   }
 
-  function validateVoteOrShowToast(rawVote) {
-    const cleaned = sanitizeVoteInput(rawVote);
-    if (!rawVote || !String(rawVote).trim()) {
-      return { ok: true, value: "" };
+  sec.classList.remove("hidden");
+  res.innerHTML = "";
+  count.textContent = "";
+  empty.textContent = "Ricerca in corso…";
+  empty.classList.remove("hidden");
+
+  try {
+    const items = await tmdbSearch(q, currentType);
+
+    if (!items.length) {
+      empty.textContent = "Nessun risultato trovato.";
+      empty.classList.remove("hidden");
+      showToast("Nessun risultato trovato.", "info", "Ricerca");
+      return;
     }
 
-    if (!cleaned || !Number.isFinite(parseUserVote(cleaned))) {
-      showToast("Voto non valido. Usa per esempio 7, 7+, 7,5 oppure 8-.", "error", "Voto");
-      return { ok: false, value: "" };
-    }
+    empty.classList.add("hidden");
+    count.textContent = `${items.length} risultati`;
+    res.innerHTML = renderSearchResults(items, db);
+  } catch (e) {
+    console.error(e);
+    empty.textContent = "Errore di ricerca. Controlla la connessione.";
+    empty.classList.remove("hidden");
+    showToast("Errore di ricerca.", "error", "Ricerca");
+  }
+}
 
-    return { ok: true, value: cleaned };
+function openDetail(item) {
+  currentDetail = item;
+  const stored = getStoredItem(item);
+  const src = stored || item;
+
+  const detailBackdrop = document.getElementById("detailBackdrop");
+  const detailPoster = document.getElementById("detailPoster");
+  const detailTitle = document.getElementById("detailTitle");
+  const detailYear = document.getElementById("detailYear");
+  const detailType = document.getElementById("detailType");
+  const detailOverview = document.getElementById("detailOverview");
+  const detailFacts = document.getElementById("detailFacts");
+  const detailGenres = document.getElementById("detailGenres");
+  const detailVoteInput = document.getElementById("detailVoteInput");
+  const detailCommentInput = document.getElementById("detailCommentInput");
+  const detailSeenBtn = document.getElementById("detailSeenBtn");
+  const detailWatchBtn = document.getElementById("detailWatchBtn");
+
+  if (detailBackdrop) {
+    detailBackdrop.style.backgroundImage = src.backdrop_path
+      ? `url('${backdropUrl(src.backdrop_path)}')`
+      : `url('${posterUrl(src.poster_path)}')`;
   }
 
-  function saveDetailNotes() {
-    if (!currentDetail) return;
+  if (detailPoster) detailPoster.style.backgroundImage = `url('${posterUrl(src.poster_path)}')`;
+  if (detailTitle) detailTitle.textContent = src.title;
+  if (detailYear) detailYear.textContent = src.year;
+  if (detailType) detailType.textContent = mediaLabel(src);
+  if (detailOverview) detailOverview.textContent = src.overview || "Nessuna trama disponibile.";
 
-    const voteCheck = validateVoteOrShowToast(els.detailVoteInput.value);
-    if (!voteCheck.ok) return;
+  if (detailFacts) {
+    detailFacts.innerHTML = renderDetailFacts(src, !!inSeen(src), !!inWatch(src));
+  }
 
-    const key = uniqueKey(currentDetail);
-    const vote = voteCheck.value;
-    const comment = els.detailCommentInput.value.trim();
+  if (detailGenres) {
+    detailGenres.innerHTML = (src.genre_names || []).slice(0, 4)
+      .map(g => `<span class="chip">${escapeHtml(g)}</span>`)
+      .join("");
+  }
 
-    let target = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
+  if (detailVoteInput) detailVoteInput.value = src.vote || "";
+  if (detailCommentInput) detailCommentInput.value = src.comment || "";
 
-    if (!target) {
-      target = { ...currentDetail };
-      db.watchlist.unshift(target);
-    }
+  if (detailSeenBtn) detailSeenBtn.textContent = inSeen(src) ? "✓ Già tra i visti" : "Segna come visto";
+  if (detailWatchBtn) detailWatchBtn.textContent = inWatch(src) ? "★ Già in watchlist" : "Aggiungi a watchlist";
 
-    target.vote = vote;
-    target.comment = comment;
+  switchScreen("detail");
+}
 
-    saveDB();
+async function doShowDetails(type, id) {
+  const item = await tmdbFetchDetail(type, id);
+  openDetail(item);
+}
+
+async function doAddSeen(type, id) {
+  const item = await tmdbFetchDetail(type, id);
+
+  if (inSeen(item)) {
+    openDetail(item);
+    return;
+  }
+
+  db.seen.unshift(item);
+  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
+
+  saveDB(db);
+  renderAll();
+  openDetail(item);
+
+  showToast(`"${item.title}" aggiunto ai visti.`, "success", "Salvato");
+  haptic([12, 20, 12]);
+}
+
+async function doAddWatch(type, id) {
+  const item = await tmdbFetchDetail(type, id);
+
+  if (!inSeen(item) && !inWatch(item)) {
+    db.watchlist.unshift(item);
+    saveDB(db);
     renderAll();
-    openDetail(target);
-
-    showToast("Voto e commento salvati.", "success", "Scheda aggiornata");
-    haptic([12, 20, 12]);
+    showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
+    haptic([10]);
   }
 
-  function removeCurrentDetail() {
-    if (!currentDetail) return;
+  openDetail(item);
+}
 
-    const key = uniqueKey(currentDetail);
-    const title = currentDetail.title;
-    db.seen = db.seen.filter(x => uniqueKey(x) !== key);
-    db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
+function doMoveToSeen(key) {
+  const item = db.watchlist.find(x => uniqueKey(x) === key);
+  if (!item) return;
 
-    saveDB();
-    renderAll();
+  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
+
+  if (!db.seen.find(x => uniqueKey(x) === key)) {
+    item.savedAt = new Date().toISOString();
+    db.seen.unshift(item);
+  }
+
+  saveDB(db);
+  renderAll();
+
+  showToast(`"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
+  haptic([12, 20, 12]);
+}
+
+function doRemoveSeen(key) {
+  const item = db.seen.find(x => uniqueKey(x) === key);
+  db.seen = db.seen.filter(x => uniqueKey(x) !== key);
+
+  saveDB(db);
+  renderAll();
+
+  if (currentDetail && uniqueKey(currentDetail) === key) {
     switchScreen("home");
-    showToast(`"${title}" rimosso dalla libreria.`, "info", "Titolo rimosso");
+  }
+
+  if (item) {
+    showToast(`"${item.title}" rimosso dai visti.`, "info", "Rimosso");
     haptic([14]);
   }
+}
 
-  function setupRankingToggle() {
-    els.rankingToggleMovies.addEventListener("click", () => {
-      els.rankingToggleMovies.classList.add("active");
-      els.rankingToggleSeries.classList.remove("active");
-      els.rankingPanelMovies.classList.remove("hidden");
-      els.rankingPanelSeries.classList.add("hidden");
+function doRemoveWatch(key) {
+  const item = db.watchlist.find(x => uniqueKey(x) === key);
+  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
+
+  saveDB(db);
+  renderAll();
+
+  if (currentDetail && uniqueKey(currentDetail) === key) {
+    switchScreen("home");
+  }
+
+  if (item) {
+    showToast(`"${item.title}" rimosso dalla watchlist.`, "info", "Rimosso");
+    haptic([14]);
+  }
+}
+
+function doSaveDetailNotes() {
+  if (!currentDetail) return;
+
+  const voteInput = document.getElementById("detailVoteInput");
+  const commentInput = document.getElementById("detailCommentInput");
+  if (!voteInput || !commentInput) return;
+
+  const check = validateVote(voteInput.value);
+  if (!check.ok) return;
+
+  const key = uniqueKey(currentDetail);
+  const vote = check.value;
+  const comment = commentInput.value.trim();
+
+  let target = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
+
+  if (!target) {
+    target = { ...currentDetail };
+    db.watchlist.unshift(target);
+  }
+
+  target.vote = vote;
+  target.comment = comment;
+
+  saveDB(db);
+  renderAll();
+  openDetail(target);
+
+  showToast("Voto e commento salvati.", "success", "Aggiornato");
+  haptic([12, 20, 12]);
+}
+
+function doRemoveCurrentDetail() {
+  if (!currentDetail) return;
+
+  const key = uniqueKey(currentDetail);
+  const title = currentDetail.title;
+
+  db.seen = db.seen.filter(x => uniqueKey(x) !== key);
+  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
+
+  saveDB(db);
+  renderAll();
+  switchScreen("home");
+
+  showToast(`"${title}" rimosso dalla libreria.`, "info", "Rimosso");
+  haptic([14]);
+}
+
+function getSelectedGenre() {
+  const el = document.getElementById("genreSelect");
+  return el ? el.value : "all";
+}
+
+async function recommendTonightFive(isAuto = false) {
+  const el = document.getElementById("tonightSuggestion");
+  if (!el) return;
+
+  const reqId = ++tonightReqCounter;
+
+  if (db.seen.length < 3) {
+    el.innerHTML = `<p class="tonight__hint">Aggiungi almeno 3 titoli visti per i consigli personalizzati.</p>`;
+    if (!isAuto) showToast("Aggiungi almeno 3 titoli visti.", "info", "Consigli");
+    return;
+  }
+
+  el.innerHTML = `<p class="tonight__hint">🔍 Sto cercando 5 titoli adatti…</p>`;
+
+  const profile = getUserTasteProfile();
+  const { type, levels } = buildFallbackQueries(profile, null, { useSelectedGenre: false, selectedGenre: "all" });
+  const excludedKeys = new Set([...db.seen, ...db.watchlist].map(uniqueKey));
+
+  try {
+    let candidates = [];
+    let levelLabel = "";
+
+    for (const level of levels) {
+      const found = await tmdbFetchDiscoverLevel(level.urls, type, excludedKeys);
+      candidates = [...candidates, ...found];
+
+      const dedup = new Map();
+      candidates.forEach(item => dedup.set(uniqueKey(item), item));
+      candidates = [...dedup.values()];
+
+      if (candidates.length >= 5) {
+        levelLabel = level.label;
+        break;
+      }
+    }
+
+    if (reqId !== tonightReqCounter) return;
+
+    if (!candidates.length) {
+      el.innerHTML = `<p class="tonight__hint">Nessun consiglio trovato. Riprova più tardi.</p>`;
+      return;
+    }
+
+    const ranked = candidates.map(item => {
+      const affinity = calculateAffinity(item, profile);
+      const rankScore = scoreCandidate(item, profile) + affinity / 20 + Math.random() * 1.1;
+      return { item, affinity, rankScore };
+    }).sort((a, b) => b.rankScore - a.rankScore).slice(0, 18);
+
+    const finalFive = pickDiverse(ranked, 5).sort((a, b) => b.affinity - a.affinity);
+
+    if (!finalFive.length) {
+      el.innerHTML = `<p class="tonight__hint">Nessun consiglio trovato.</p>`;
+      return;
+    }
+
+    registerSuggested(finalFive.map(x => x.item));
+
+    const enriched = finalFive.map(entry => ({
+      item: entry.item,
+      affinity: entry.affinity,
+      reasons: buildReason(entry.item, profile, entry.affinity)
+    }));
+
+    const note = (levelLabel && levelLabel !== "ricerca precisa")
+      ? "Ho allargato un po' la ricerca per trovare 5 proposte."
+      : "";
+
+    el.innerHTML = renderTonightFive(enriched, note);
+
+    if (!isAuto) haptic([10]);
+    if (isAuto) lastAutoRecommendAt = Date.now();
+  } catch (e) {
+    console.error(e);
+    if (reqId !== tonightReqCounter) return;
+    el.innerHTML = `<p class="tonight__hint">Errore di ricerca. Controlla la connessione.</p>`;
+    showToast("Errore nella ricerca dei consigli.", "error", "Consigli");
+  }
+}
+
+async function maybeAutoRecommend() {
+  if (Date.now() - lastAutoRecommendAt < TONIGHT_COOLDOWN_MS) return;
+  await recommendTonightFive(true);
+}
+
+async function discoverByTaste() {
+  const el = document.getElementById("tonightSuggestion");
+  if (!el) return;
+
+  if (db.seen.length < 3) {
+    el.innerHTML = `<p class="tonight__hint">Aggiungi almeno 3 titoli visti per i consigli personalizzati.</p>`;
+    showToast("Aggiungi almeno 3 titoli visti.", "info", "Scopri");
+    return;
+  }
+
+  el.innerHTML = `<p class="tonight__hint">🔍 Sto cercando qualcosa di nuovo…</p>`;
+
+  const profile = getUserTasteProfile();
+  const selectedGenre = getSelectedGenre();
+  const { type, levels, selectedBoosts } = buildFallbackQueries(profile, null, {
+    useSelectedGenre: selectedGenre !== "all",
+    selectedGenre
+  });
+
+  const excludedKeys = new Set([...db.seen, ...db.watchlist].map(uniqueKey));
+
+  try {
+    let candidates = [];
+    let levelLabel = "";
+
+    for (const level of levels) {
+      const found = await tmdbFetchDiscoverLevel(level.urls, type, excludedKeys);
+      if (found.length > 0) {
+        candidates = found;
+        levelLabel = level.label;
+        break;
+      }
+    }
+
+    if (!candidates.length) {
+      el.innerHTML = `<p class="tonight__hint">Nessun risultato. Riprova più tardi.</p>`;
+      return;
+    }
+
+    const scored = candidates
+      .map(item => ({
+        item,
+        score: scoreCandidate(item, profile, selectedBoosts) + Math.random() * 1.3
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const topPool = scored.slice(0, Math.min(12, scored.length));
+    const chosen = topPool[Math.floor(Math.random() * topPool.length)].item;
+
+    registerSuggested([chosen]);
+
+    const genres = chosen.genre_names || [];
+    const matchGenres = genres.filter(g => profile.topGenres.includes(g));
+    const rating = rawNumberToFixed(chosen.vote_average || 0, 1, "n.d.");
+
+    const whyBits = [];
+    if (selectedGenre !== "all" && genres.includes(selectedGenre)) whyBits.push(`hai scelto il genere ${selectedGenre}`);
+    if (matchGenres.length) whyBits.push(`ami il genere ${matchGenres[0]}`);
+    if (profile.topDecade && decadeScoreLabel(chosen.year) === profile.topDecade) whyBits.push(`ti piacciono gli ${profile.topDecade}`);
+    if (!whyBits.length) whyBits.push("ha un buon match con i tuoi gusti");
+
+    const fallbackNote = levelLabel !== "ricerca precisa" ? "Ho allargato la ricerca." : "";
+
+    el.innerHTML = renderDiscoverResult(chosen, whyBits, rating, fallbackNote);
+    haptic([10]);
+  } catch (e) {
+    console.error(e);
+    el.innerHTML = `<p class="tonight__hint">Errore di ricerca. Controlla la connessione.</p>`;
+    showToast("Errore nella ricerca.", "error", "Scopri");
+  }
+}
+
+function suggestClassic() {
+  const el = document.getElementById("tonightSuggestion");
+  if (!el) return;
+
+  const pool = db.seen.filter(x => Number.isFinite(parseUserVote(x.vote)) && parseUserVote(x.vote) >= 7);
+
+  if (!pool.length) {
+    el.innerHTML = `<p class="tonight__hint">Nessun titolo con voto ≥ 7. Inizia a votare i tuoi preferiti.</p>`;
+    showToast("Serve almeno un titolo con voto ≥ 7.", "info", "Classico");
+    return;
+  }
+
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  const vote = pick.vote || "";
+
+  const numericVote = parseUserVote(pick.vote);
+  const comment = numericVote >= 9
+    ? "Uno dei tuoi assoluti — sempre un buon motivo per rivederlo."
+    : numericVote >= 8
+    ? "L'hai amato. Certi titoli vanno rivisti."
+    : "Un bel titolo che hai apprezzato — vale una seconda visione.";
+
+  el.innerHTML = renderClassicResult(pick, vote, comment);
+  haptic([10]);
+}
+
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "cineTracker-backup.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  showToast("Backup esportato.", "success", "Backup");
+  haptic([12, 20, 12]);
+}
+
+function importBackup(file) {
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+
+      if (!imported || !Array.isArray(imported.seen) || !Array.isArray(imported.watchlist)) {
+        showToast("File backup non valido.", "error", "Backup");
+        return;
+      }
+
+      if (!confirm("Sostituire i dati attuali con quelli del backup?")) return;
+
+      db = {
+        seen: imported.seen.map(normalizedItem),
+        watchlist: imported.watchlist.map(normalizedItem)
+      };
+
+      saveDB(db);
+      renderAll();
+      switchScreen("home");
+
+      showToast("Backup importato.", "success", "Backup");
+      haptic([12, 20, 12]);
+    } catch (e) {
+      console.error(e);
+      showToast("File backup non leggibile.", "error", "Backup");
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+function bindEvents() {
+  const searchBtn = document.getElementById("searchBtn");
+  const searchInput = document.getElementById("searchInput");
+  const libraryBackBtn = document.getElementById("libraryBackBtn");
+  const openWatchAll = document.getElementById("openWatchAll");
+  const openSeenMovies = document.getElementById("openSeenMovies");
+  const openSeenSeries = document.getElementById("openSeenSeries");
+  const recommendBtn = document.getElementById("recommendBtn");
+  const discoverBtn = document.getElementById("discoverBtn");
+  const classicBtn = document.getElementById("classicBtn");
+  const rankingToggleMovies = document.getElementById("rankingToggleMovies");
+  const rankingToggleSeries = document.getElementById("rankingToggleSeries");
+  const exportBtn = document.getElementById("exportBtn");
+  const importBtn = document.getElementById("importBtn");
+  const importFileInput = document.getElementById("importFileInput");
+  const detailBackBtn = document.getElementById("detailBackBtn");
+  const detailSeenBtn = document.getElementById("detailSeenBtn");
+  const detailWatchBtn = document.getElementById("detailWatchBtn");
+  const detailSaveNoteBtn = document.getElementById("detailSaveNoteBtn");
+  const detailRemoveBtn = document.getElementById("detailRemoveBtn");
+  const libraryFilters = document.getElementById("libraryFilters");
+
+  document.querySelectorAll(".nav__btn[data-screen]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic([8]);
+      const screen = btn.dataset.screen;
+      switchScreen(screen);
+
+      if (screen === "tonight") maybeAutoRecommend();
+      if (screen === "stats") setTimeout(animateBarGroups, 80);
+    });
+  });
+
+  if (searchBtn) searchBtn.addEventListener("click", () => { haptic([8]); doSearch(); });
+  if (searchInput) {
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") doSearch();
+    });
+  }
+
+  document.querySelectorAll(".tab[data-type]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab[data-type]").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      currentType = tab.dataset.type;
       haptic([8]);
     });
+  });
 
-    els.rankingToggleSeries.addEventListener("click", () => {
-      els.rankingToggleSeries.classList.add("active");
-      els.rankingToggleMovies.classList.remove("active");
-      els.rankingPanelSeries.classList.remove("hidden");
-      els.rankingPanelMovies.classList.add("hidden");
+  if (libraryFilters) {
+    libraryFilters.addEventListener("click", (e) => {
+      const btn = e.target.closest(".filter-pill[data-filter]");
+      if (!btn) return;
       haptic([8]);
+      currentLibraryFilter = btn.dataset.filter;
+      currentLibraryGenre = "all";
+      doRenderLibrary();
     });
   }
 
-  function setupTabs() {
-    els.tabs.forEach(tab => {
-      tab.addEventListener("click", () => {
-        els.tabs.forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        currentType = tab.dataset.type;
-      });
+  if (libraryBackBtn) libraryBackBtn.addEventListener("click", () => switchScreen("home"));
+  if (openWatchAll) openWatchAll.addEventListener("click", () => { haptic([8]); openLibrary("watch", "all"); });
+  if (openSeenMovies) openSeenMovies.addEventListener("click", () => { haptic([8]); openLibrary("seen", "movie"); });
+  if (openSeenSeries) openSeenSeries.addEventListener("click", () => { haptic([8]); openLibrary("seen", "series"); });
+
+  if (recommendBtn) recommendBtn.addEventListener("click", () => { haptic([8]); recommendTonightFive(false); });
+  if (discoverBtn) discoverBtn.addEventListener("click", () => { haptic([8]); discoverByTaste(); });
+  if (classicBtn) classicBtn.addEventListener("click", () => { haptic([8]); suggestClassic(); });
+
+  if (rankingToggleMovies && rankingToggleSeries) {
+    rankingToggleMovies.addEventListener("click", () => {
+      haptic([8]);
+      rankingToggleMovies.classList.add("active");
+      rankingToggleSeries.classList.remove("active");
+      toggleHidden("rankingPanelMovies", false);
+      toggleHidden("rankingPanelSeries", true);
+    });
+
+    rankingToggleSeries.addEventListener("click", () => {
+      haptic([8]);
+      rankingToggleSeries.classList.add("active");
+      rankingToggleMovies.classList.remove("active");
+      toggleHidden("rankingPanelSeries", false);
+      toggleHidden("rankingPanelMovies", true);
     });
   }
 
-  function setupLibraryFilters() {
-    els.libraryFilters.forEach(btn => {
-      btn.addEventListener("click", () => {
-        setLibraryFilter(btn.dataset.filter);
-      });
-    });
-  }
-
-  function setupSearch() {
-    els.searchBtn.addEventListener("click", searchTitles);
-    els.searchInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") searchTitles();
-    });
-  }
-
-  function setupNav() {
-    document.querySelectorAll(".navBtn[data-screen]").forEach(btn => {
-      btn.addEventListener("click", () => switchScreen(btn.dataset.screen));
-    });
-
-    els.libraryBackBtn.addEventListener("click", () => switchScreen("home"));
-    els.detailBackBtn.addEventListener("click", () => switchScreen(previousScreen || "home"));
-
-    els.openWatchAll.addEventListener("click", () => openLibrary("watch", "all"));
-    els.openSeenMovies.addEventListener("click", () => openLibrary("seen", "movie"));
-    els.openSeenSeries.addEventListener("click", () => openLibrary("seen", "series"));
-  }
-
-  function setupTonightButtons() {
-    els.recommendBtn.addEventListener("click", () => recommendTonightFive({ auto: false }));
-    els.discoverBtn.addEventListener("click", discoverByTaste);
-    els.classicBtn.addEventListener("click", suggestClassic);
-  }
-
-  function setupBackup() {
-    els.exportBtn2.addEventListener("click", exportBackup);
-
-    els.importBtn.addEventListener("click", () => {
-      els.importFileInput.click();
-    });
-
-    els.importFileInput.addEventListener("change", e => {
+  if (exportBtn) exportBtn.addEventListener("click", () => { haptic([8]); exportBackup(); });
+  if (importBtn && importFileInput) {
+    importBtn.addEventListener("click", () => importFileInput.click());
+    importFileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (file) importBackup(file);
-      els.importFileInput.value = "";
+      e.target.value = "";
     });
   }
 
-  function setupDetailButtons() {
-    els.detailSeenBtn.addEventListener("click", () => {
+  if (detailBackBtn) {
+    detailBackBtn.addEventListener("click", () => {
+      switchScreen(getPreviousScreen() || "home");
+    });
+  }
+
+  if (detailSeenBtn) {
+    detailSeenBtn.addEventListener("click", () => {
       if (!currentDetail) return;
 
-      const voteCheck = validateVoteOrShowToast(els.detailVoteInput.value);
-      if (!voteCheck.ok) return;
+      const voteInput = document.getElementById("detailVoteInput");
+      const commentInput = document.getElementById("detailCommentInput");
+      if (!voteInput || !commentInput) return;
+
+      const check = validateVote(voteInput.value);
+      if (!check.ok) return;
 
       if (!inSeen(currentDetail)) {
         db.seen.unshift({
           ...currentDetail,
-          vote: voteCheck.value,
-          comment: els.detailCommentInput.value.trim()
+          vote: check.value,
+          comment: commentInput.value.trim()
         });
         db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
-        saveDB();
+        saveDB(db);
         renderAll();
-        showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Titolo salvato");
+        showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Salvato");
         haptic([12, 20, 12]);
       } else {
-        saveDetailNotes();
+        doSaveDetailNotes();
       }
 
       openDetail(currentDetail);
     });
+  }
 
-    els.detailWatchBtn.addEventListener("click", () => {
+  if (detailWatchBtn) {
+    detailWatchBtn.addEventListener("click", () => {
       if (!currentDetail) return;
 
-      const voteCheck = validateVoteOrShowToast(els.detailVoteInput.value);
-      if (!voteCheck.ok) return;
+      const voteInput = document.getElementById("detailVoteInput");
+      const commentInput = document.getElementById("detailCommentInput");
+      if (!voteInput || !commentInput) return;
+
+      const check = validateVote(voteInput.value);
+      if (!check.ok) return;
 
       if (!inSeen(currentDetail) && !inWatch(currentDetail)) {
         db.watchlist.unshift({
           ...currentDetail,
-          vote: voteCheck.value,
-          comment: els.detailCommentInput.value.trim()
+          vote: check.value,
+          comment: commentInput.value.trim()
         });
-        saveDB();
+        saveDB(db);
         renderAll();
-        showToast(`"${currentDetail.title}" aggiunto alla watchlist.`, "success", "Watchlist");
+        showToast(`"${currentDetail.title}" in watchlist.`, "success", "Watchlist");
         haptic([10]);
       } else if (inWatch(currentDetail)) {
-        saveDetailNotes();
+        doSaveDetailNotes();
         return;
       }
 
       openDetail(currentDetail);
     });
+  }
 
-    els.detailSaveNoteBtn.addEventListener("click", saveDetailNotes);
+  if (detailSaveNoteBtn) detailSaveNoteBtn.addEventListener("click", doSaveDetailNotes);
 
-    els.detailRemoveBtn.addEventListener("click", () => {
+  if (detailRemoveBtn) {
+    detailRemoveBtn.addEventListener("click", () => {
       if (!currentDetail) return;
-      const ok = confirm("Vuoi rimuovere questo titolo dalla tua libreria?");
-      if (!ok) return;
-      removeCurrentDetail();
-    });
-  }
-
-  function setupDelegatedClicks() {
-    document.addEventListener("click", async function(e) {
-      const seenBtn = e.target.closest(".action-seen");
-      const watchBtn = e.target.closest(".action-watch");
-      const detailsBtn = e.target.closest(".action-details");
-      const removeSeenBtn = e.target.closest(".remove-seen");
-      const removeWatchBtn = e.target.closest(".remove-watch");
-      const moveWatchBtn = e.target.closest(".move-watch-seen");
-      const openStoredBtn = e.target.closest(".open-stored-detail");
-      const openTonightBtn = e.target.closest(".open-tonight-detail");
-      const genreFilterBtn = e.target.closest("[data-genre-filter]");
-      const genericTap = e.target.closest("button, .navBtn, .tab, .filterPill, .seeAllBtn, .shelfCard, .tonightCard");
-
-      if (genericTap) {
-        haptic([8]);
-      }
-
-      try {
-        if (genreFilterBtn) {
-          setLibraryGenre(genreFilterBtn.dataset.genreFilter);
-          return;
-        }
-
-        if (seenBtn) {
-          await addSeen(seenBtn.dataset.type, seenBtn.dataset.id);
-          return;
-        }
-
-        if (watchBtn) {
-          await addWatch(watchBtn.dataset.type, watchBtn.dataset.id);
-          return;
-        }
-
-        if (detailsBtn) {
-          await showDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
-          return;
-        }
-
-        if (removeSeenBtn) {
-          removeSeen(removeSeenBtn.dataset.key);
-          return;
-        }
-
-        if (removeWatchBtn) {
-          removeWatch(removeWatchBtn.dataset.key);
-          return;
-        }
-
-        if (moveWatchBtn) {
-          moveWatchToSeen(moveWatchBtn.dataset.key);
-          return;
-        }
-
-        if (openStoredBtn) {
-          const key = openStoredBtn.dataset.key;
-          const item = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
-          if (item) openDetail(item);
-          return;
-        }
-
-        if (openTonightBtn) {
-          await showDetails(openTonightBtn.dataset.type, openTonightBtn.dataset.id);
-        }
-      } catch (err) {
-        showToast("C'è stato un problema. Riprova.", "error", "Errore");
+      if (confirm("Rimuovere questo titolo dalla libreria?")) {
+        doRemoveCurrentDetail();
       }
     });
   }
 
-  function bootSplash() {
-    window.addEventListener("load", () => {
-      setTimeout(() => {
-        const splash = document.getElementById("splashScreen");
-        const app = document.querySelector(".app");
+  document.addEventListener("click", async (e) => {
+    const seenBtn = e.target.closest(".action-seen");
+    const watchBtn = e.target.closest(".action-watch");
+    const detailsBtn = e.target.closest(".action-details");
+    const removeSeenBtn = e.target.closest(".remove-seen");
+    const removeWatchBtn = e.target.closest(".remove-watch");
+    const moveWatchBtn = e.target.closest(".move-watch-seen");
+    const storedBtn = e.target.closest(".open-stored-detail");
+    const tonightBtn = e.target.closest(".open-tonight-detail");
+    const genreBtn = e.target.closest("[data-genre-filter]");
 
-        if (app) app.classList.add("appReady");
-        if (!splash) return;
+    if (e.target.closest("button,.nav__btn,.tab,.filter-pill,.shelf-card,.tonight-card,.poster-card")) {
+      haptic([8]);
+    }
 
-        splash.style.opacity = "0";
-        setTimeout(() => {
-          if (splash.parentNode) splash.remove();
-        }, 600);
-      }, 900);
+    try {
+      if (genreBtn) {
+        currentLibraryGenre = genreBtn.dataset.genreFilter;
+        doRenderLibrary();
+        return;
+      }
+
+      if (seenBtn) await doAddSeen(seenBtn.dataset.type, seenBtn.dataset.id);
+      if (watchBtn) await doAddWatch(watchBtn.dataset.type, watchBtn.dataset.id);
+      if (detailsBtn) await doShowDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
+      if (removeSeenBtn) doRemoveSeen(removeSeenBtn.dataset.key);
+      if (removeWatchBtn) doRemoveWatch(removeWatchBtn.dataset.key);
+      if (moveWatchBtn) doMoveToSeen(moveWatchBtn.dataset.key);
+
+      if (storedBtn) {
+        const key = storedBtn.dataset.key;
+        const item = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
+        if (item) openDetail(item);
+      }
+
+      if (tonightBtn) {
+        await doShowDetails(tonightBtn.dataset.type, tonightBtn.dataset.id);
+      }
+    } catch (e) {
+      console.error(e);
+      showToast("Si è verificato un problema. Riprova.", "error", "Errore");
+    }
+  });
+
+  window.addEventListener("popstate", (e) => {
+    const name = e.state?.screen || "home";
+    if (!SCREENS[name]) return;
+
+    if (name !== "detail") _previousScreen = name;
+
+    Object.values(SCREENS).forEach(screen => {
+      screen.classList.add("hidden");
+      screen.classList.remove("screen-enter");
     });
-  }
 
-  function init() {
+    SCREENS[name].classList.remove("hidden");
+    requestAnimationFrame(() => SCREENS[name].classList.add("screen-enter"));
+
+    document.querySelectorAll(".nav__btn[data-screen]").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.screen === name);
+    });
+
+    if (name === "tonight") maybeAutoRecommend();
+    if (name === "stats") setTimeout(animateBarGroups, 80);
+  });
+}
+
+function bootApp() {
+  try {
+    initScreens();
+    bindEvents();
     history.replaceState({ screen: "home" }, "");
-
-    setupTabs();
-    setupLibraryFilters();
-    setupSearch();
-    setupNav();
-    setupTonightButtons();
-    setupBackup();
-    setupDetailButtons();
-    setupRankingToggle();
-    setupDelegatedClicks();
-    bootSplash();
-
     renderAll();
-  }
+  } catch (e) {
+    console.error("Errore boot app:", e);
+    showToast("Errore iniziale dell'app. Ho sbloccato comunque la schermata.", "error", "Avvio");
+  } finally {
+    const app = document.querySelector(".app");
+    if (app) app.classList.add("app--ready");
 
-  init();
-})();
+    const splash = document.getElementById("splashScreen");
+    if (splash) {
+      splash.style.opacity = "0";
+      setTimeout(() => {
+        if (splash.parentNode) splash.parentNode.removeChild(splash);
+      }, 650);
+    }
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(bootApp, 80);
+});

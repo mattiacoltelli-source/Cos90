@@ -8,13 +8,17 @@ function loadDB() {
     if (!raw) return { seen: [], watchlist: [] };
 
     const db = JSON.parse(raw);
-    if (!db || typeof db !== "object") return { seen: [], watchlist: [] };
+
+    if (!db || typeof db !== "object") {
+      return { seen: [], watchlist: [] };
+    }
+
     if (!Array.isArray(db.seen)) db.seen = [];
     if (!Array.isArray(db.watchlist)) db.watchlist = [];
 
     return db;
   } catch (e) {
-    console.warn("CineTracker DB corrotto. Reset.", e);
+    console.warn("DB corrotta, reset automatico", e);
     const empty = { seen: [], watchlist: [] };
     localStorage.setItem(DB_KEY, JSON.stringify(empty));
     return empty;
@@ -31,7 +35,7 @@ function loadSuggestHistory() {
     const arr = raw ? JSON.parse(raw) : [];
     return Array.isArray(arr) ? arr : [];
   } catch (e) {
-    console.warn("Storico suggerimenti corrotto. Reset.", e);
+    console.warn("Storico suggerimenti corrotto, reset automatico", e);
     localStorage.setItem(SUGGEST_HISTORY_KEY, JSON.stringify([]));
     return [];
   }
