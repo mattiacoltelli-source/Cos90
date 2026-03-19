@@ -514,52 +514,77 @@ async function doSearch() {
 }
 
 function openDetail(item) {
-  currentDetail = item;
-  const stored = getStoredItem(item);
-  const src = stored || item;
+  try {
+    if (!item) return;
 
-  const detailBackdrop = document.getElementById("detailBackdrop");
-  const detailPoster = document.getElementById("detailPoster");
-  const detailTitle = document.getElementById("detailTitle");
-  const detailYear = document.getElementById("detailYear");
-  const detailType = document.getElementById("detailType");
-  const detailOverview = document.getElementById("detailOverview");
-  const detailFacts = document.getElementById("detailFacts");
-  const detailGenres = document.getElementById("detailGenres");
-  const detailVoteInput = document.getElementById("detailVoteInput");
-  const detailCommentInput = document.getElementById("detailCommentInput");
-  const detailSeenBtn = document.getElementById("detailSeenBtn");
-  const detailWatchBtn = document.getElementById("detailWatchBtn");
+    const safeItem = typeof normalizedItem === "function" ? normalizedItem(item) : item;
+    currentDetail = safeItem;
 
-  if (detailBackdrop) {
-    detailBackdrop.style.backgroundImage = src.backdrop_path
-      ? `url('${backdropUrl(src.backdrop_path)}')`
-      : `url('${posterUrl(src.poster_path)}')`;
+    const stored = getStoredItem(safeItem);
+    const src = stored || safeItem;
+
+    const detailBackdrop = document.getElementById("detailBackdrop");
+    const detailPoster = document.getElementById("detailPoster");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailYear = document.getElementById("detailYear");
+    const detailType = document.getElementById("detailType");
+    const detailOverview = document.getElementById("detailOverview");
+    const detailFacts = document.getElementById("detailFacts");
+    const detailGenres = document.getElementById("detailGenres");
+    const detailVoteInput = document.getElementById("detailVoteInput");
+    const detailCommentInput = document.getElementById("detailCommentInput");
+    const detailSeenBtn = document.getElementById("detailSeenBtn");
+    const detailWatchBtn = document.getElementById("detailWatchBtn");
+
+    const poster = typeof posterUrl === "function" ? posterUrl(src.poster_path || "") : "";
+    const backdrop = typeof backdropUrl === "function"
+      ? (src.backdrop_path ? backdropUrl(src.backdrop_path) : poster)
+      : poster;
+
+    if (detailBackdrop) detailBackdrop.style.backgroundImage = backdrop ? `url('${backdrop}')` : "";
+    if (detailPoster) detailPoster.style.backgroundImage = poster ? `url('${poster}')` : "";
+
+    if (detailTitle) detailTitle.textContent = src.title || "Titolo";
+    if (detailYear) detailYear.textContent = src.year || "—";
+    if (detailType) detailType.textContent = mediaLabel(src);
+    if (detailOverview) detailOverview.textContent = src.overview || "Nessuna trama disponibile.";
+
+    if (detailFacts) {
+      try {
+        if (typeof renderDetailFacts === "function") {
+          detailFacts.innerHTML = renderDetailFacts(src, inSeen, inWatch);
+        } else {
+          detailFacts.innerHTML = `
+            <span class="detail-fact">${escapeHtml(mediaLabel(src))}</span>
+            <span class="detail-fact">${escapeHtml(src.year || "—")}</span>
+          `;
+        }
+      } catch (err) {
+        console.error("Errore facts detail:", err);
+        detailFacts.innerHTML = `
+          <span class="detail-fact">${escapeHtml(mediaLabel(src))}</span>
+          <span class="detail-fact">${escapeHtml(src.year || "—")}</span>
+        `;
+      }
+    }
+
+    if (detailGenres) {
+      detailGenres.innerHTML = (src.genre_names || []).slice(0, 4)
+        .map(g => `<span class="chip">${escapeHtml(g)}</span>`)
+        .join("");
+    }
+
+    if (detailVoteInput) detailVoteInput.value = src.vote || "";
+    if (detailCommentInput) detailCommentInput.value = src.comment || "";
+
+    if (detailSeenBtn) detailSeenBtn.textContent = inSeen(src) ? "✓ Già tra i visti" : "Segna come visto";
+    if (detailWatchBtn) detailWatchBtn.textContent = inWatch(src) ? "★ Già in watchlist" : "Aggiungi a watchlist";
+
+    switchScreen("detail");
+  } catch (e) {
+    console.error("Errore openDetail:", e);
+    showToast("Errore apertura scheda.", "error", "Errore");
   }
-
-  if (detailPoster) detailPoster.style.backgroundImage = `url('${posterUrl(src.poster_path)}')`;
-  if (detailTitle) detailTitle.textContent = src.title;
-  if (detailYear) detailYear.textContent = src.year;
-  if (detailType) detailType.textContent = mediaLabel(src);
-  if (detailOverview) detailOverview.textContent = src.overview || "Nessuna trama disponibile.";
-
-  if (detailFacts) {
-    detailFacts.innerHTML = renderDetailFacts(src, inSeen, inWatch);
-  }
-
-  if (detailGenres) {
-    detailGenres.innerHTML = (src.genre_names || []).slice(0, 4)
-      .map(g => `<span class="chip">${escapeHtml(g)}</span>`)
-      .join("");
-  }
-
-  if (detailVoteInput) detailVoteInput.value = src.vote || "";
-  if (detailCommentInput) detailCommentInput.value = src.comment || "";
-
-  if (detailSeenBtn) detailSeenBtn.textContent = inSeen(src) ? "✓ Già tra i visti" : "Segna come visto";
-  if (detailWatchBtn) detailWatchBtn.textContent = inWatch(src) ? "★ Già in watchlist" : "Aggiungi a watchlist";
-
-  switchScreen("detail");
 }
 
 async function doShowDetails(type, id) {
@@ -1178,6 +1203,7 @@ function bindEvents() {
 
       if (tonightBtn) {
         await doShowDetails(tonightBtn.dataset.type, tonightBtn.dataset.id);
+        return;
       }
     } catch (e) {
       console.error(e);
