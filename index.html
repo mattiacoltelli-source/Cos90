@@ -12,43 +12,64 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="app-bg"></div>
 
-  <div id="splashScreen">
-    <div class="splash__icon">🎬</div>
-    <div class="splash__title">CineTracker</div>
-    <div class="splash__sub">La tua serata cinema parte da qui</div>
-    <div class="splash__bar-track">
-      <div class="splash__bar-fill"></div>
+  <div id="splashScreen" class="splash-screen">
+    <div class="splash-screen__card">
+      <div class="splash-screen__icon">🎬</div>
+      <div class="splash-screen__title">CineTracker</div>
+      <div class="splash-screen__sub">La tua serata cinema parte da qui</div>
+      <div class="splash-screen__bar">
+        <div class="splash-screen__bar-fill"></div>
+      </div>
     </div>
   </div>
 
   <div class="app">
 
     <div class="topbar">
-      <div>
-        <div class="topbar__title">CineTracker</div>
-        <div class="topbar__sub">Film, serie TV e anime in un'unica app personale</div>
+      <div class="topbar__badge">
+        <span class="topbar__badge-dot"></span>
+        <span>Libreria personale cinema</span>
+      </div>
+
+      <div class="topbar__main">
+        <div>
+          <div class="topbar__title">CineTracker</div>
+          <div class="topbar__sub">Film, serie TV e anime in un'unica app personale</div>
+        </div>
       </div>
     </div>
 
     <section id="screen-home">
 
-      <div class="search-box">
-        <div class="search-row">
-          <input id="searchInput" type="text" placeholder="Cerca film, serie o anime…" />
-          <button class="btn" id="searchBtn">Cerca</button>
+      <div class="hero-panel glass-panel">
+        <div class="hero-panel__content">
+          <div class="hero-panel__eyebrow">Ricerca rapida</div>
+          <h1 class="hero-panel__title">Trova e salva subito cosa vuoi guardare.</h1>
+          <p class="hero-panel__text">
+            Cerca un titolo, apri la scheda, mettilo in watchlist oppure salvalo tra i visti con il tuo voto personale.
+          </p>
         </div>
-        <div class="tabs">
-          <button class="tab active" data-type="multi">Tutto</button>
-          <button class="tab" data-type="movie">Film</button>
-          <button class="tab" data-type="tv">Serie TV</button>
+
+        <div class="search-box glass-inner">
+          <div class="search-row">
+            <input id="searchInput" type="text" placeholder="Cerca film, serie o anime…" />
+            <button class="btn btn--primary" id="searchBtn">Cerca</button>
+          </div>
+
+          <div class="tabs">
+            <button class="tab active" data-type="multi">Tutto</button>
+            <button class="tab" data-type="movie">Film</button>
+            <button class="tab" data-type="tv">Serie TV</button>
+          </div>
         </div>
       </div>
 
       <div id="resultsSection" class="section hidden">
-        <div class="results-header">
+        <div class="section__header">
           <h2 class="section__title">Risultati ricerca</h2>
-          <span id="resultCount" class="results-count"></span>
+          <span id="resultCount" class="section__count"></span>
         </div>
         <div id="results" class="results-grid"></div>
         <div id="resultsEmpty" class="empty-state">Nessun risultato trovato.</div>
@@ -56,7 +77,10 @@
 
       <div class="section">
         <div class="section__header">
-          <h2 class="section__title">Watchlist</h2>
+          <div>
+            <h2 class="section__title">Watchlist</h2>
+            <div class="section__sub">I titoli che vuoi recuperare prossimamente.</div>
+          </div>
           <span id="openWatchAll" class="see-all">Vedi tutto →</span>
         </div>
         <div id="watchShelf" class="shelf"></div>
@@ -65,7 +89,10 @@
 
       <div class="section">
         <div class="section__header">
-          <h2 class="section__title">🎬 Ultimi film visti</h2>
+          <div>
+            <h2 class="section__title">🎬 Ultimi film visti</h2>
+            <div class="section__sub">I film che hai archiviato più di recente.</div>
+          </div>
           <span id="openSeenMovies" class="see-all">Vedi tutto →</span>
         </div>
         <div id="seenMovieShelf" class="shelf"></div>
@@ -74,7 +101,10 @@
 
       <div class="section">
         <div class="section__header">
-          <h2 class="section__title">📺 Ultime serie TV viste</h2>
+          <div>
+            <h2 class="section__title">📺 Ultime serie TV viste</h2>
+            <div class="section__sub">Serie, anime o show già salvati nella tua libreria.</div>
+          </div>
           <span id="openSeenSeries" class="see-all">Vedi tutto →</span>
         </div>
         <div id="seenSeriesShelf" class="shelf"></div>
@@ -84,11 +114,12 @@
     </section>
 
     <section id="screen-library" class="hidden">
-
-      <button class="library-back-btn" id="libraryBackBtn">← Torna alla home</button>
+      <button class="back-btn" id="libraryBackBtn">← Torna alla home</button>
 
       <div class="section">
-        <h2 id="libraryTitle" class="section__title" style="margin-bottom:14px;">Libreria</h2>
+        <div class="library-head">
+          <h2 id="libraryTitle" class="section__title">Libreria</h2>
+        </div>
 
         <div id="libraryFilters" class="filter-bar">
           <button class="filter-pill active" data-filter="all">Tutti</button>
@@ -102,37 +133,46 @@
         <div id="libraryList" class="list"></div>
         <div id="libraryEmpty" class="empty-state hidden">Nessun titolo disponibile.</div>
       </div>
-
     </section>
 
     <section id="screen-stats" class="hidden">
 
       <div class="section">
-        <h2 class="section__title" style="margin-bottom:16px;">Le tue statistiche</h2>
+        <div class="stats-hero glass-panel">
+          <div class="stats-hero__top">
+            <div class="stats-hero__eyebrow">Panoramica personale</div>
+            <h2 class="section__title section__title--big">Le tue statistiche</h2>
+          </div>
 
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div id="statSeen" class="stat-card__num">0</div>
-            <div class="stat-card__label">Titoli visti</div>
-          </div>
-          <div class="stat-card">
-            <div id="statWatch" class="stat-card__num">0</div>
-            <div class="stat-card__label">In watchlist</div>
-          </div>
-          <div class="stat-card">
-            <div id="statMovies" class="stat-card__num">0</div>
-            <div class="stat-card__label">Film visti</div>
-          </div>
-          <div class="stat-card">
-            <div id="statSeries" class="stat-card__num">0</div>
-            <div class="stat-card__label">Serie viste</div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div id="statSeen" class="stat-card__num">0</div>
+              <div class="stat-card__label">Titoli visti</div>
+            </div>
+            <div class="stat-card">
+              <div id="statWatch" class="stat-card__num">0</div>
+              <div class="stat-card__label">In watchlist</div>
+            </div>
+            <div class="stat-card">
+              <div id="statMovies" class="stat-card__num">0</div>
+              <div class="stat-card__label">Film visti</div>
+            </div>
+            <div class="stat-card">
+              <div id="statSeries" class="stat-card__num">0</div>
+              <div class="stat-card__label">Serie viste</div>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="section">
-        <div class="taste-block">
-          <div class="taste-block__title">Generi preferiti</div>
+        <div class="taste-card glass-panel">
+          <div class="taste-card__head">
+            <div>
+              <div class="panel-eyebrow">Mappa gusti</div>
+              <h3 class="panel-title">Generi preferiti</h3>
+            </div>
+          </div>
           <div id="genreBars">
             <p class="empty-hint">Salva almeno 3 titoli visti.</p>
           </div>
@@ -140,34 +180,42 @@
       </div>
 
       <div class="section">
-        <div class="ranking-toggle">
-          <button id="rankingToggleMovies" class="ranking-toggle-btn active">🎬 Film</button>
-          <button id="rankingToggleSeries" class="ranking-toggle-btn">📺 Serie TV</button>
-        </div>
+        <div class="ranking-shell glass-panel">
+          <div class="ranking-toggle">
+            <button id="rankingToggleMovies" class="ranking-toggle-btn active">🎬 Film</button>
+            <button id="rankingToggleSeries" class="ranking-toggle-btn">📺 Serie TV</button>
+          </div>
 
-        <div id="rankingPanelMovies">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <h3 style="font-family:var(--font-display);font-size:17px;font-weight:800;">🏆 Top Film</h3>
-            <span id="top100CountBadge" style="padding:5px 12px;border-radius:999px;background:var(--gold-dim);border:1px solid rgba(245,196,81,.22);color:var(--gold2);font-family:var(--font-display);font-size:12px;font-weight:800;">0</span>
+          <div id="rankingPanelMovies">
+            <div class="ranking-head">
+              <div>
+                <div class="panel-eyebrow">Classifica personale</div>
+                <h3 class="panel-title">Top Film</h3>
+              </div>
+              <span id="top100CountBadge" class="count-badge count-badge--gold">0</span>
+            </div>
+            <div id="top100Podium" class="podium-grid">
+              <p class="empty-hint">Vota alcuni film per vedere il podio.</p>
+            </div>
+            <div id="top100List" class="ranking-list">
+              <p class="empty-hint">Aggiungi voti ai film per la classifica completa.</p>
+            </div>
           </div>
-          <div id="top100Podium" class="podium-grid">
-            <p class="empty-hint">Vota alcuni film per vedere il podio.</p>
-          </div>
-          <div id="top100List" class="ranking-list">
-            <p class="empty-hint">Aggiungi voti ai film per la classifica completa.</p>
-          </div>
-        </div>
 
-        <div id="rankingPanelSeries" class="hidden">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <h3 style="font-family:var(--font-display);font-size:17px;font-weight:800;">🏆 Top Serie TV</h3>
-            <span id="top100SeriesCountBadge" style="padding:5px 12px;border-radius:999px;background:var(--blue-dim);border:1px solid rgba(77,163,255,.22);color:var(--blue);font-family:var(--font-display);font-size:12px;font-weight:800;">0</span>
-          </div>
-          <div id="top100SeriesPodium" class="podium-grid">
-            <p class="empty-hint">Vota alcune serie per vedere il podio.</p>
-          </div>
-          <div id="top100SeriesList" class="ranking-list">
-            <p class="empty-hint">Aggiungi voti alle serie per la classifica completa.</p>
+          <div id="rankingPanelSeries" class="hidden">
+            <div class="ranking-head">
+              <div>
+                <div class="panel-eyebrow">Classifica personale</div>
+                <h3 class="panel-title">Top Serie TV</h3>
+              </div>
+              <span id="top100SeriesCountBadge" class="count-badge count-badge--blue">0</span>
+            </div>
+            <div id="top100SeriesPodium" class="podium-grid">
+              <p class="empty-hint">Vota alcune serie per vedere il podio.</p>
+            </div>
+            <div id="top100SeriesList" class="ranking-list">
+              <p class="empty-hint">Aggiungi voti alle serie per la classifica completa.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -175,73 +223,82 @@
     </section>
 
     <section id="screen-tonight" class="hidden">
-
       <div class="section">
-        <h2 class="section__title" style="margin-bottom:18px;">Stasera cosa guardo?</h2>
+        <div class="tonight-shell">
+          <div class="tonight-hero">
+            <div class="panel-eyebrow">Consigli intelligenti</div>
+            <h2 class="section__title section__title--big">Stasera cosa guardo?</h2>
+            <div class="section__sub section__sub--wide">
+              Seleziona un genere se vuoi restringere la ricerca, poi usa uno dei pulsanti qui sotto.
+            </div>
+          </div>
 
-        <div class="tonight-discover-block">
-          <div class="tonight-discover-block__label">Filtra per genere preferito</div>
-          <select id="genreSelect">
-            <option value="all">Qualsiasi genere</option>
-            <option value="Azione">Azione</option>
-            <option value="Avventura">Avventura</option>
-            <option value="Animazione">Animazione</option>
-            <option value="Commedia">Commedia</option>
-            <option value="Crime">Crime</option>
-            <option value="Drama">Drama</option>
-            <option value="Fantascienza">Fantascienza</option>
-            <option value="Fantasy">Fantasy</option>
-            <option value="Horror">Horror</option>
-            <option value="Mistero">Mistero</option>
-            <option value="Romance">Romance</option>
-            <option value="Thriller">Thriller</option>
-            <option value="Guerra">Guerra</option>
-            <option value="Western">Western</option>
-          </select>
-          <button class="btn btn--secondary btn--full" id="discoverBtn" style="margin-top:10px;">
-            ✨ Scopri qualcosa di nuovo
+          <div class="tonight-discover glass-panel">
+            <div class="tonight-discover__label">Scopri qualcosa di nuovo</div>
+
+            <div class="select-wrap">
+              <select id="genreSelect">
+                <option value="all">Qualsiasi genere</option>
+                <option value="Azione">Azione</option>
+                <option value="Avventura">Avventura</option>
+                <option value="Animazione">Animazione</option>
+                <option value="Commedia">Commedia</option>
+                <option value="Crime">Crime</option>
+                <option value="Drama">Drama</option>
+                <option value="Fantascienza">Fantascienza</option>
+                <option value="Fantasy">Fantasy</option>
+                <option value="Horror">Horror</option>
+                <option value="Mistero">Mistero</option>
+                <option value="Romance">Romance</option>
+                <option value="Thriller">Thriller</option>
+                <option value="Guerra">Guerra</option>
+                <option value="Western">Western</option>
+              </select>
+              <span class="select-wrap__arrow">⌄</span>
+            </div>
+
+            <button class="btn btn--secondary btn--xl btn--full" id="discoverBtn">
+              ✨ Scopri qualcosa di nuovo
+            </button>
+          </div>
+
+          <button class="tonight-main-btn" id="recommendBtn">
+            ⭐ 5 consigli personalizzati per te
           </button>
-        </div>
 
-        <button class="tonight-main-btn" id="recommendBtn">
-          ⭐ 5 consigli personalizzati per te
-        </button>
+          <div class="tonight-secondary-actions">
+            <button class="btn btn--ghost btn--full" id="classicBtn">⭐ Rivedi un classico</button>
+            <button class="btn btn--ghost btn--full" style="opacity:.5;pointer-events:none;" disabled>Prossimamente</button>
+          </div>
 
-        <div class="tonight-secondary-actions">
-          <button class="btn btn--ghost btn--sm" id="classicBtn">⭐ Rivedi un classico</button>
-          <button class="btn btn--ghost btn--sm" style="opacity:.5;pointer-events:none;" disabled>Prossimamente</button>
-        </div>
-
-        <div id="tonightSuggestion" class="tonight-suggestion-area">
-          <p class="tonight__hint">Premi un pulsante per ricevere un consiglio personalizzato.</p>
+          <div id="tonightSuggestion" class="tonight-suggestion-area">
+            <p class="tonight__hint">Premi un pulsante per ricevere un consiglio personalizzato.</p>
+          </div>
         </div>
       </div>
-
     </section>
 
     <section id="screen-backup" class="hidden">
-
       <div class="section">
-        <h2 class="section__title" style="margin-bottom:18px;">Backup dati</h2>
-
-        <div class="backup-hero">
-          <p class="backup-hero__desc">
-            Esporta o ripristina la tua libreria personale. Salva una copia dei tuoi titoli visti,
-            watchlist, voti e commenti — utile se cambi dispositivo o vuoi un archivio di sicurezza.
+        <div class="backup-card glass-panel">
+          <div class="panel-eyebrow">Sicurezza dati</div>
+          <h2 class="section__title">Backup dati</h2>
+          <p class="backup-card__text">
+            Esporta o ripristina la tua libreria personale. Salva una copia dei tuoi titoli visti, watchlist, voti e commenti.
           </p>
+
           <div class="backup-actions">
-            <button class="btn btn--full" id="exportBtn">Esporta backup</button>
+            <button class="btn btn--primary btn--full" id="exportBtn">Esporta backup</button>
             <button class="btn btn--secondary btn--full" id="importBtn">Importa backup</button>
           </div>
+
           <input id="importFileInput" type="file" accept=".json,application/json" class="hidden" />
         </div>
       </div>
-
     </section>
 
     <section id="screen-detail" class="hidden">
-
-      <button class="detail-back-btn" id="detailBackBtn">← Torna indietro</button>
+      <button class="back-btn" id="detailBackBtn">← Torna indietro</button>
 
       <div class="detail-hero">
         <div id="detailBackdrop" class="detail-backdrop"></div>
@@ -260,7 +317,6 @@
       </div>
 
       <div class="detail-body">
-
         <div class="detail-card">
           <div class="detail-card__title">Trama</div>
           <div id="detailOverview" class="detail-overview">Nessuna trama disponibile.</div>
@@ -293,7 +349,6 @@
             </div>
           </div>
         </div>
-
       </div>
     </section>
 
@@ -301,10 +356,47 @@
 
   <nav class="bottom-nav">
     <div class="bottom-nav__inner">
-      <button class="nav__btn active" data-screen="home">Home</button>
-      <button class="nav__btn" data-screen="stats">Statistiche</button>
-      <button class="nav__btn" data-screen="tonight">Stasera</button>
-      <button class="nav__btn" data-screen="backup">Backup</button>
+      <button class="nav__btn active" data-screen="home">
+        <span class="nav__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 11.5 12 4l9 7.5"></path>
+            <path d="M6 10.5V20h12v-9.5"></path>
+          </svg>
+        </span>
+        <strong>Home</strong>
+      </button>
+
+      <button class="nav__btn" data-screen="stats">
+        <span class="nav__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M5 19V9"></path>
+            <path d="M12 19V5"></path>
+            <path d="M19 19v-7"></path>
+          </svg>
+        </span>
+        <strong>Statistiche</strong>
+      </button>
+
+      <button class="nav__btn nav__btn--main" data-screen="tonight">
+        <span class="nav__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3l2.6 5.3L20 9l-4 4 .95 5.5L12 16l-4.95 2.5L8 13 4 9l5.4-.7L12 3z"></path>
+          </svg>
+        </span>
+        <strong>Stasera</strong>
+      </button>
+
+      <button class="nav__btn" data-screen="backup">
+        <span class="nav__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 16v-8"></path>
+            <path d="M8.5 11.5 12 8l3.5 3.5"></path>
+            <path d="M5 20h14"></path>
+            <path d="M5 4h14v12H5z"></path>
+          </svg>
+        </span>
+        <strong>Backup</strong>
+      </button>
     </div>
   </nav>
 
