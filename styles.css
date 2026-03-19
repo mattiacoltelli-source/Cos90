@@ -101,7 +101,7 @@ input,select,textarea,button{
   border:none;
   outline:none;
   border-radius:14px;
-  -webkit-tap-highlight-color:transparent;
+  -webkit-tap-highlight-color: transparent;
 }
 
 input,select,textarea{
@@ -308,6 +308,7 @@ button.small{
   font-size:12px;
   font-weight:800;
   border:1px solid rgba(255,255,255,.12);
+  transition:transform var(--fast) ease, box-shadow var(--normal) ease;
   z-index:2;
 }
 
@@ -321,6 +322,12 @@ button.small{
   background:rgba(77,163,255,.18);
   color:#9ec9ff;
   border-color:rgba(77,163,255,.35);
+}
+
+.badge-soft{
+  background:rgba(255,255,255,.08);
+  color:#f2f6fa;
+  border-color:rgba(255,255,255,.14);
 }
 
 .posterInfo{
@@ -367,6 +374,19 @@ button.small{
   cursor:pointer;
   white-space:nowrap;
   user-select:none;
+  transition:
+    color var(--normal) ease,
+    transform var(--fast) ease,
+    opacity var(--normal) ease;
+}
+
+.seeAllBtn:hover{
+  color:#fff;
+}
+
+.seeAllBtn:active{
+  transform:translateY(1px) scale(.985);
+  opacity:.9;
 }
 
 .empty{
@@ -409,6 +429,12 @@ button.small{
   height:110px;
   border-radius:12px;
   background:#0d1420 center/cover no-repeat;
+  transition:transform var(--normal) ease;
+  transform-origin:center center;
+}
+
+.listItem:active .thumb{
+  transform:scale(1.03);
 }
 
 .liTitle{
@@ -431,6 +457,14 @@ button.small{
   color:#d6deea;
   border-radius:999px;
   font-size:12px;
+  transition:
+    background var(--normal) ease,
+    border-color var(--normal) ease,
+    transform var(--fast) ease;
+}
+
+.chip:active{
+  transform:scale(.98);
 }
 
 .stats{
@@ -444,6 +478,16 @@ button.small{
   background:var(--card);
   border:1px solid rgba(255,255,255,.06);
   border-radius:16px;
+  transition:
+    transform var(--normal) ease,
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease;
+}
+
+.stat:active{
+  transform:translateY(1px) scale(.992);
+  border-color:rgba(245,196,81,.18);
+  box-shadow:var(--shadow-soft);
 }
 
 .stat .num{
@@ -473,6 +517,10 @@ button.small{
   background:#101722;
   border:1px solid var(--line);
   border-radius:14px;
+  transition:
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease,
+    transform var(--normal) ease;
 }
 
 .tonightList{
@@ -490,6 +538,21 @@ button.small{
   border:1px solid rgba(255,255,255,.06);
   border-radius:16px;
   cursor:pointer;
+  transition:
+    transform var(--normal) ease,
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease,
+    background var(--normal) ease;
+}
+
+.tonightCard:hover{
+  border-color:rgba(245,196,81,.18);
+  box-shadow:0 12px 28px rgba(0,0,0,.24);
+}
+
+.tonightCard:active{
+  transform:translateY(1px) scale(.993);
+  background:#162133;
 }
 
 .tonightPoster{
@@ -498,6 +561,12 @@ button.small{
   border-radius:12px;
   background:#0d1420 center/cover no-repeat;
   border:1px solid rgba(255,255,255,.05);
+  transition:transform var(--normal) ease;
+  transform-origin:center center;
+}
+
+.tonightCard:active .tonightPoster{
+  transform:scale(1.035);
 }
 
 .tonightTitleRow{
@@ -522,6 +591,13 @@ button.small{
   color:#f6d06a;
   font-size:12px;
   font-weight:900;
+  transition:
+    transform var(--fast) ease,
+    box-shadow var(--normal) ease;
+}
+
+.tonightCard:active .affinity{
+  transform:scale(.98);
 }
 
 .tonightReason{
@@ -565,6 +641,12 @@ button.small{
   font-size:12px;
   font-weight:800;
   cursor:pointer;
+  transition:
+    transform var(--fast) ease,
+    background var(--normal) ease,
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease,
+    color var(--normal) ease;
 }
 
 .navBtn.active{
@@ -572,6 +654,10 @@ button.small{
   border-color:#385175;
   box-shadow:0 10px 22px rgba(77,163,255,.14);
   color:#fff;
+}
+
+.navBtn:active{
+  transform:translateY(1px) scale(.985);
 }
 
 .hidden{
@@ -655,6 +741,11 @@ button.small{
   background:#111 center/cover no-repeat;
   border:1px solid rgba(255,255,255,.12);
   box-shadow:var(--shadow);
+  transition:transform var(--normal) ease;
+}
+
+.detailHero:active .detailPoster{
+  transform:scale(1.02);
 }
 
 .detailTitle{
@@ -676,6 +767,14 @@ button.small{
   background:var(--card);
   border:1px solid rgba(255,255,255,.06);
   border-radius:18px;
+  transition:
+    transform var(--normal) ease,
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease;
+}
+
+.detailCard:active{
+  transform:translateY(1px) scale(.996);
 }
 
 .detailCard h3{
@@ -706,6 +805,15 @@ button.small{
   background:var(--card);
   border:1px solid rgba(255,255,255,.06);
   border-radius:16px;
+  transition:
+    transform var(--normal) ease,
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease;
+}
+
+.tasteBlock:active{
+  transform:translateY(1px) scale(.994);
+  border-color:rgba(255,255,255,.10);
 }
 
 .tasteBlock h3{
@@ -750,6 +858,12 @@ button.small{
   will-change:width;
 }
 
+.insightList{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
 .insightItem{
   padding:10px 12px;
   background:#101722;
@@ -757,6 +871,16 @@ button.small{
   border-radius:14px;
   font-size:13px;
   color:#e6edf5;
+  transition:
+    transform var(--fast) ease,
+    border-color var(--normal) ease,
+    background var(--normal) ease;
+}
+
+.insightItem:active{
+  transform:scale(.992);
+  border-color:rgba(245,196,81,.18);
+  background:#121b29;
 }
 
 .top100Wrap{
@@ -808,6 +932,14 @@ button.small{
   border-radius:18px;
   overflow:hidden;
   min-height:220px;
+  transition:
+    transform var(--normal) ease,
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease;
+}
+
+.podiumCard:active{
+  transform:translateY(1px) scale(.992);
 }
 
 .podiumCard.gold{
@@ -888,6 +1020,16 @@ button.small{
   background:#101722;
   border:1px solid rgba(255,255,255,.06);
   border-radius:14px;
+  transition:
+    transform var(--fast) ease,
+    border-color var(--normal) ease,
+    background var(--normal) ease;
+}
+
+.rankingRow:active{
+  transform:scale(.992);
+  border-color:rgba(245,196,81,.18);
+  background:#121b29;
 }
 
 .rankingPos{
@@ -961,6 +1103,13 @@ button.small{
   flex:0 0 140px;
   cursor:pointer;
   scroll-snap-align:start;
+  transition:
+    transform var(--normal) ease,
+    opacity var(--normal) ease;
+}
+
+.shelfCard:active{
+  transform:translateY(1px) scale(.985);
 }
 
 .shelfPoster{
@@ -972,6 +1121,12 @@ button.small{
   box-shadow:var(--shadow);
   position:relative;
   overflow:hidden;
+  transition:transform var(--normal) ease;
+  transform-origin:center center;
+}
+
+.shelfCard:active .shelfPoster{
+  transform:scale(1.035);
 }
 
 .shelfInfo{
@@ -1001,6 +1156,42 @@ button.small{
   min-height:30px;
 }
 
+.upcomingTagRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:6px;
+}
+
+.miniTag{
+  padding:5px 7px;
+  border-radius:999px;
+  background:#111a27;
+  border:1px solid var(--line);
+  color:#dce6f2;
+  font-size:11px;
+  font-weight:700;
+  line-height:1;
+}
+
+.miniTag.gold{
+  background:rgba(245,196,81,.12);
+  border-color:rgba(245,196,81,.28);
+  color:#f5d77b;
+}
+
+.miniTag.blue{
+  background:rgba(77,163,255,.12);
+  border-color:rgba(77,163,255,.28);
+  color:#9ec9ff;
+}
+
+.miniTag.green{
+  background:rgba(54,194,117,.12);
+  border-color:rgba(54,194,117,.28);
+  color:#8fe2b3;
+}
+
 .libraryFilters{
   display:flex;
   gap:8px;
@@ -1019,6 +1210,12 @@ button.small{
   cursor:pointer;
   font-weight:700;
   font-size:13px;
+  transition:
+    transform var(--fast) ease,
+    background var(--normal) ease,
+    color var(--normal) ease,
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease;
 }
 
 .filterPill.active{
@@ -1026,6 +1223,10 @@ button.small{
   color:#fff;
   border-color:#39527a;
   box-shadow:0 8px 18px rgba(77,163,255,.10);
+}
+
+.filterPill:active{
+  transform:translateY(1px) scale(.985);
 }
 
 .genreFiltersTitle{
@@ -1040,8 +1241,8 @@ button.small{
 }
 
 @keyframes screenFade{
-  from{opacity:0;transform:translateY(4px);}
-  to{opacity:1;transform:translateY(0);}
+  from{opacity:.0; transform:translateY(4px);}
+  to{opacity:1; transform:translateY(0);}
 }
 
 @keyframes splashLoad{
@@ -1070,7 +1271,12 @@ button.small{
   box-shadow:0 14px 28px rgba(0,0,0,.28);
   transform:translateY(16px) scale(.98);
   opacity:0;
-  transition:transform 220ms ease, opacity 220ms ease;
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+  pointer-events:none;
 }
 
 .toast.show{
@@ -1080,14 +1286,17 @@ button.small{
 
 .toast.success{
   border-color:rgba(54,194,117,.32);
+  box-shadow:0 14px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(54,194,117,.08);
 }
 
 .toast.error{
   border-color:rgba(255,107,107,.28);
+  box-shadow:0 14px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(255,107,107,.08);
 }
 
 .toast.info{
   border-color:rgba(245,196,81,.26);
+  box-shadow:0 14px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(245,196,81,.08);
 }
 
 .toastTitle{
@@ -1100,6 +1309,12 @@ button.small{
   font-size:13px;
   color:#d7e0ea;
   line-height:1.35;
+}
+
+@media (max-width:560px){
+  .podiumGrid{
+    grid-template-columns:1fr;
+  }
 }
 
 .rankingToggleRow{
@@ -1119,6 +1334,12 @@ button.small{
   font-size:14px;
   cursor:pointer;
   box-shadow:none;
+  transition:
+    background var(--normal) ease,
+    color var(--normal) ease,
+    border-color var(--normal) ease,
+    box-shadow var(--normal) ease,
+    transform var(--fast) ease;
 }
 
 .rankingToggleBtn.active{
@@ -1128,10 +1349,8 @@ button.small{
   box-shadow:0 8px 20px rgba(77,163,255,.14);
 }
 
-@media (max-width:560px){
-  .podiumGrid{
-    grid-template-columns:1fr;
-  }
+.rankingToggleBtn:active{
+  transform:translateY(1px) scale(.985);
 }
 
 @media (max-width:380px){
