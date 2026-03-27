@@ -180,10 +180,10 @@ function getHistoryPenalty(key) {
     if (entry.key !== key) return;
     const hoursAgo = (now - entry.at) / (1000 * 60 * 60);
 
-    if (hoursAgo < 6) penalty += 5;
-    else if (hoursAgo < 24) penalty += 3.5;
-    else if (hoursAgo < 72) penalty += 2;
-    else if (hoursAgo < 168) penalty += 1;
+    if (hoursAgo < 6) penalty += 8;
+    else if (hoursAgo < 24) penalty += 5;
+    else if (hoursAgo < 72) penalty += 3;
+    else if (hoursAgo < 168) penalty += 1.5;
   });
 
   return penalty;
@@ -267,7 +267,7 @@ function pickDiverse(ranked, count = 5) {
     const primaryGenre = (entry.item.genre_names && entry.item.genre_names[0]) || "Altro";
     const usage = usedGenres.get(primaryGenre) || 0;
 
-    if (usage >= 2 && selected.length < count - 1) continue;
+    if (usage >= 1 && selected.length < count - 1) continue;
 
     selected.push(entry);
     usedKeys.add(key);
@@ -292,7 +292,7 @@ function registerSuggested(items) {
   suggestHistory = [
     ...items.map(item => ({ key: uniqueKey(item), at: now })),
     ...suggestHistory
-  ].slice(0, 40);
+  ].slice(0, 80);
 
   saveSuggestHistory(suggestHistory);
 }
@@ -410,7 +410,7 @@ function getRanked(type) {
 
       return (a.title || "").localeCompare(b.title || "", "it");
     })
-    .slice(0, 100);
+    .slice(0, 250);
 }
 
 function resetRanking() {
