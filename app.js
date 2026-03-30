@@ -1,6 +1,6 @@
 const TONIGHT_COOLDOWN_MS = 20000;
 
-let db = loadDB();
+let db = { seen: [], watchlist: [] };
 let suggestHistory = loadSuggestHistory();
 
 let currentType = "multi";
@@ -625,7 +625,7 @@ async function doAddSeen(type, id) {
   db.seen.unshift(item);
   db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
 
-  saveDB(db);
+  await saveDB(db);
   renderAll();
   openDetail(item);
 
@@ -640,7 +640,7 @@ async function doAddWatch(type, id) {
 
   if (!inSeen(item) && !inWatch(item)) {
     db.watchlist.unshift(item);
-    saveDB(db);
+    await saveDB(db);
     renderAll();
     showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
     haptic([10]);
@@ -649,7 +649,7 @@ async function doAddWatch(type, id) {
   openDetail(item);
 }
 
-function doMoveToSeen(key) {
+async function doMoveToSeen(key) {
   const item = db.watchlist.find(x => uniqueKey(x) === key);
   if (!item) return;
 
@@ -660,18 +660,18 @@ function doMoveToSeen(key) {
     db.seen.unshift(item);
   }
 
-  saveDB(db);
+  await saveDB(db);
   renderAll();
 
   showToast(`"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
   haptic([12, 20, 12]);
 }
 
-function doRemoveSeen(key) {
+async function doRemoveSeen(key) {
   const item = db.seen.find(x => uniqueKey(x) === key);
   db.seen = db.seen.filter(x => uniqueKey(x) !== key);
 
-  saveDB(db);
+  await saveDB(db);
   renderAll();
 
   if (currentDetail && uniqueKey(currentDetail) === key) {
@@ -684,11 +684,11 @@ function doRemoveSeen(key) {
   }
 }
 
-function doRemoveWatch(key) {
+async function doRemoveWatch(key) {
   const item = db.watchlist.find(x => uniqueKey(x) === key);
   db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
-  saveDB(db);
+  await saveDB(db);
   renderAll();
 
   if (currentDetail && uniqueKey(currentDetail) === key) {
@@ -701,7 +701,7 @@ function doRemoveWatch(key) {
   }
 }
 
-function doSaveDetailNotes() {
+async function doSaveDetailNotes() {
   if (!currentDetail) return;
 
   const voteInput = document.getElementById("detailVoteInput");
@@ -725,7 +725,7 @@ function doSaveDetailNotes() {
   target.vote = vote;
   target.comment = comment;
 
-  saveDB(db);
+  await saveDB(db);
   renderAll();
   openDetail(target);
 
@@ -733,7 +733,7 @@ function doSaveDetailNotes() {
   haptic([12, 20, 12]);
 }
 
-function doRemoveCurrentDetail() {
+async function doRemoveCurrentDetail() {
   if (!currentDetail) return;
 
   const key = uniqueKey(currentDetail);
@@ -742,7 +742,7 @@ function doRemoveCurrentDetail() {
   db.seen = db.seen.filter(x => uniqueKey(x) !== key);
   db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
-  saveDB(db);
+  await saveDB(db);
   renderAll();
   switchScreen("home");
 
@@ -953,7 +953,7 @@ function exportBackup() {
 function importBackup(file) {
   const reader = new FileReader();
 
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const imported = JSON.parse(e.target.result);
 
@@ -969,7 +969,7 @@ function importBackup(file) {
         watchlist: imported.watchlist.map(normalizedItem)
       };
 
-      saveDB(db);
+      await saveDB(db);
       renderAll();
       switchScreen("home");
 
@@ -1097,7 +1097,7 @@ function bindEvents() {
   }
 
   if (detailSeenBtn) {
-    detailSeenBtn.addEventListener("click", () => {
+    detailSeenBtn.addEventListener("click", async () => {
       if (!currentDetail) return;
 
       const voteInput = document.getElementById("detailVoteInput");
@@ -1114,7 +1114,7 @@ function bindEvents() {
           comment: commentInput.value.trim()
         });
         db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
-        saveDB(db);
+        await saveDB(db);
         renderAll();
         showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Salvato");
         haptic([12, 20, 12]);
@@ -1127,7 +1127,7 @@ function bindEvents() {
   }
 
   if (detailWatchBtn) {
-    detailWatchBtn.addEventListener("click", () => {
+    detailWatchBtn.addEventListener("click", async () => {
       if (!currentDetail) return;
 
       const voteInput = document.getElementById("detailVoteInput");
@@ -1143,7 +1143,7 @@ function bindEvents() {
           vote: check.value,
           comment: commentInput.value.trim()
         });
-        saveDB(db);
+        await saveDB(db);
         renderAll();
         showToast(`"${currentDetail.title}" in watchlist.`, "success", "Watchlist");
         haptic([10]);
@@ -1271,8 +1271,9 @@ function bindEvents() {
   });
 }
 
-function bootApp() {
+async function bootApp() {
   try {
+    db = await loadDB();
     initScreens();
     hideComingSoonButton();
     bindEvents();
