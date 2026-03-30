@@ -1,23 +1,41 @@
 import { supabase } from "./supabase.js";
 
 const USER_ID = "default";
-
+const DB_CACHE_KEY = "cineTrackerCache";
 const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
 const SUGGEST_HISTORY_MAX = 40;
 
+function readCache() {
+  try {
+    const raw = localStorage.getItem(DB_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.seen) || !Array.isArray(parsed.watchlist)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(db) {
+  try {
+    localStorage.setItem(DB_CACHE_KEY, JSON.stringify(db));
+  } catch {}
+}
+
 export async function loadDB() {
+  // Mostra subito i dati dalla cache locale
+  const cached = readCache();
+
+  // Aggiorna in background da Supabase
   try {
     const res = await supabase
       .from("Coltel")
       .select("*")
       .eq("user_id", USER_ID);
 
-    console.log("SUPABASE DATA:", res.data);
-    console.log("SUPABASE ERROR:", res.error);
-
     if (!res || res.error) {
-      console.warn("Supabase error:", res?.error);
-      return { seen: [], watchlist: [] };
+      return cached || { seen: [], watchlist: [] };
     }
 
     const data = res.data || [];
@@ -30,14 +48,19 @@ export async function loadDB() {
       .filter(r => r.list === "watchlist")
       .map(r => r.data);
 
-    return { seen, watchlist };
+    const fresh = { seen, watchlist };
+    writeCache(fresh);
+    return fresh;
   } catch (e) {
-    console.error("LOAD ERROR:", e);
-    return { seen: [], watchlist: [] };
+    console.warn("Supabase non raggiungibile, uso cache locale", e);
+    return cached || { seen: [], watchlist: [] };
   }
 }
 
 export async function saveDB(db) {
+  // Aggiorna subito la cache locale
+  writeCache(db);
+
   try {
     const rows = [
       ...(db.seen || []).map((item) => ({
@@ -60,7 +83,6 @@ export async function saveDB(db) {
       })),
     ];
 
-    // Upsert: inserisce o aggiorna solo le righe cambiate
     if (rows.length > 0) {
       const { error: upsertError } = await supabase
         .from("Coltel")
