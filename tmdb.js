@@ -1,7 +1,5 @@
 import {
-  normalizedItem, uniqueKey, buildDateRange, randomPage,
-  sanitizeVoteInput, normalizeGenres, posterUrl, backdropUrl,
-  titleOf, yearOf, extractDirector
+  normalizedItem, uniqueKey, buildDateRange, randomPage
 } from "./cine-core.js";
 
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";

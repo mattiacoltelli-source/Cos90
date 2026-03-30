@@ -1,6 +1,7 @@
 import {
   uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
-  decadeOf, posterUrl, backdropUrl, buildDateRange, randomPage
+  decadeOf, posterUrl, buildDateRange, randomPage,
+  escapeHtml, mediaLabel, rawNumberToFixed
 } from "./cine-core.js";
 import { loadDB, saveDB, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
 import {
@@ -8,8 +9,7 @@ import {
   initScreens, switchScreen, getPreviousScreen, SCREENS,
   renderShelf, renderSearchResults, renderLibraryList,
   renderGenreFilters, renderGenreBars, renderPodium, renderRankingList,
-  renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
-  escapeHtml, mediaLabel
+  renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts
 } from "./ui.js";
 import {
   tmdbSearch, tmdbFetchDetail, tmdbFetchDiscoverLevel, buildFallbackQueries
@@ -27,6 +27,10 @@ let currentLibraryFilter = "all";
 let currentLibraryGenre = "all";
 let lastAutoRecommendAt = 0;
 let tonightReqCounter = 0;
+
+function backdropUrl(path) {
+  return path ? `https://image.tmdb.org/t/p/w1280${path}` : "";
+}
 
 function inSeen(item) {
   return db.seen.find(x => uniqueKey(x) === uniqueKey(item));
@@ -490,7 +494,7 @@ function openDetail(item) {
 
     closeAllSearchActionMenus();
 
-    const safeItem = typeof normalizedItem === "function" ? normalizedItem(item) : item;
+    const safeItem = normalizedItem(item);
     currentDetail = safeItem;
 
     const stored = getStoredItem(safeItem);
@@ -509,10 +513,8 @@ function openDetail(item) {
     const detailSeenBtn = document.getElementById("detailSeenBtn");
     const detailWatchBtn = document.getElementById("detailWatchBtn");
 
-    const poster = typeof posterUrl === "function" ? posterUrl(src.poster_path || "") : "";
-    const backdrop = typeof backdropUrl === "function"
-      ? (src.backdrop_path ? backdropUrl(src.backdrop_path) : poster)
-      : poster;
+    const poster = posterUrl(src.poster_path || "");
+    const backdrop = src.backdrop_path ? backdropUrl(src.backdrop_path) : poster;
 
     if (detailBackdrop) detailBackdrop.style.backgroundImage = backdrop ? `url('${backdrop}')` : "";
     if (detailPoster) detailPoster.style.backgroundImage = poster ? `url('${poster}')` : "";
@@ -524,14 +526,7 @@ function openDetail(item) {
 
     if (detailFacts) {
       try {
-        if (typeof renderDetailFacts === "function") {
-          detailFacts.innerHTML = renderDetailFacts(src, inSeen, inWatch);
-        } else {
-          detailFacts.innerHTML = `
-            <span class="detail-fact">${escapeHtml(mediaLabel(src))}</span>
-            <span class="detail-fact">${escapeHtml(src.year || "—")}</span>
-          `;
-        }
+        detailFacts.innerHTML = renderDetailFacts(src, inSeen, inWatch);
       } catch (err) {
         console.error("Errore facts detail:", err);
         detailFacts.innerHTML = `
@@ -941,9 +936,7 @@ function importBackup(file) {
 function hideComingSoonButton() {
   const buttons = [...document.querySelectorAll("#screen-tonight button")];
   const target = buttons.find(btn => btn.textContent.trim().toLowerCase().includes("prossimamente"));
-  if (target) {
-    target.remove();
-  }
+  if (target) target.remove();
 }
 
 function bindEvents() {
@@ -1073,7 +1066,7 @@ function bindEvents() {
         showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Salvato");
         haptic([12, 20, 12]);
       } else {
-        doSaveDetailNotes();
+        await doSaveDetailNotes();
       }
 
       openDetail(currentDetail);
@@ -1102,7 +1095,7 @@ function bindEvents() {
         showToast(`"${currentDetail.title}" in watchlist.`, "success", "Watchlist");
         haptic([10]);
       } else if (inWatch(currentDetail)) {
-        doSaveDetailNotes();
+        await doSaveDetailNotes();
         return;
       }
 
@@ -1171,17 +1164,17 @@ function bindEvents() {
       }
 
       if (removeSeenBtn) {
-        doRemoveSeen(removeSeenBtn.dataset.key);
+        await doRemoveSeen(removeSeenBtn.dataset.key);
         return;
       }
 
       if (removeWatchBtn) {
-        doRemoveWatch(removeWatchBtn.dataset.key);
+        await doRemoveWatch(removeWatchBtn.dataset.key);
         return;
       }
 
       if (moveWatchBtn) {
-        doMoveToSeen(moveWatchBtn.dataset.key);
+        await doMoveToSeen(moveWatchBtn.dataset.key);
         return;
       }
 
@@ -1206,8 +1199,6 @@ function bindEvents() {
     const name = e.state?.screen || "home";
     if (!SCREENS[name]) return;
 
-    if (name !== "detail") _previousScreen = name;
-
     Object.values(SCREENS).forEach(screen => {
       screen.classList.add("hidden");
       screen.classList.remove("screen-enter");
@@ -1227,7 +1218,6 @@ function bindEvents() {
 
 async function bootApp() {
   try {
-    // fallback DB sicuro
     try {
       db = await loadDB();
     } catch (e) {
@@ -1239,21 +1229,15 @@ async function bootApp() {
       db = { seen: [], watchlist: [] };
     }
 
-    // inizializzazione base
     try { initScreens(); } catch(e) { console.warn(e); }
     try { hideComingSoonButton(); } catch(e) { console.warn(e); }
     try { bindEvents(); } catch(e) { console.warn(e); }
-
     try { history.replaceState({ screen: "home" }, ""); } catch(e) {}
-
     try { renderAll(); } catch(e) { console.warn(e); }
-
-    document.body.style.background = "red";
 
   } catch (e) {
     console.error("BOOT ERROR:", e);
   } finally {
-    // QUESTO È CRUCIALE → forza sblocco UI
     const app = document.querySelector(".app");
     if (app) app.classList.add("app--ready");
 
