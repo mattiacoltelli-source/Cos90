@@ -60,16 +60,29 @@ export async function saveDB(db) {
       })),
     ];
 
-    const { error: delError } = await supabase
+    // Upsert: inserisce o aggiorna solo le righe cambiate
+    if (rows.length > 0) {
+      const { error: upsertError } = await supabase
+        .from("Coltel")
+        .upsert(rows, { onConflict: "user_id,tmdb_id,list" });
+      if (upsertError) throw upsertError;
+    }
+
+    // Rimuove righe che non sono più nel db locale
+    const currentKeys = rows.map(r => `${r.tmdb_id}_${r.list}`);
+    const { data: existing, error: fetchError } = await supabase
       .from("Coltel")
-      .delete()
+      .select("id, tmdb_id, list")
       .eq("user_id", USER_ID);
 
-    if (delError) throw delError;
+    if (!fetchError && existing) {
+      const toDelete = existing
+        .filter(r => !currentKeys.includes(`${r.tmdb_id}_${r.list}`))
+        .map(r => r.id);
 
-    if (rows.length > 0) {
-      const { error: insError } = await supabase.from("Coltel").insert(rows);
-      if (insError) throw insError;
+      if (toDelete.length > 0) {
+        await supabase.from("Coltel").delete().in("id", toDelete);
+      }
     }
   } catch (e) {
     console.warn("Errore salvataggio DB Supabase", e);
