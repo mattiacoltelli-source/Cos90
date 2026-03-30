@@ -1,3 +1,4 @@
+import { supabase } from "./supabase.js";
 import {
   uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
   decadeOf, posterUrl, buildDateRange, randomPage,
@@ -1254,3 +1255,20 @@ async function bootApp() {
 document.addEventListener("DOMContentLoaded", () => {
   setTimeout(bootApp, 80);
 });
+
+supabase
+  .channel("realtime-cinetracker")
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "Coltel" },
+    async () => {
+      try {
+        const newDB = await loadDB();
+        db = newDB;
+        renderAll();
+      } catch (e) {
+        console.error("Errore realtime sync:", e);
+      }
+    }
+  )
+  .subscribe();

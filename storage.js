@@ -1,33 +1,13 @@
 import { supabase } from "./supabase.js";
 
 const USER_ID = "default";
-const DB_CACHE_KEY = "cineTrackerCache";
+
 const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
 const SUGGEST_HISTORY_MAX = 40;
 
-function readCache() {
-  try {
-    const raw = localStorage.getItem(DB_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.seen) || !Array.isArray(parsed.watchlist)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(db) {
-  try {
-    localStorage.setItem(DB_CACHE_KEY, JSON.stringify(db));
-  } catch {}
-}
+// ─── LOAD DB ─────────────────────────────────────────
 
 export async function loadDB() {
-  // Mostra subito i dati dalla cache locale
-  const cached = readCache();
-
-  // Aggiorna in background da Supabase
   try {
     const res = await supabase
       .from("Coltel")
@@ -35,7 +15,8 @@ export async function loadDB() {
       .eq("user_id", USER_ID);
 
     if (!res || res.error) {
-      return cached || { seen: [], watchlist: [] };
+      console.warn("Supabase error:", res?.error);
+      return { seen: [], watchlist: [] };
     }
 
     const data = res.data || [];
@@ -48,19 +29,17 @@ export async function loadDB() {
       .filter(r => r.list === "watchlist")
       .map(r => r.data);
 
-    const fresh = { seen, watchlist };
-    writeCache(fresh);
-    return fresh;
+    return { seen, watchlist };
+
   } catch (e) {
-    console.warn("Supabase non raggiungibile, uso cache locale", e);
-    return cached || { seen: [], watchlist: [] };
+    console.error("LOAD ERROR:", e);
+    return { seen: [], watchlist: [] };
   }
 }
 
-export async function saveDB(db) {
-  // Aggiorna subito la cache locale
-  writeCache(db);
+// ─── SAVE DB (UPSERT) ───────────────────────────────
 
+export async function saveDB(db) {
   try {
     const rows = [
       ...(db.seen || []).map((item) => ({
@@ -83,33 +62,22 @@ export async function saveDB(db) {
       })),
     ];
 
-    if (rows.length > 0) {
-      const { error: upsertError } = await supabase
-        .from("Coltel")
-        .upsert(rows, { onConflict: "user_id,tmdb_id,list" });
-      if (upsertError) throw upsertError;
-    }
+    if (!rows.length) return;
 
-    // Rimuove righe che non sono più nel db locale
-    const currentKeys = rows.map(r => `${r.tmdb_id}_${r.list}`);
-    const { data: existing, error: fetchError } = await supabase
+    const { error } = await supabase
       .from("Coltel")
-      .select("id, tmdb_id, list")
-      .eq("user_id", USER_ID);
+      .upsert(rows, {
+        onConflict: "user_id,tmdb_id,list",
+      });
 
-    if (!fetchError && existing) {
-      const toDelete = existing
-        .filter(r => !currentKeys.includes(`${r.tmdb_id}_${r.list}`))
-        .map(r => r.id);
+    if (error) throw error;
 
-      if (toDelete.length > 0) {
-        await supabase.from("Coltel").delete().in("id", toDelete);
-      }
-    }
   } catch (e) {
     console.warn("Errore salvataggio DB Supabase", e);
   }
 }
+
+// ─── SUGGEST HISTORY ───────────────────────────────
 
 export function loadSuggestHistory() {
   try {
