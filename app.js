@@ -1,3 +1,7 @@
+import "./storage.js";
+import "./ui.js";
+import "./tmdb.js";
+
 const TONIGHT_COOLDOWN_MS = 20000;
 
 let db = { seen: [], watchlist: [] };
