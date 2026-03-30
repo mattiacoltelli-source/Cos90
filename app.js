@@ -1273,30 +1273,31 @@ function bindEvents() {
 
 async function bootApp() {
   try {
-    let loadedDB;
-
+    // fallback DB sicuro
     try {
-      loadedDB = await loadDB();
+      db = await loadDB();
     } catch (e) {
-      console.warn("loadDB fallita, uso fallback", e);
-      loadedDB = { seen: [], watchlist: [] };
+      console.warn("loadDB error", e);
+      db = { seen: [], watchlist: [] };
     }
 
-    if (!loadedDB || !loadedDB.seen || !loadedDB.watchlist) {
-      loadedDB = { seen: [], watchlist: [] };
+    if (!db || !db.seen || !db.watchlist) {
+      db = { seen: [], watchlist: [] };
     }
 
-    db = loadedDB;
+    // inizializzazione base
+    try { initScreens(); } catch(e) { console.warn(e); }
+    try { hideComingSoonButton(); } catch(e) { console.warn(e); }
+    try { bindEvents(); } catch(e) { console.warn(e); }
 
-    initScreens();
-    hideComingSoonButton();
-    bindEvents();
-    history.replaceState({ screen: "home" }, "");
-    renderAll();
+    try { history.replaceState({ screen: "home" }, ""); } catch(e) {}
+
+    try { renderAll(); } catch(e) { console.warn(e); }
+
   } catch (e) {
-    console.error("Errore boot app:", e);
-    showToast("Errore iniziale dell'app. Ho sbloccato comunque la schermata.", "error", "Avvio");
+    console.error("BOOT ERROR:", e);
   } finally {
+    // QUESTO È CRUCIALE → forza sblocco UI
     const app = document.querySelector(".app");
     if (app) app.classList.add("app--ready");
 
@@ -1305,7 +1306,7 @@ async function bootApp() {
       splash.style.opacity = "0";
       setTimeout(() => {
         if (splash.parentNode) splash.parentNode.removeChild(splash);
-      }, 650);
+      }, 300);
     }
   }
 }
