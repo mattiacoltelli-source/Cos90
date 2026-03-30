@@ -7,24 +7,29 @@ const SUGGEST_HISTORY_MAX = 40;
 
 async function loadDB() {
   try {
-    const { data, error } = await supabase
+    const res = await supabase
       .from("Coltel")
       .select("*")
       .eq("user_id", USER_ID);
 
-    if (error) throw error;
+    if (!res || res.error) {
+      console.warn("Supabase error:", res?.error);
+      return { seen: [], watchlist: [] };
+    }
 
-    const seen = (data || [])
-      .filter((r) => r.list === "seen")
-      .map((r) => r.data);
+    const data = res.data || [];
 
-    const watchlist = (data || [])
-      .filter((r) => r.list === "watchlist")
-      .map((r) => r.data);
+    const seen = data
+      .filter(r => r.list === "seen")
+      .map(r => r.data);
+
+    const watchlist = data
+      .filter(r => r.list === "watchlist")
+      .map(r => r.data);
 
     return { seen, watchlist };
   } catch (e) {
-    console.warn("Errore caricamento DB Supabase, fallback vuoto", e);
+    console.error("LOAD ERROR:", e);
     return { seen: [], watchlist: [] };
   }
 }
