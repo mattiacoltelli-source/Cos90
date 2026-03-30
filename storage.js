@@ -12,6 +12,9 @@ async function loadDB() {
       .select("*")
       .eq("user_id", USER_ID);
 
+    console.log("SUPABASE DATA:", res.data);
+    console.log("SUPABASE ERROR:", res.error);
+
     if (!res || res.error) {
       console.warn("Supabase error:", res?.error);
       return { seen: [], watchlist: [] };
