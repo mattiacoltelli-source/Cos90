@@ -1294,6 +1294,8 @@ async function bootApp() {
 
     try { renderAll(); } catch(e) { console.warn(e); }
 
+    document.body.style.background = "red";
+
   } catch (e) {
     console.error("BOOT ERROR:", e);
   } finally {
