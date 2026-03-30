@@ -1,38 +1,9 @@
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
+import {
+  escapeHtml, mediaLabel, mediaBadgeClass, decadeOf,
+  formatReleaseDate, rawNumberToFixed, posterUrl, uniqueKey, normalizedItem
+} from "./cine-core.js";
 
-function mediaLabel(item) {
-  return item.media_type === "movie" ? "Film" : "Serie TV";
-}
-
-function mediaBadgeClass(item) {
-  return item.media_type === "movie" ? "badge-film" : "badge-series";
-}
-
-function decadeOf(year) {
-  if (!year || year === "—" || isNaN(Number(year))) return "Sconosciuta";
-  return `${Math.floor(Number(year) / 10) * 10}s`;
-}
-
-function formatReleaseDate(dateStr) {
-  if (!dateStr) return "n.d.";
-  const d = new Date(dateStr + "T00:00:00");
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("it-IT", { day:"numeric", month:"short" });
-}
-
-function rawNumberToFixed(value, digits = 1, fallback = "n.d.") {
-  const num = Number(value);
-  return Number.isFinite(num) && num > 0 ? num.toFixed(digits) : fallback;
-}
-
-function showToast(message, type = "info", title = "") {
+export function showToast(message, type = "info", title = "") {
   const wrap = document.getElementById("toastWrap");
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
@@ -57,7 +28,7 @@ function showToast(message, type = "info", title = "") {
 }
 
 let _lastHapticAt = 0;
-function haptic(pattern = 10) {
+export function haptic(pattern = 10) {
   const now = Date.now();
   if (now - _lastHapticAt < 60) return;
   _lastHapticAt = now;
@@ -66,7 +37,7 @@ function haptic(pattern = 10) {
   }
 }
 
-function animateValue(el, target, duration = 600) {
+export function animateValue(el, target, duration = 600) {
   const end = Number(target) || 0;
   const current = Number(el.dataset.currentValue || 0);
 
@@ -96,14 +67,14 @@ function animateValue(el, target, duration = 600) {
   requestAnimationFrame(tick);
 }
 
-function animateStats(seen, watch, movies, series) {
+export function animateStats(seen, watch, movies, series) {
   animateValue(document.getElementById("statSeen"), seen);
   animateValue(document.getElementById("statWatch"), watch);
   animateValue(document.getElementById("statMovies"), movies);
   animateValue(document.getElementById("statSeries"), series);
 }
 
-function animateBarGroups() {
+export function animateBarGroups() {
   const bars = document.querySelectorAll("#screen-stats .bar__fill[data-width]");
   if (!bars.length) return;
 
@@ -122,16 +93,16 @@ function animateBarGroups() {
   });
 }
 
-const SCREENS = {};
+export const SCREENS = {};
 let _previousScreen = "home";
 
-function initScreens() {
+export function initScreens() {
   ["home","library","stats","tonight","backup","detail"].forEach(name => {
     SCREENS[name] = document.getElementById(`screen-${name}`);
   });
 }
 
-function switchScreen(name) {
+export function switchScreen(name) {
   if (name !== "detail") _previousScreen = name;
 
   Object.values(SCREENS).forEach(screen => {
@@ -156,11 +127,11 @@ function switchScreen(name) {
   return _previousScreen;
 }
 
-function getPreviousScreen() {
+export function getPreviousScreen() {
   return _previousScreen;
 }
 
-function renderShelf(containerId, items) {
+export function renderShelf(containerId, items) {
   const el = document.getElementById(containerId);
   if (!el) return;
 
@@ -178,7 +149,7 @@ function renderShelf(containerId, items) {
   `).join("");
 }
 
-function renderSearchResults(items, db) {
+export function renderSearchResults(items, db) {
   return items.map(item => {
     const n = normalizedItem(item);
     const seen = !!db.seen.find(x => uniqueKey(x) === uniqueKey(n));
@@ -211,7 +182,7 @@ function renderSearchResults(items, db) {
   }).join("");
 }
 
-function renderLibraryList(items, mode) {
+export function renderLibraryList(items, mode) {
   return items.map(item => `
     <div class="list-item">
       <div class="list-item__thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
@@ -238,7 +209,7 @@ function renderLibraryList(items, mode) {
   `).join("");
 }
 
-function renderGenreFilters(genres, activeGenre) {
+export function renderGenreFilters(genres, activeGenre) {
   const titleEl = document.getElementById("genreFiltersTitle");
   const filterEl = document.getElementById("libraryGenreFilters");
 
@@ -262,7 +233,7 @@ function renderGenreFilters(genres, activeGenre) {
   `;
 }
 
-function renderGenreBars(entries) {
+export function renderGenreBars(entries) {
   const container = document.getElementById("genreBars");
 
   if (!entries.length) {
@@ -291,7 +262,7 @@ const MEDALS = [
   { icon:"🥉", cls:"bronze", label:"3°" }
 ];
 
-function renderPodium(podiumEl, items, typeLabel) {
+export function renderPodium(podiumEl, items, typeLabel) {
   if (!items.length) {
     podiumEl.innerHTML = `<p class="empty-hint">Vota alcuni titoli per vedere il podio.</p>`;
     return;
@@ -308,7 +279,7 @@ function renderPodium(podiumEl, items, typeLabel) {
   `).join("");
 }
 
-function renderRankingList(listEl, items, offset, typeLabel) {
+export function renderRankingList(listEl, items, offset, typeLabel) {
   if (!items.length) {
     listEl.innerHTML = `<p class="empty-hint">Aggiungi altri voti per completare la classifica.</p>`;
     return;
@@ -327,7 +298,7 @@ function renderRankingList(listEl, items, offset, typeLabel) {
   `).join("");
 }
 
-function renderTonightFive(entries, profile, note) {
+export function renderTonightFive(entries, profile, note) {
   const noteHtml = note ? `<p class="tonight__note">${escapeHtml(note)}</p>` : "";
 
   return `
@@ -352,7 +323,7 @@ function renderTonightFive(entries, profile, note) {
   `;
 }
 
-function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
+export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
   const poster = chosen.poster_path
     ? `<div class="discover-poster" style="background-image:url('${posterUrl(chosen.poster_path)}')"></div>`
     : `<div class="discover-poster"></div>`;
@@ -371,7 +342,7 @@ function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
   `;
 }
 
-function renderClassicResult(pick, voto, commento) {
+export function renderClassicResult(pick, voto, commento) {
   return `
     <div class="classic-result">
       <div class="classic-result__poster" style="background-image:url('${posterUrl(pick.poster_path)}')"></div>
@@ -384,7 +355,7 @@ function renderClassicResult(pick, voto, commento) {
   `;
 }
 
-function renderDetailFacts(source, inSeenFn, inWatchFn) {
+export function renderDetailFacts(source, inSeenFn, inWatchFn) {
   const facts = [
     `${mediaLabel(source)}`,
     source.year,

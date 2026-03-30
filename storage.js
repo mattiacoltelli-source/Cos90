@@ -5,7 +5,7 @@ const USER_ID = "default";
 const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
 const SUGGEST_HISTORY_MAX = 40;
 
-async function loadDB() {
+export async function loadDB() {
   try {
     const res = await supabase
       .from("Coltel")
@@ -37,7 +37,7 @@ async function loadDB() {
   }
 }
 
-async function saveDB(db) {
+export async function saveDB(db) {
   try {
     const rows = [
       ...(db.seen || []).map((item) => ({
@@ -76,7 +76,7 @@ async function saveDB(db) {
   }
 }
 
-function loadSuggestHistory() {
+export function loadSuggestHistory() {
   try {
     const raw = localStorage.getItem(SUGGEST_HISTORY_KEY);
     const arr = raw ? JSON.parse(raw) : [];
@@ -88,7 +88,7 @@ function loadSuggestHistory() {
   }
 }
 
-function saveSuggestHistory(history) {
+export function saveSuggestHistory(history) {
   localStorage.setItem(
     SUGGEST_HISTORY_KEY,
     JSON.stringify((history || []).slice(0, SUGGEST_HISTORY_MAX))

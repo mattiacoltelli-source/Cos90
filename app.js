@@ -1,6 +1,19 @@
-import "./storage.js";
-import "./ui.js";
-import "./tmdb.js";
+import {
+  uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
+  decadeOf, posterUrl, backdropUrl, buildDateRange, randomPage
+} from "./cine-core.js";
+import { loadDB, saveDB, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
+import {
+  showToast, haptic, animateStats, animateBarGroups,
+  initScreens, switchScreen, getPreviousScreen, SCREENS,
+  renderShelf, renderSearchResults, renderLibraryList,
+  renderGenreFilters, renderGenreBars, renderPodium, renderRankingList,
+  renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
+  escapeHtml, mediaLabel
+} from "./ui.js";
+import {
+  tmdbSearch, tmdbFetchDetail, tmdbFetchDiscoverLevel, buildFallbackQueries
+} from "./tmdb.js";
 
 const TONIGHT_COOLDOWN_MS = 20000;
 
@@ -14,10 +27,6 @@ let currentLibraryFilter = "all";
 let currentLibraryGenre = "all";
 let lastAutoRecommendAt = 0;
 let tonightReqCounter = 0;
-
-function uniqueKey(item) {
-  return `${item.media_type}_${item.id}`;
-}
 
 function inSeen(item) {
   return db.seen.find(x => uniqueKey(x) === uniqueKey(item));
@@ -43,65 +52,6 @@ function toggleSearchActionMenu(card) {
   const willOpen = !card.classList.contains("is-actions-open");
   closeAllSearchActionMenus(card);
   card.classList.toggle("is-actions-open", willOpen);
-}
-
-function sanitizeVoteInput(raw) {
-  if (raw == null) return "";
-  let v = String(raw).trim().replace(/\s+/g, "").replace(/\./g, ",");
-  if (!v) return "";
-
-  const mapSimple = {
-    "6½": "6,5",
-    "7½": "7,5",
-    "8½": "8,5",
-    "9½": "9,5"
-  };
-  if (mapSimple[v]) v = mapSimple[v];
-
-  const numeric = Number(v.replace(",", "."));
-  if (Number.isFinite(numeric)) {
-    if (numeric < 0) return "";
-    if (numeric > 10) return "10";
-    return v.replace(".", ",");
-  }
-
-  const plusMinus = v.match(/^(\d{1,2})([+-])$/);
-  if (plusMinus) {
-    const base = Number(plusMinus[1]);
-    return Number.isFinite(base) && base >= 0 && base <= 10 ? `${base}${plusMinus[2]}` : "";
-  }
-
-  const half = v.match(/^(\d{1,2}),5$/);
-  if (half) {
-    const base = Number(half[1]);
-    return Number.isFinite(base) && base >= 0 && base <= 10 ? `${base},5` : "";
-  }
-
-  const intOnly = v.match(/^(\d{1,2})$/);
-  if (intOnly) {
-    const base = Number(intOnly[1]);
-    return Number.isFinite(base) && base >= 0 && base <= 10 ? String(base) : "";
-  }
-
-  return "";
-}
-
-function parseUserVote(raw) {
-  const value = sanitizeVoteInput(raw);
-  if (!value) return NaN;
-
-  if (value.endsWith("+")) {
-    const base = Number(value.slice(0, -1));
-    return Number.isFinite(base) ? Math.min(10, base + 0.25) : NaN;
-  }
-
-  if (value.endsWith("-")) {
-    const base = Number(value.slice(0, -1));
-    return Number.isFinite(base) ? Math.max(0, base - 0.25) : NaN;
-  }
-
-  const num = Number(value.replace(",", "."));
-  return Number.isFinite(num) ? num : NaN;
 }
 
 function validateVote(rawVote) {

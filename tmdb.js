@@ -1,18 +1,11 @@
+import {
+  normalizedItem, uniqueKey, buildDateRange, randomPage,
+  sanitizeVoteInput, normalizeGenres, posterUrl, backdropUrl,
+  titleOf, yearOf, extractDirector
+} from "./cine-core.js";
+
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";
 const BASE_URL = "https://api.themoviedb.org/3";
-const IMG_BASE = "https://image.tmdb.org/t/p/w500";
-const IMG_BACK = "https://image.tmdb.org/t/p/w1280";
-
-const GENRE_MAP = {
-  28:"Azione", 12:"Avventura", 16:"Animazione", 35:"Commedia",
-  80:"Crime", 99:"Documentario", 18:"Drama", 10751:"Famiglia",
-  14:"Fantasy", 36:"Storia", 27:"Horror", 10402:"Musica",
-  9648:"Mistero", 10749:"Romance", 878:"Fantascienza", 10770:"TV Movie",
-  53:"Thriller", 10752:"Guerra", 37:"Western",
-  10759:"Azione & Avventura", 10762:"Bambini", 10763:"News",
-  10764:"Reality", 10765:"Sci-Fi & Fantasy", 10766:"Soap",
-  10767:"Talk", 10768:"War & Politics"
-};
 
 const GENRE_NAME_TO_ID = {
   "Azione":28, "Avventura":12, "Animazione":16, "Commedia":35,
@@ -23,79 +16,7 @@ const GENRE_NAME_TO_ID = {
   "Azione & Avventura":10759, "Sci-Fi & Fantasy":10765
 };
 
-function posterUrl(path) {
-  return path ? `${IMG_BASE}${path}` : "";
-}
-
-function backdropUrl(path) {
-  return path ? `${IMG_BACK}${path}` : "";
-}
-
-function titleOf(item) {
-  return item.title || item.name || "Titolo sconosciuto";
-}
-
-function yearOf(item) {
-  const date = item.release_date || item.first_air_date || "";
-  return date ? date.slice(0, 4) : (item.year || "—");
-}
-
-function normalizeGenres(item) {
-  if (Array.isArray(item.genre_ids)) {
-    return item.genre_ids.map(id => GENRE_MAP[id] || `Genere ${id}`);
-  }
-  if (Array.isArray(item.genres)) {
-    return item.genres.map(g => typeof g === "string" ? g : g.name).filter(Boolean);
-  }
-  if (Array.isArray(item.genre_names)) {
-    return item.genre_names;
-  }
-  return [];
-}
-
-function extractDirector(item) {
-  if (item.director) return item.director;
-
-  if (item.media_type === "movie" || item.release_date) {
-    const crew = item.credits?.crew || [];
-    const dir = crew.find(person => person.job === "Director");
-    if (dir?.name) return dir.name;
-  }
-
-  if (item.media_type === "tv" || item.first_air_date) {
-    if (Array.isArray(item.created_by) && item.created_by[0]?.name) {
-      return item.created_by[0].name;
-    }
-  }
-
-  return "";
-}
-
-function normalizedItem(item) {
-  return {
-    id: item.id,
-    media_type: (item.media_type === "tv" || item.first_air_date) ? "tv" : "movie",
-    title: titleOf(item),
-    year: yearOf(item),
-    poster_path: item.poster_path || "",
-    backdrop_path: item.backdrop_path || "",
-    overview: item.overview
-      ? (item.overview.length > 320 ? item.overview.slice(0, 320) + "…" : item.overview)
-      : "",
-    vote: typeof sanitizeVoteInput === "function" ? sanitizeVoteInput(item.vote || "") : (item.vote || ""),
-    comment: item.comment || "",
-    vote_average: item.vote_average || 0,
-    vote_count: item.vote_count || 0,
-    popularity: item.popularity || 0,
-    genre_names: normalizeGenres(item),
-    director: extractDirector(item),
-    savedAt: item.savedAt || new Date().toISOString(),
-    release_date: item.release_date || "",
-    first_air_date: item.first_air_date || ""
-  };
-}
-
-async function tmdbSearch(query, type = "multi") {
+export async function tmdbSearch(query, type = "multi") {
   const endpoint = type === "movie"
     ? `${BASE_URL}/search/movie?api_key=${API_KEY}&language=it-IT&query=${encodeURIComponent(query)}`
     : type === "tv"
@@ -108,7 +29,7 @@ async function tmdbSearch(query, type = "multi") {
   return (data.results || []).filter(x => x.media_type !== "person").slice(0, 20);
 }
 
-async function tmdbFetchDetail(type, id) {
+export async function tmdbFetchDetail(type, id) {
   const res = await fetch(
     `${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=it-IT&append_to_response=credits`
   );
@@ -118,7 +39,7 @@ async function tmdbFetchDetail(type, id) {
   return normalizedItem({ ...item, media_type: type });
 }
 
-async function tmdbFetchDiscoverLevel(urls, type, excludedKeys) {
+export async function tmdbFetchDiscoverLevel(urls, type, excludedKeys) {
   const map = new Map();
 
   const responses = await Promise.all(
@@ -136,7 +57,7 @@ async function tmdbFetchDiscoverLevel(urls, type, excludedKeys) {
 
   responses.flat().forEach(raw => {
     const item = normalizedItem({ ...raw, media_type: type });
-    const key = `${item.media_type}_${item.id}`;
+    const key = uniqueKey(item);
 
     if (excludedKeys.has(key)) return;
     if (!item.poster_path) return;
@@ -149,19 +70,7 @@ async function tmdbFetchDiscoverLevel(urls, type, excludedKeys) {
   return [...map.values()];
 }
 
-function buildDateRange(startYear, endYear, type) {
-  if (!startYear || !endYear) return "";
-
-  return type === "movie"
-    ? `&primary_release_date.gte=${startYear}-01-01&primary_release_date.lte=${endYear}-12-31`
-    : `&first_air_date.gte=${startYear}-01-01&first_air_date.lte=${endYear}-12-31`;
-}
-
-function randomPage(max = 3) {
-  return Math.floor(Math.random() * max) + 1;
-}
-
-function buildFallbackQueries(profile, forcedType, options = {}) {
+export function buildFallbackQueries(profile, forcedType, options = {}) {
   const useSelectedGenre = options.useSelectedGenre === true;
   const selectedGenre = options.selectedGenre || "all";
   const selectedGenreId = (useSelectedGenre && selectedGenre !== "all")
