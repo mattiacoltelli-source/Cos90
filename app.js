@@ -1273,7 +1273,21 @@ function bindEvents() {
 
 async function bootApp() {
   try {
-    db = await loadDB();
+    let loadedDB;
+
+    try {
+      loadedDB = await loadDB();
+    } catch (e) {
+      console.warn("loadDB fallita, uso fallback", e);
+      loadedDB = { seen: [], watchlist: [] };
+    }
+
+    if (!loadedDB || !loadedDB.seen || !loadedDB.watchlist) {
+      loadedDB = { seen: [], watchlist: [] };
+    }
+
+    db = loadedDB;
+
     initScreens();
     hideComingSoonButton();
     bindEvents();
