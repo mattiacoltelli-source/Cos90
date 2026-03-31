@@ -41,6 +41,8 @@ import {
   buildFallbackQueries
 } from "./tmdb.js";
 
+const normalizeCache = new Map();
+
 const CONFIG = {
   TONIGHT_COOLDOWN_MS: 20000,
   SEARCH_DEBOUNCE_MS: 350,
@@ -52,7 +54,7 @@ const CONFIG = {
 };
 
 const state = {
-  db: createSafeDB(loadDB()),
+  db: { seen: [], watchlist: [] },
   suggestHistory: createSafeSuggestHistory(loadSuggestHistory()),
   currentView: "home",
   items: [],
@@ -79,6 +81,7 @@ const state = {
   },
   cache: {
     ranked: new Map(),
+    details: new Map(),
     genreStatsKey: "",
     genreStats: [],
     tasteProfileKey: "",
@@ -110,16 +113,33 @@ init();
 
 function init() {
   try {
-    ensureStateConsistency();
     initScreens();
-    hideComingSoonButton();
-    renderAll();
     bindEvents();
+
+    renderHomeShelves();
+
+    requestAnimationFrame(async () => {
+      try {
+        const raw = await loadDB(true);
+
+        state.db = createSafeDB(raw);
+        ensureStateConsistency();
+        renderAll();
+
+        loadDB(false).then(remote => {
+          if (!remote) return;
+          state.db = createSafeDB(remote);
+          ensureStateConsistency();
+          renderAll();
+        });
+      } catch (e) {
+        console.warn("Init DB error", e);
+      }
+    });
+
     state.currentView = getVisibleScreenName() || "home";
-    debug.log("Initialized");
   } catch (error) {
     debug.error("Init error", error);
-    showToast("Errore inizializzazione app.", "error", "Errore");
   }
 }
 
@@ -172,6 +192,7 @@ function dedupeDB(db) {
 
 function invalidateCaches() {
   state.cache.ranked.clear();
+  if (state.cache.details) state.cache.details.clear();
   state.cache.genreStatsKey = "";
   state.cache.genreStats = [];
   state.cache.tasteProfileKey = "";
@@ -189,6 +210,12 @@ function backdropUrl(path) {
   return path ? `https://image.tmdb.org/t/p/w1280${path}` : "";
 }
 
+function preloadImage(src) {
+  if (!src) return;
+  const img = new Image();
+  img.src = src;
+}
+
 function normalizeList(list) {
   if (!Array.isArray(list)) return [];
   return list.map(normalizeMediaItem).filter(Boolean);
@@ -196,6 +223,14 @@ function normalizeList(list) {
 
 function normalizeMediaItem(item) {
   if (!item || typeof item !== "object") return null;
+
+  const cacheId = safeId(item.id ?? item?.id);
+  const cacheType = normalizeMediaType(item.media_type);
+  const cacheKey = cacheId && cacheType ? `${cacheId}_${cacheType}` : "";
+
+  if (cacheKey && normalizeCache.has(cacheKey)) {
+    return normalizeCache.get(cacheKey);
+  }
 
   let normalized = null;
   try {
@@ -237,6 +272,11 @@ function normalizeMediaItem(item) {
   };
 
   if (!safe.title || !safe.media_type || !safe.id) return null;
+
+  if (cacheKey) {
+    normalizeCache.set(cacheKey, safe);
+  }
+
   return safe;
 }
 
@@ -757,9 +797,18 @@ function renderStats() {
 }
 
 function renderAll() {
-  renderHomeShelves();
-  doRenderLibrary();
-  renderStats();
+  requestAnimationFrame(() => {
+    renderHomeShelves();
+  });
+
+  requestIdleCallback(() => {
+    doRenderLibrary();
+  });
+
+  requestIdleCallback(() => {
+    renderStats();
+  });
+
   closeAllSearchActionMenus();
 }
 
@@ -803,6 +852,11 @@ async function doSearch() {
     if (reqId !== state.searchReqCounter || state.pending.searchQuery !== q) return;
 
     const safeItems = normalizeList(items);
+
+    safeItems.forEach(item => {
+      preloadImage(posterUrl(item.poster_path));
+    });
+
     state.items = safeItems;
 
     if (!safeItems.length) {
@@ -857,6 +911,9 @@ function openDetail(item) {
 
     const poster = posterUrl(src.poster_path || "");
     const backdrop = src.backdrop_path ? backdropUrl(src.backdrop_path) : poster;
+
+    preloadImage(poster);
+    preloadImage(backdrop);
 
     if (detailBackdrop) {
       detailBackdrop.style.backgroundImage = backdrop ? `url('${backdrop}')` : "";
@@ -926,6 +983,32 @@ async function doShowDetails(type, id) {
   } finally {
     state.loading.detail = false;
   }
+}
+
+async function fetchDetailSafe(type, id) {
+  const safeType = normalizeMediaType(type);
+  const safeItemId = safeId(id);
+  if (!safeItemId) return null;
+
+  const cacheKey = `detail:${safeType}:${safeItemId}`;
+
+  if (state.cache.details && state.cache.details.has(cacheKey)) {
+    return state.cache.details.get(cacheKey);
+  }
+
+  const item = await runSingleFlight(
+    cacheKey,
+    () => withTimeout(tmdbFetchDetail(safeType, safeItemId), CONFIG.REQUEST_TIMEOUT_MS)
+  );
+
+  const normalized = normalizeMediaItem(item);
+
+  if (normalized) {
+    if (!state.cache.details) state.cache.details = new Map();
+    state.cache.details.set(cacheKey, normalized);
+  }
+
+  return normalized;
 }
 
 async function doAddSeen(type, id) {
@@ -1294,11 +1377,15 @@ async function discoverByTaste() {
     if (selectedGenre !== "all" && genres.includes(selectedGenre)) whyBits.push(`hai scelto il genere ${selectedGenre}`);
     if (matchGenres.length) whyBits.push(`ami il genere ${matchGenres[0]}`);
     if (profile.topDecade && decadeScoreLabel(chosen.year) === profile.topDecade) whyBits.push(`ti piacciono gli ${profile.topDecade}`);
-    if (!whyBits.length) whyBits.push("ha un buon match con i tuoi gusti");
+    if (!whyBits.length) whyBits.push("ha un buon potenziale per i tuoi gusti");
 
-    const fallbackNote = levelLabel !== "ricerca precisa" ? "Ho allargato la ricerca." : "";
+    el.innerHTML = renderDiscoverResult({
+      item: chosen,
+      why: whyBits.join(" · "),
+      levelLabel,
+      rating
+    });
 
-    el.innerHTML = renderDiscoverResult(chosen, whyBits, rating, fallbackNote);
     haptic([10]);
   } catch (error) {
     debug.error("discoverByTaste error", error);
@@ -1309,474 +1396,185 @@ async function discoverByTaste() {
   }
 }
 
-function suggestClassic() {
-  const el = document.getElementById("tonightSuggestion");
+async function suggestClassic() {
+  const el = document.getElementById("classicSuggestion");
   if (!el) return;
 
-  const pool = state.db.seen.filter(x => Number.isFinite(parseUserVote(x.vote)) && parseUserVote(x.vote) >= 7);
-
-  if (!pool.length) {
-    el.innerHTML = `<p class="tonight__hint">Nessun titolo con voto ≥ 7. Inizia a votare i tuoi preferiti.</p>`;
-    showToast("Serve almeno un titolo con voto ≥ 7.", "info", "Classico");
+  if (state.db.seen.length < 3) {
+    el.innerHTML = `<p class="tonight__hint">Aggiungi almeno 3 titoli visti per ottenere un classico su misura.</p>`;
+    showToast("Aggiungi almeno 3 titoli visti.", "info", "Classico");
     return;
   }
 
-  const pick = pool[Math.floor(Math.random() * pool.length)];
-  const vote = pick.vote || "";
+  el.innerHTML = `<p class="tonight__hint">🎞️ Sto cercando un classico adatto a te…</p>`;
 
-  const numericVote = parseUserVote(pick.vote);
-  const comment = numericVote >= 9
-    ? "Uno dei tuoi assoluti — sempre un buon motivo per rivederlo."
-    : numericVote >= 8
-    ? "L'hai amato. Certi titoli vanno rivisti."
-    : "Un bel titolo che hai apprezzato — vale una seconda visione.";
+  const profile = getUserTasteProfile();
+  const excludedKeys = new Set([...state.db.seen, ...state.db.watchlist].map(safeUniqueKey).filter(Boolean));
 
-  el.innerHTML = renderClassicResult(pick, vote, comment);
-  haptic([10]);
-}
-
-function exportBackup() {
   try {
-    const blob = new Blob([JSON.stringify(state.db, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "cineTracker-backup.json";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const selectedGenre = profile.topGenres[0] || null;
+    const range = buildDateRange(1950, 2009);
+    const page = randomPage(1, 4);
 
-    showToast("Backup esportato.", "success", "Backup");
-    haptic([12, 20, 12]);
+    const queryConfig = safeBuildFallbackQueries(profile, {
+      mode: "classic",
+      selectedGenre,
+      range,
+      page
+    }, {
+      useSelectedGenre: !!selectedGenre,
+      selectedGenre: selectedGenre || "all"
+    });
+
+    let candidates = [];
+    for (const level of queryConfig.levels || []) {
+      const urls = Array.isArray(level?.urls) ? level.urls : [];
+      if (!urls.length) continue;
+
+      const found = normalizeList(
+        await withTimeout(
+          tmdbFetchDiscoverLevel(urls, queryConfig.type, excludedKeys),
+          CONFIG.REQUEST_TIMEOUT_MS
+        )
+      );
+
+      if (found.length) {
+        candidates = found;
+        break;
+      }
+    }
+
+    if (!candidates.length) {
+      el.innerHTML = `<p class="tonight__hint">Nessun classico trovato. Riprova più tardi.</p>`;
+      return;
+    }
+
+    const scored = candidates
+      .map(item => ({
+        item,
+        score: scoreCandidate(item, profile, queryConfig.selectedBoosts || []) + 2 + Math.random()
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const chosen = scored[0]?.item;
+    if (!chosen) {
+      el.innerHTML = `<p class="tonight__hint">Nessun classico trovato.</p>`;
+      return;
+    }
+
+    registerSuggested([chosen]);
+
+    const whyBits = [];
+    if ((chosen.genre_names || []).some(g => profile.topGenres.includes(g))) {
+      whyBits.push(`incrocia i tuoi generi forti`);
+    }
+    if (profile.topDecade && decadeScoreLabel(chosen.year) === profile.topDecade) {
+      whyBits.push(`è nel tuo decennio preferito`);
+    }
+    if (!whyBits.length) whyBits.push("è un classico coerente con il tuo profilo");
+
+    el.innerHTML = renderClassicResult({
+      item: chosen,
+      why: whyBits.join(" · ")
+    });
+
+    haptic([10]);
   } catch (error) {
-    debug.error("exportBackup error", error);
-    showToast("Errore esportazione backup.", "error", "Backup");
+    debug.error("suggestClassic error", error);
+    el.innerHTML = `<p class="tonight__hint">Errore di ricerca. Controlla la connessione.</p>`;
+    showToast("Errore nella ricerca del classico.", "error", "Classico");
   }
 }
 
-function importBackup(file) {
-  if (!file) return;
-
-  const reader = new FileReader();
-
-  reader.onload = async (e) => {
-    try {
-      const rawText = typeof e?.target?.result === "string" ? e.target.result : "";
-      const imported = JSON.parse(rawText);
-
-      if (!imported || !Array.isArray(imported.seen) || !Array.isArray(imported.watchlist)) {
-        showToast("File backup non valido.", "error", "Backup");
-        return;
-      }
-
-      if (!confirm("Sostituire i dati attuali con quelli del backup?")) return;
-
-      state.db = dedupeDB({
-        seen: imported.seen.map(normalizeMediaItem).filter(Boolean),
-        watchlist: imported.watchlist.map(normalizeMediaItem).filter(Boolean)
-      });
-
-      ensureStateConsistency();
-      renderAll();
-      safeSwitchScreen("home");
-      persistDB().catch(() => {
-        showToast("Errore salvataggio", "error");
-      });
-
-      showToast("Backup importato.", "success", "Backup");
-      haptic([12, 20, 12]);
-    } catch (error) {
-      debug.error("importBackup error", error);
-      showToast("File backup non leggibile.", "error", "Backup");
-    }
-  };
-
-  reader.onerror = () => {
-    showToast("Errore lettura file.", "error", "Backup");
-  };
-
-  reader.readAsText(file);
-}
-
-function hideComingSoonButton() {
-  const buttons = [...document.querySelectorAll("#screen-tonight button")];
-  const target = buttons.find(btn => btn.textContent.trim().toLowerCase().includes("prossimamente"));
-  if (target) target.remove();
-}
-
-function bindEvents() {
-  const searchBtn = document.getElementById("searchBtn");
-  const searchInput = document.getElementById("searchInput");
-  const libraryBackBtn = document.getElementById("libraryBackBtn");
-  const openWatchAll = document.getElementById("openWatchAll");
-  const openSeenMovies = document.getElementById("openSeenMovies");
-  const openSeenSeries = document.getElementById("openSeenSeries");
-  const recommendBtn = document.getElementById("recommendBtn");
-  const discoverBtn = document.getElementById("discoverBtn");
-  const classicBtn = document.getElementById("classicBtn");
-  const rankingToggleMovies = document.getElementById("rankingToggleMovies");
-  const rankingToggleSeries = document.getElementById("rankingToggleSeries");
-  const exportBtn = document.getElementById("exportBtn");
-  const importBtn = document.getElementById("importBtn");
-  const importFileInput = document.getElementById("importFileInput");
-  const detailBackBtn = document.getElementById("detailBackBtn");
-  const detailSeenBtn = document.getElementById("detailSeenBtn");
-  const detailWatchBtn = document.getElementById("detailWatchBtn");
-  const detailSaveNoteBtn = document.getElementById("detailSaveNoteBtn");
-  const detailRemoveBtn = document.getElementById("detailRemoveBtn");
-  const libraryFilters = document.getElementById("libraryFilters");
-
-  document.querySelectorAll(".nav__btn[data-screen]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      haptic([8]);
-      const screen = btn.dataset.screen;
-      state.currentView = screen || "home";
-      safeSwitchScreen(screen);
-
-      if (screen === "tonight") maybeAutoRecommend();
-      if (screen === "stats") setTimeout(animateBarGroups, 80);
-    });
-  });
-
-  if (searchBtn) {
-    searchBtn.addEventListener("click", () => {
-      haptic([8]);
-      doSearch();
-    });
-  }
-
-  if (searchInput) {
-    searchInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") doSearch();
-    });
-
-    searchInput.addEventListener("input", () => {
-      debouncedSearch();
-    });
-  }
-
-  document.querySelectorAll(".tab[data-type]").forEach(tab => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".tab[data-type]").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      state.filters.currentType = tab.dataset.type || "multi";
-      closeAllSearchActionMenus();
-      haptic([8]);
-    });
-  });
-
-  if (libraryFilters) {
-    libraryFilters.addEventListener("click", (e) => {
-      const btn = e.target.closest(".filter-pill[data-filter]");
-      if (!btn) return;
-      haptic([8]);
-      state.filters.currentLibraryFilter = btn.dataset.filter || "all";
-      state.filters.currentLibraryGenre = "all";
-      doRenderLibrary();
-    });
-  }
-
-  if (libraryBackBtn) {
-    libraryBackBtn.addEventListener("click", () => {
-      state.currentView = "home";
-      safeSwitchScreen("home");
-    });
-  }
-
-  if (openWatchAll) openWatchAll.addEventListener("click", () => { haptic([8]); openLibrary("watch", "all"); });
-  if (openSeenMovies) openSeenMovies.addEventListener("click", () => { haptic([8]); openLibrary("seen", "movie"); });
-  if (openSeenSeries) openSeenSeries.addEventListener("click", () => { haptic([8]); openLibrary("seen", "series"); });
-
-  if (recommendBtn) recommendBtn.addEventListener("click", () => { haptic([8]); recommendTonightFive(false); });
-  if (discoverBtn) discoverBtn.addEventListener("click", () => { haptic([8]); discoverByTaste(); });
-  if (classicBtn) classicBtn.addEventListener("click", () => { haptic([8]); suggestClassic(); });
-
-  if (rankingToggleMovies && rankingToggleSeries) {
-    rankingToggleMovies.addEventListener("click", () => {
-      haptic([8]);
-      rankingToggleMovies.classList.add("active");
-      rankingToggleSeries.classList.remove("active");
-      toggleHidden("rankingPanelMovies", false);
-      toggleHidden("rankingPanelSeries", true);
-    });
-
-    rankingToggleSeries.addEventListener("click", () => {
-      haptic([8]);
-      rankingToggleSeries.classList.add("active");
-      rankingToggleMovies.classList.remove("active");
-      toggleHidden("rankingPanelSeries", false);
-      toggleHidden("rankingPanelMovies", true);
-    });
-  }
-
-  if (exportBtn) exportBtn.addEventListener("click", () => { haptic([8]); exportBackup(); });
-
-  if (importBtn && importFileInput) {
-    importBtn.addEventListener("click", () => importFileInput.click());
-    importFileInput.addEventListener("change", (e) => {
-      const file = e.target?.files?.[0];
-      if (file) importBackup(file);
-      e.target.value = "";
-    });
-  }
-
-  if (detailBackBtn) {
-    detailBackBtn.addEventListener("click", () => {
-      const prev = getPreviousScreen() || "home";
-      state.currentView = prev;
-      safeSwitchScreen(prev);
-    });
-  }
-
-  if (detailSeenBtn) {
-    detailSeenBtn.addEventListener("click", async () => {
-      if (!state.currentDetail) return;
-
-      const voteInput = document.getElementById("detailVoteInput");
-      const commentInput = document.getElementById("detailCommentInput");
-      if (!voteInput || !commentInput) return;
-
-      const check = validateVote(voteInput.value);
-      if (!check.ok) return;
-
-      if (!inSeen(state.currentDetail)) {
-        const item = normalizeMediaItem({
-          ...state.currentDetail,
-          vote: check.value,
-          comment: commentInput.value.trim()
-        });
-
-        if (!item) return;
-
-        state.db.seen.unshift(item);
-        state.db.watchlist = state.db.watchlist.filter(x => safeUniqueKey(x) !== safeUniqueKey(state.currentDetail));
-        ensureStateConsistency();
-        renderAll();
-        persistDB().catch(() => {
-          showToast("Errore salvataggio", "error");
-        });
-        showToast(`"${state.currentDetail.title}" aggiunto ai visti.`, "success", "Salvato");
-        haptic([12, 20, 12]);
-      } else {
-        await doSaveDetailNotes();
-      }
-
-      openDetail(state.currentDetail);
-    });
-  }
-
-  if (detailWatchBtn) {
-    detailWatchBtn.addEventListener("click", async () => {
-      if (!state.currentDetail) return;
-
-      const voteInput = document.getElementById("detailVoteInput");
-      const commentInput = document.getElementById("detailCommentInput");
-      if (!voteInput || !commentInput) return;
-
-      const check = validateVote(voteInput.value);
-      if (!check.ok) return;
-
-      if (!inSeen(state.currentDetail) && !inWatch(state.currentDetail)) {
-        const item = normalizeMediaItem({
-          ...state.currentDetail,
-          vote: check.value,
-          comment: commentInput.value.trim()
-        });
-
-        if (!item) return;
-
-        state.db.watchlist.unshift(item);
-        ensureStateConsistency();
-        renderAll();
-        persistDB().catch(() => {
-          showToast("Errore salvataggio", "error");
-        });
-        showToast(`"${state.currentDetail.title}" in watchlist.`, "success", "Watchlist");
-        haptic([10]);
-      } else if (inWatch(state.currentDetail)) {
-        await doSaveDetailNotes();
-        return;
-      }
-
-      openDetail(state.currentDetail);
-    });
-  }
-
-  if (detailSaveNoteBtn) detailSaveNoteBtn.addEventListener("click", doSaveDetailNotes);
-
-  if (detailRemoveBtn) {
-    detailRemoveBtn.addEventListener("click", () => {
-      if (!state.currentDetail) return;
-      if (confirm("Rimuovere questo titolo dalla libreria?")) {
-        doRemoveCurrentDetail();
-      }
-    });
-  }
-
-  document.addEventListener("click", async (e) => {
-    const seenBtn = e.target.closest(".action-seen");
-    const watchBtn = e.target.closest(".action-watch");
-    const detailsBtn = e.target.closest(".action-details");
-    const removeSeenBtn = e.target.closest(".remove-seen");
-    const removeWatchBtn = e.target.closest(".remove-watch");
-    const moveWatchBtn = e.target.closest(".move-watch-seen");
-    const storedBtn = e.target.closest(".open-stored-detail");
-    const tonightBtn = e.target.closest(".open-tonight-detail");
-    const genreBtn = e.target.closest("[data-genre-filter]");
-    const posterImage = e.target.closest(".poster-card__img");
-    const posterCard = e.target.closest(".poster-card");
-
-    if (!posterCard && !e.target.closest(".results-grid")) {
-      closeAllSearchActionMenus();
-    }
-
-    if (e.target.closest("button,.nav__btn,.tab,.filter-pill,.shelf-card,.tonight-card,.poster-card,.podium-card,.rank-row")) {
-      haptic([8]);
-    }
-
-    try {
-      if (genreBtn) {
-        state.filters.currentLibraryGenre = genreBtn.dataset.genreFilter || "all";
-        doRenderLibrary();
-        return;
-      }
-
-      if (seenBtn) {
-        await doAddSeen(seenBtn.dataset.type, seenBtn.dataset.id);
-        return;
-      }
-
-      if (watchBtn) {
-        await doAddWatch(watchBtn.dataset.type, watchBtn.dataset.id);
-        return;
-      }
-
-      if (detailsBtn) {
-        closeAllSearchActionMenus();
-        await doShowDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
-        return;
-      }
-
-      if (posterImage && posterCard && !seenBtn && !watchBtn) {
-        toggleSearchActionMenu(posterCard);
-        return;
-      }
-
-      if (removeSeenBtn) {
-        await doRemoveSeen(removeSeenBtn.dataset.key);
-        return;
-      }
-
-      if (removeWatchBtn) {
-        await doRemoveWatch(removeWatchBtn.dataset.key);
-        return;
-      }
-
-      if (moveWatchBtn) {
-        await doMoveToSeen(moveWatchBtn.dataset.key);
-        return;
-      }
-
-      if (storedBtn) {
-        const key = storedBtn.dataset.key;
-        const item = state.db.seen.find(x => safeUniqueKey(x) === key) || state.db.watchlist.find(x => safeUniqueKey(x) === key);
-        if (item) openDetail(item);
-        return;
-      }
-
-      if (tonightBtn) {
-        await doShowDetails(tonightBtn.dataset.type, tonightBtn.dataset.id);
-      }
-    } catch (error) {
-      debug.error("Delegated click error", error);
-      showToast("Si è verificato un problema. Riprova.", "error", "Errore");
-    }
-  });
-
-  window.addEventListener("popstate", (e) => {
-    const name = e.state?.screen || "home";
-    if (!SCREENS[name]) return;
-
-    Object.values(SCREENS).forEach(screen => {
-      if (!screen) return;
-      screen.classList.add("hidden");
-      screen.classList.remove("screen-enter");
-    });
-
-    SCREENS[name].classList.remove("hidden");
-    requestAnimationFrame(() => SCREENS[name].classList.add("screen-enter"));
-
-    document.querySelectorAll(".nav__btn[data-screen]").forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.screen === name);
-    });
-
-    state.currentView = name;
-
-    if (name === "tonight") maybeAutoRecommend();
-    if (name === "stats") setTimeout(animateBarGroups, 80);
-  });
-}
-
-function toggleElement(el, shouldShow) {
-  if (!el) return;
-  el.classList.toggle("hidden", !shouldShow);
-}
-
-function safeSwitchScreen(name) {
-  if (!name) return;
+function safeBuildFallbackQueries(profile, options = null, flags = {}) {
   try {
-    switchScreen(name);
-    state.currentView = name;
-  } catch (error) {
-    debug.warn("switchScreen failed", error, name);
-  }
-}
-
-async function persistDB() {
-  state.saving = true;
-  ensureStateConsistency();
-  try {
-    await saveDB(state.db);
-    invalidateCaches();
-  } catch (error) {
-    debug.error("saveDB failed", error);
-    throw error;
-  } finally {
-    state.saving = false;
-  }
-}
-
-async function fetchDetailSafe(type, id) {
-  const safeType = normalizeMediaType(type);
-  const safeItemId = safeId(id);
-  if (!safeItemId) return null;
-
-  const cacheKey = `detail:${safeType}:${safeItemId}`;
-  const item = await runSingleFlight(
-    cacheKey,
-    () => withTimeout(tmdbFetchDetail(safeType, safeItemId), CONFIG.REQUEST_TIMEOUT_MS)
-  );
-
-  return normalizeMediaItem(item);
-}
-
-function safeBuildFallbackQueries(profile, seed, options) {
-  try {
-    const result = buildFallbackQueries(profile, seed, options) || {};
-    return {
-      type: result.type || "movie",
-      levels: Array.isArray(result.levels) ? result.levels : [],
-      selectedBoosts: Array.isArray(result.selectedBoosts) ? result.selectedBoosts : []
-    };
+    return buildFallbackQueries(profile, options, flags);
   } catch (error) {
     debug.warn("buildFallbackQueries failed", error);
     return {
-      type: "movie",
+      type: profile?.prefType || "movie",
       levels: [],
       selectedBoosts: []
     };
   }
 }
 
-function runSingleFlight(key, factory) {
+function toggleElement(el, visible) {
+  if (!el) return;
+  el.classList.toggle("hidden", !visible);
+}
+
+function getVisibleScreenName() {
+  const screen = Object.values(SCREENS || {}).find(selector => {
+    const el = document.querySelector(selector);
+    return el && !el.classList.contains("hidden");
+  });
+
+  if (!screen) return "";
+  return Object.keys(SCREENS).find(key => SCREENS[key] === screen) || "";
+}
+
+function safeSwitchScreen(name) {
+  try {
+    switchScreen(name);
+    state.currentView = name;
+  } catch (error) {
+    debug.warn("switchScreen failed", error);
+  }
+}
+
+async function persistDB() {
+  if (state.saving) return;
+
+  state.saving = true;
+
+  const safeDB = createSafeDB(state.db);
+
+  saveDB(safeDB);
+
+  setTimeout(async () => {
+    try {
+      await supabase
+        ?.from("cine_db")
+        ?.upsert({
+          id: "default",
+          payload: safeDB,
+          updated_at: new Date().toISOString()
+        });
+    } catch (error) {
+      debug.warn("Supabase sync failed", error);
+    } finally {
+      state.saving = false;
+    }
+  }, 0);
+}
+
+function debounce(fn, wait = 250) {
+  let timeout = null;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(...args), wait);
+  };
+}
+
+async function withTimeout(promise, ms = 15000) {
+  let timer = null;
+
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("timeout")), ms);
+    })
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+async function runSingleFlight(key, factory) {
+  if (!key || typeof factory !== "function") {
+    return typeof factory === "function" ? factory() : null;
+  }
+
   if (state.pending.requests.has(key)) {
     return state.pending.requests.get(key);
   }
@@ -1791,35 +1589,148 @@ function runSingleFlight(key, factory) {
   return promise;
 }
 
-function withTimeout(promise, ms) {
-  let timeoutId = null;
-
-  return new Promise((resolve, reject) => {
-    timeoutId = window.setTimeout(() => {
-      reject(new Error("timeout"));
-    }, ms);
-
-    Promise.resolve(promise)
-      .then(value => {
-        window.clearTimeout(timeoutId);
-        resolve(value);
-      })
-      .catch(error => {
-        window.clearTimeout(timeoutId);
-        reject(error);
-      });
+function hideComingSoonButton() {
+  document.querySelectorAll("[data-coming-soon]").forEach(el => {
+    el.classList.add("hidden");
   });
 }
 
-function debounce(fn, delay = 250) {
-  let timer = null;
-  return (...args) => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => fn(...args), delay);
-  };
-}
+function bindEvents() {
+  const searchInput = document.getElementById("searchInput");
+  const searchClear = document.getElementById("searchClear");
+  const searchType = document.getElementById("searchType");
 
-function getVisibleScreenName() {
-  const entry = Object.entries(SCREENS || {}).find(([, el]) => el && !el.classList.contains("hidden"));
-  return entry?.[0] || "";
+  searchInput?.addEventListener("input", () => {
+    debouncedSearch();
+  });
+
+  searchClear?.addEventListener("click", () => {
+    searchInput.value = "";
+    state.pending.searchQuery = "";
+    state.searchReqCounter++;
+    doSearch();
+  });
+
+  searchType?.addEventListener("change", e => {
+    state.filters.currentType = e.target.value || "multi";
+    debouncedSearch();
+  });
+
+  document.getElementById("openWatchAll")?.addEventListener("click", () => openLibrary("watch", "all"));
+  document.getElementById("openSeenMovies")?.addEventListener("click", () => openLibrary("seen", "movie"));
+  document.getElementById("openSeenSeries")?.addEventListener("click", () => openLibrary("seen", "series"));
+
+  document.querySelectorAll(".filter-pill[data-filter]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.filters.currentLibraryFilter = btn.dataset.filter || "all";
+      doRenderLibrary();
+    });
+  });
+
+  document.addEventListener("click", e => {
+    const actionBtn = e.target.closest("[data-search-actions]");
+    const actionCard = e.target.closest(".poster-card");
+
+    if (actionBtn && actionCard) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSearchActionMenu(actionCard);
+      return;
+    }
+
+    if (!e.target.closest(".poster-card__actions")) {
+      closeAllSearchActionMenus();
+    }
+
+    const detailTrigger = e.target.closest("[data-open-detail]");
+    if (detailTrigger) {
+      const { type, id } = detailTrigger.dataset;
+      doShowDetails(type, id);
+      return;
+    }
+
+    const seenTrigger = e.target.closest("[data-add-seen]");
+    if (seenTrigger) {
+      const { type, id } = seenTrigger.dataset;
+      doAddSeen(type, id);
+      return;
+    }
+
+    const watchTrigger = e.target.closest("[data-add-watch]");
+    if (watchTrigger) {
+      const { type, id } = watchTrigger.dataset;
+      doAddWatch(type, id);
+      return;
+    }
+
+    const moveSeenTrigger = e.target.closest("[data-move-seen]");
+    if (moveSeenTrigger) {
+      doMoveToSeen(moveSeenTrigger.dataset.moveSeen);
+      return;
+    }
+
+    const removeSeenTrigger = e.target.closest("[data-remove-seen]");
+    if (removeSeenTrigger) {
+      doRemoveSeen(removeSeenTrigger.dataset.removeSeen);
+      return;
+    }
+
+    const removeWatchTrigger = e.target.closest("[data-remove-watch]");
+    if (removeWatchTrigger) {
+      doRemoveWatch(removeWatchTrigger.dataset.removeWatch);
+      return;
+    }
+
+    const genreFilterTrigger = e.target.closest("[data-genre-filter]");
+    if (genreFilterTrigger) {
+      state.filters.currentLibraryGenre = genreFilterTrigger.dataset.genreFilter || "all";
+      doRenderLibrary();
+      return;
+    }
+
+    const backBtn = e.target.closest("[data-go-back]");
+    if (backBtn) {
+      const prev = getPreviousScreen?.() || "home";
+      safeSwitchScreen(prev);
+      return;
+    }
+  });
+
+  document.getElementById("detailSeenBtn")?.addEventListener("click", () => {
+    if (!state.currentDetail) return;
+    doAddSeen(state.currentDetail.media_type, state.currentDetail.id);
+  });
+
+  document.getElementById("detailWatchBtn")?.addEventListener("click", () => {
+    if (!state.currentDetail) return;
+    doAddWatch(state.currentDetail.media_type, state.currentDetail.id);
+  });
+
+  document.getElementById("detailSaveBtn")?.addEventListener("click", () => {
+    doSaveDetailNotes();
+  });
+
+  document.getElementById("detailRemoveBtn")?.addEventListener("click", () => {
+    doRemoveCurrentDetail();
+  });
+
+  document.getElementById("tonightBtn")?.addEventListener("click", () => {
+    recommendTonightFive(false);
+  });
+
+  document.getElementById("discoverBtn")?.addEventListener("click", () => {
+    discoverByTaste();
+  });
+
+  document.getElementById("classicBtn")?.addEventListener("click", () => {
+    suggestClassic();
+  });
+
+  document.getElementById("genreSelect")?.addEventListener("change", () => {
+    discoverByTaste();
+  });
+
+  maybeAutoRecommend().catch(error => {
+    debug.warn("maybeAutoRecommend failed", error);
+  });
 }
