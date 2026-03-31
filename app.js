@@ -1,332 +1,44 @@
 import { supabase } from "./supabase.js";
 import {
-  uniqueKey,
-  normalizedItem,
-  sanitizeVoteInput,
-  parseUserVote,
-  decadeOf,
-  posterUrl,
-  buildDateRange,
-  randomPage,
-  escapeHtml,
-  mediaLabel,
-  rawNumberToFixed
+  uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
+  decadeOf, posterUrl, buildDateRange, randomPage,
+  escapeHtml, mediaLabel, rawNumberToFixed
 } from "./cine-core.js";
 import { loadDB, saveDB, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
 import {
-  showToast,
-  haptic,
-  animateStats,
-  animateBarGroups,
-  initScreens,
-  switchScreen,
-  getPreviousScreen,
-  SCREENS,
-  renderShelf,
-  renderSearchResults,
-  renderLibraryList,
-  renderGenreFilters,
-  renderGenreBars,
-  renderPodium,
-  renderRankingList,
-  renderTonightFive,
-  renderDiscoverResult,
-  renderClassicResult,
-  renderDetailFacts
+  showToast, haptic, animateStats, animateBarGroups,
+  initScreens, switchScreen, getPreviousScreen, SCREENS,
+  renderShelf, renderSearchResults, renderLibraryList,
+  renderGenreFilters, renderGenreBars, renderPodium, renderRankingList,
+  renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts
 } from "./ui.js";
 import {
-  tmdbSearch,
-  tmdbFetchDetail,
-  tmdbFetchDiscoverLevel,
-  buildFallbackQueries
+  tmdbSearch, tmdbFetchDetail, tmdbFetchDiscoverLevel, buildFallbackQueries
 } from "./tmdb.js";
 
-const CONFIG = {
-  TONIGHT_COOLDOWN_MS: 20000,
-  SEARCH_DEBOUNCE_MS: 350,
-  REQUEST_TIMEOUT_MS: 15000,
-  MAX_SUGGEST_HISTORY: 80,
-  MAX_HOME_SHELF_ITEMS: 8,
-  MAX_RANKED_ITEMS: 250,
-  DEBUG: false
-};
+const TONIGHT_COOLDOWN_MS = 20000;
 
-const state = {
-  db: createSafeDB(loadDB()),
-  suggestHistory: createSafeSuggestHistory(loadSuggestHistory()),
-  currentView: "home",
-  items: [],
-  filters: {
-    currentType: "multi",
-    currentLibraryMode: "watch",
-    currentLibraryFilter: "all",
-    currentLibraryGenre: "all"
-  },
-  loading: {
-    search: false,
-    detail: false,
-    tonight: false,
-    discover: false
-  },
-  saving: false,
-  currentDetail: null,
-  lastAutoRecommendAt: 0,
-  tonightReqCounter: 0,
-  searchReqCounter: 0,
-  pending: {
-    searchQuery: "",
-    requests: new Map()
-  },
-  cache: {
-    ranked: new Map(),
-    genreStatsKey: "",
-    genreStats: [],
-    tasteProfileKey: "",
-    tasteProfile: null
-  }
-};
+let db = { seen: [], watchlist: [] };
+let suggestHistory = loadSuggestHistory();
 
-const debug = {
-  enabled: CONFIG.DEBUG,
-  log(...args) {
-    if (!this.enabled) return;
-    console.log("[app]", ...args);
-  },
-  warn(...args) {
-    if (!this.enabled) return;
-    console.warn("[app]", ...args);
-  },
-  error(...args) {
-    if (!this.enabled) return;
-    console.error("[app]", ...args);
-  }
-};
-
-const debouncedSearch = debounce(() => {
-  doSearch();
-}, CONFIG.SEARCH_DEBOUNCE_MS);
-
-init();
-
-function init() {
-  try {
-    ensureStateConsistency();
-    initScreens();
-    hideComingSoonButton();
-    renderAll();
-    bindEvents();
-    state.currentView = getVisibleScreenName() || "home";
-    debug.log("Initialized");
-  } catch (error) {
-    debug.error("Init error", error);
-    showToast("Errore inizializzazione app.", "error", "Errore");
-  }
-}
-
-function createSafeDB(raw) {
-  const source = raw && typeof raw === "object" ? raw : {};
-  return {
-    seen: normalizeList(source.seen),
-    watchlist: normalizeList(source.watchlist)
-  };
-}
-
-function createSafeSuggestHistory(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map(entry => ({
-      key: typeof entry?.key === "string" ? entry.key : "",
-      at: Number.isFinite(Number(entry?.at)) ? Number(entry.at) : 0
-    }))
-    .filter(entry => entry.key && entry.at > 0)
-    .slice(0, CONFIG.MAX_SUGGEST_HISTORY);
-}
-
-function ensureStateConsistency() {
-  state.db = dedupeDB(createSafeDB(state.db));
-  state.suggestHistory = createSafeSuggestHistory(state.suggestHistory);
-  invalidateCaches();
-}
-
-function dedupeDB(db) {
-  const seenMap = new Map();
-  const watchMap = new Map();
-
-  normalizeList(db?.seen).forEach(item => {
-    const key = safeUniqueKey(item);
-    if (!key) return;
-    if (!seenMap.has(key)) seenMap.set(key, normalizeMediaItem(item));
-  });
-
-  normalizeList(db?.watchlist).forEach(item => {
-    const key = safeUniqueKey(item);
-    if (!key || seenMap.has(key)) return;
-    if (!watchMap.has(key)) watchMap.set(key, normalizeMediaItem(item));
-  });
-
-  return {
-    seen: [...seenMap.values()],
-    watchlist: [...watchMap.values()]
-  };
-}
-
-function invalidateCaches() {
-  state.cache.ranked.clear();
-  state.cache.genreStatsKey = "";
-  state.cache.genreStats = [];
-  state.cache.tasteProfileKey = "";
-  state.cache.tasteProfile = null;
-}
-
-function snapshotDBKey() {
-  return JSON.stringify({
-    seen: state.db.seen.map(item => [safeUniqueKey(item), item.vote || "", item.year || "", item.media_type || ""]),
-    watchlist: state.db.watchlist.map(item => safeUniqueKey(item))
-  });
-}
+let currentType = "multi";
+let currentDetail = null;
+let currentLibraryMode = "watch";
+let currentLibraryFilter = "all";
+let currentLibraryGenre = "all";
+let lastAutoRecommendAt = 0;
+let tonightReqCounter = 0;
 
 function backdropUrl(path) {
   return path ? `https://image.tmdb.org/t/p/w1280${path}` : "";
 }
 
-function normalizeList(list) {
-  if (!Array.isArray(list)) return [];
-  return list.map(normalizeMediaItem).filter(Boolean);
-}
-
-function normalizeMediaItem(item) {
-  if (!item || typeof item !== "object") return null;
-
-  let normalized = null;
-  try {
-    normalized = normalizedItem(item);
-  } catch (error) {
-    debug.warn("normalizedItem failed", error, item);
-    normalized = { ...item };
-  }
-
-  if (!normalized || typeof normalized !== "object") return null;
-
-  const title = safeText(normalized.title || normalized.name || item.title || item.name);
-  const year = safeYear(normalized.year || item.year);
-  const mediaType = normalizeMediaType(normalized.media_type || item.media_type);
-  const genreNames = normalizeGenreNames(normalized.genre_names || item.genre_names);
-  const vote = normalizeVoteValue(normalized.vote || item.vote);
-  const comment = safeText(normalized.comment || item.comment);
-  const voteAverage = safeNumber(normalized.vote_average ?? item.vote_average, 0);
-  const voteCount = safeNumber(normalized.vote_count ?? item.vote_count, 0);
-  const posterPath = safePath(normalized.poster_path || item.poster_path);
-  const backdropPath = safePath(normalized.backdrop_path || item.backdrop_path);
-  const overview = safeText(normalized.overview || item.overview);
-  const id = safeId(normalized.id ?? item.id);
-
-  const safe = {
-    ...normalized,
-    id,
-    title,
-    year,
-    media_type: mediaType,
-    genre_names: genreNames,
-    vote,
-    comment,
-    vote_average: voteAverage,
-    vote_count: voteCount,
-    poster_path: posterPath,
-    backdrop_path: backdropPath,
-    overview
-  };
-
-  if (!safe.title || !safe.media_type || !safe.id) return null;
-  return safe;
-}
-
-function normalizeMediaType(value) {
-  if (value === "movie" || value === "tv" || value === "multi") return value;
-  if (value === "series") return "tv";
-  return "movie";
-}
-
-function normalizeGenreNames(genres) {
-  if (!Array.isArray(genres)) return [];
-  return genres
-    .map(g => safeText(g))
-    .filter(Boolean)
-    .filter((value, index, arr) => arr.indexOf(value) === index);
-}
-
-function safeText(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function safePath(value) {
-  return typeof value === "string" && value.trim() ? value.trim() : "";
-}
-
-function safeId(value) {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  if (Number.isFinite(Number(value)) && Number(value) > 0) return String(value);
-  return "";
-}
-
-function safeYear(value) {
-  const text = String(value ?? "").trim();
-  if (!text) return "";
-  const match = text.match(/\b(18|19|20)d{2}\b/);
-  return match ? match[0] : text;
-}
-
-function safeNumber(value, fallback = 0) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : fallback;
-}
-
-function normalizeVoteValue(value) {
-  const cleaned = sanitizeVoteInput(value || "");
-  if (!cleaned) return "";
-  return Number.isFinite(parseUserVote(cleaned)) ? cleaned : "";
-}
-
-function safeUniqueKey(item) {
-  try {
-    if (!item) return "";
-    const key = uniqueKey(item);
-    return typeof key === "string" && key.trim() ? key : "";
-  } catch (error) {
-    debug.warn("uniqueKey failed", error, item);
-    return "";
-  }
-}
-
-function safeMediaLabel(item) {
-  try {
-    return mediaLabel(item);
-  } catch {
-    return item?.media_type === "tv" ? "Serie TV" : "Film";
-  }
-}
-
-function safeRenderDetailFacts(item) {
-  try {
-    return renderDetailFacts(item, inSeen, inWatch);
-  } catch (error) {
-    debug.warn("renderDetailFacts failed", error);
-    const bits = [];
-    if (safeMediaLabel(item)) bits.push(`<span class="detail-fact">${escapeHtml(safeMediaLabel(item))}</span>`);
-    if (item?.year) bits.push(`<span class="detail-fact">${escapeHtml(item.year)}</span>`);
-    return bits.join("");
-  }
-}
-
 function inSeen(item) {
-  const key = safeUniqueKey(normalizeMediaItem(item));
-  if (!key) return null;
-  return state.db.seen.find(x => safeUniqueKey(x) === key) || null;
+  return db.seen.find(x => uniqueKey(x) === uniqueKey(item));
 }
 
 function inWatch(item) {
-  const key = safeUniqueKey(normalizeMediaItem(item));
-  if (!key) return null;
-  return state.db.watchlist.find(x => safeUniqueKey(x) === key) || null;
+  return db.watchlist.find(x => uniqueKey(x) === uniqueKey(item));
 }
 
 function getStoredItem(item) {
@@ -363,31 +75,22 @@ function validateVote(rawVote) {
 }
 
 function decadeScoreLabel(year) {
-  try {
-    return decadeOf(year);
-  } catch {
-    return "";
-  }
+  return decadeOf(year);
 }
 
 function getUserTasteProfile() {
-  const cacheKey = snapshotDBKey();
-  if (state.cache.tasteProfileKey === cacheKey && state.cache.tasteProfile) {
-    return state.cache.tasteProfile;
-  }
-
   const genreCount = {};
   const genreVotes = {};
   const decadeCount = {};
   let movieCount = 0;
   let seriesCount = 0;
 
-  state.db.seen.forEach(item => {
+  db.seen.forEach(item => {
     if (item.media_type === "movie") movieCount++;
-    else if (item.media_type === "tv") seriesCount++;
+    else seriesCount++;
 
     const decade = decadeScoreLabel(item.year);
-    if (decade) decadeCount[decade] = (decadeCount[decade] || 0) + 1;
+    decadeCount[decade] = (decadeCount[decade] || 0) + 1;
 
     const voteNum = parseUserVote(item.vote);
     (item.genre_names || []).forEach(g => {
@@ -417,7 +120,7 @@ function getUserTasteProfile() {
       : 6.8;
   });
 
-  const overallVotes = state.db.seen
+  const overallVotes = db.seen
     .map(x => parseUserVote(x.vote))
     .filter(v => Number.isFinite(v));
 
@@ -425,17 +128,14 @@ function getUserTasteProfile() {
     ? overallVotes.reduce((a, b) => a + b, 0) / overallVotes.length
     : 7;
 
-  const profile = { topGenres, topDecade, prefType, genreAverages, avgVote };
-  state.cache.tasteProfileKey = cacheKey;
-  state.cache.tasteProfile = profile;
-  return profile;
+  return { topGenres, topDecade, prefType, genreAverages, avgVote };
 }
 
 function getHistoryPenalty(key) {
   const now = Date.now();
   let penalty = 0;
 
-  state.suggestHistory.forEach(entry => {
+  suggestHistory.forEach(entry => {
     if (entry.key !== key) return;
     const hoursAgo = (now - entry.at) / (1000 * 60 * 60);
 
@@ -495,7 +195,7 @@ function scoreCandidate(item, profile, selectedBoosts = []) {
 
   score += Math.min(2.5, (item.vote_average || 0) / 4);
   score += Math.min(2, (item.vote_count || 0) / 1200);
-  score -= getHistoryPenalty(safeUniqueKey(item));
+  score -= getHistoryPenalty(uniqueKey(item));
 
   return score;
 }
@@ -520,8 +220,8 @@ function pickDiverse(ranked, count = 5) {
   for (const entry of ranked) {
     if (selected.length >= count) break;
 
-    const key = safeUniqueKey(entry.item);
-    if (!key || usedKeys.has(key)) continue;
+    const key = uniqueKey(entry.item);
+    if (usedKeys.has(key)) continue;
 
     const primaryGenre = (entry.item.genre_names && entry.item.genre_names[0]) || "Altro";
     const usage = usedGenres.get(primaryGenre) || 0;
@@ -536,8 +236,8 @@ function pickDiverse(ranked, count = 5) {
   if (selected.length < count) {
     for (const entry of ranked) {
       if (selected.length >= count) break;
-      const key = safeUniqueKey(entry.item);
-      if (!key || usedKeys.has(key)) continue;
+      const key = uniqueKey(entry.item);
+      if (usedKeys.has(key)) continue;
       selected.push(entry);
       usedKeys.add(key);
     }
@@ -548,17 +248,12 @@ function pickDiverse(ranked, count = 5) {
 
 function registerSuggested(items) {
   const now = Date.now();
-  const next = [
-    ...normalizeList(items).map(item => ({ key: safeUniqueKey(item), at: now })).filter(x => x.key),
-    ...state.suggestHistory
-  ].slice(0, CONFIG.MAX_SUGGEST_HISTORY);
+  suggestHistory = [
+    ...items.map(item => ({ key: uniqueKey(item), at: now })),
+    ...suggestHistory
+  ].slice(0, 80);
 
-  state.suggestHistory = next;
-  try {
-    saveSuggestHistory(state.suggestHistory);
-  } catch (error) {
-    debug.warn("saveSuggestHistory failed", error);
-  }
+  saveSuggestHistory(suggestHistory);
 }
 
 function toggleHidden(id, shouldHide) {
@@ -568,17 +263,17 @@ function toggleHidden(id, shouldHide) {
 }
 
 function renderHomeShelves() {
-  const watchPrev = state.db.watchlist.slice(0, CONFIG.MAX_HOME_SHELF_ITEMS);
-  const seenMovies = state.db.seen.filter(x => x.media_type === "movie").slice(0, CONFIG.MAX_HOME_SHELF_ITEMS);
-  const seenSeries = state.db.seen.filter(x => x.media_type === "tv").slice(0, CONFIG.MAX_HOME_SHELF_ITEMS);
+  const watchPrev = db.watchlist.slice(0, 8);
+  const seenMovies = db.seen.filter(x => x.media_type === "movie").slice(0, 8);
+  const seenSeries = db.seen.filter(x => x.media_type === "tv").slice(0, 8);
 
   toggleHidden("watchShelfEmpty", watchPrev.length > 0);
   toggleHidden("seenMovieShelfEmpty", seenMovies.length > 0);
   toggleHidden("seenSeriesShelfEmpty", seenSeries.length > 0);
 
-  toggleHidden("openWatchAll", state.db.watchlist.length === 0);
-  toggleHidden("openSeenMovies", state.db.seen.filter(x => x.media_type === "movie").length === 0);
-  toggleHidden("openSeenSeries", state.db.seen.filter(x => x.media_type === "tv").length === 0);
+  toggleHidden("openWatchAll", db.watchlist.length === 0);
+  toggleHidden("openSeenMovies", db.seen.filter(x => x.media_type === "movie").length === 0);
+  toggleHidden("openSeenSeries", db.seen.filter(x => x.media_type === "tv").length === 0);
 
   renderShelf("watchShelf", watchPrev);
   renderShelf("seenMovieShelf", seenMovies);
@@ -586,11 +281,11 @@ function renderHomeShelves() {
 }
 
 function getAvailableGenres() {
-  const source = state.filters.currentLibraryMode === "watch" ? state.db.watchlist : state.db.seen;
+  const source = currentLibraryMode === "watch" ? db.watchlist : db.seen;
 
   let filtered = source;
-  if (state.filters.currentLibraryFilter === "movie") filtered = source.filter(x => x.media_type === "movie");
-  if (state.filters.currentLibraryFilter === "series") filtered = source.filter(x => x.media_type === "tv");
+  if (currentLibraryFilter === "movie") filtered = source.filter(x => x.media_type === "movie");
+  if (currentLibraryFilter === "series") filtered = source.filter(x => x.media_type === "tv");
 
   const set = new Set();
   filtered.forEach(item => {
@@ -603,38 +298,34 @@ function getAvailableGenres() {
 }
 
 function doRenderLibrary() {
-  const source = state.filters.currentLibraryMode === "watch" ? state.db.watchlist : state.db.seen;
+  const source = currentLibraryMode === "watch" ? db.watchlist : db.seen;
   const genres = getAvailableGenres();
 
-  if (state.filters.currentLibraryGenre !== "all" && !genres.includes(state.filters.currentLibraryGenre)) {
-    state.filters.currentLibraryGenre = "all";
+  if (currentLibraryGenre !== "all" && !genres.includes(currentLibraryGenre)) {
+    currentLibraryGenre = "all";
   }
 
-  renderGenreFilters(genres, state.filters.currentLibraryGenre);
+  renderGenreFilters(genres, currentLibraryGenre);
 
   let items = source;
-  if (state.filters.currentLibraryFilter === "movie") items = items.filter(x => x.media_type === "movie");
-  if (state.filters.currentLibraryFilter === "series") items = items.filter(x => x.media_type === "tv");
-  if (state.filters.currentLibraryGenre !== "all") {
-    items = items.filter(x => (x.genre_names || []).includes(state.filters.currentLibraryGenre));
-  }
-
-  state.items = items;
+  if (currentLibraryFilter === "movie") items = items.filter(x => x.media_type === "movie");
+  if (currentLibraryFilter === "series") items = items.filter(x => x.media_type === "tv");
+  if (currentLibraryGenre !== "all") items = items.filter(x => (x.genre_names || []).includes(currentLibraryGenre));
 
   let baseTitle = "Archivio visti";
-  if (state.filters.currentLibraryMode === "watch") baseTitle = "Watchlist";
-  else if (state.filters.currentLibraryFilter === "movie") baseTitle = "Film visti";
-  else if (state.filters.currentLibraryFilter === "series") baseTitle = "Serie TV viste";
+  if (currentLibraryMode === "watch") baseTitle = "Watchlist";
+  else if (currentLibraryFilter === "movie") baseTitle = "Film visti";
+  else if (currentLibraryFilter === "series") baseTitle = "Serie TV viste";
 
   const libraryTitle = document.getElementById("libraryTitle");
   if (libraryTitle) {
-    libraryTitle.textContent = state.filters.currentLibraryGenre === "all"
+    libraryTitle.textContent = currentLibraryGenre === "all"
       ? baseTitle
-      : `${baseTitle} · ${state.filters.currentLibraryGenre}`;
+      : `${baseTitle} · ${currentLibraryGenre}`;
   }
 
   document.querySelectorAll(".filter-pill[data-filter]").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.filter === state.filters.currentLibraryFilter);
+    btn.classList.toggle("active", btn.dataset.filter === currentLibraryFilter);
   });
 
   const listEl = document.getElementById("libraryList");
@@ -644,33 +335,30 @@ function doRenderLibrary() {
   if (!items.length) {
     listEl.innerHTML = "";
     emptyEl.classList.remove("hidden");
-    emptyEl.textContent = state.filters.currentLibraryMode === "watch"
-      ? (state.filters.currentLibraryGenre === "all"
+    emptyEl.textContent = currentLibraryMode === "watch"
+      ? (currentLibraryGenre === "all"
         ? "La tua watchlist è vuota."
-        : `Nessun titolo in watchlist per "${state.filters.currentLibraryGenre}".`)
-      : (state.filters.currentLibraryGenre === "all"
+        : `Nessun titolo in watchlist per "${currentLibraryGenre}".`)
+      : (currentLibraryGenre === "all"
         ? "Nessun titolo per questo filtro."
-        : `Nessun titolo visto per "${state.filters.currentLibraryGenre}".`);
+        : `Nessun titolo visto per "${currentLibraryGenre}".`);
     return;
   }
 
   emptyEl.classList.add("hidden");
-  listEl.innerHTML = renderLibraryList(items, state.filters.currentLibraryMode);
+  listEl.innerHTML = renderLibraryList(items, currentLibraryMode);
 }
 
 function openLibrary(mode, filter = "all") {
-  state.filters.currentLibraryMode = mode;
-  state.filters.currentLibraryFilter = filter;
-  state.filters.currentLibraryGenre = "all";
+  currentLibraryMode = mode;
+  currentLibraryFilter = filter;
+  currentLibraryGenre = "all";
   doRenderLibrary();
-  safeSwitchScreen("library");
+  switchScreen("library");
 }
 
 function getRanked(type) {
-  const cacheKey = `${type}:${snapshotDBKey()}`;
-  if (state.cache.ranked.has(cacheKey)) return state.cache.ranked.get(cacheKey);
-
-  const ranked = state.db.seen
+  return db.seen
     .filter(x => x.media_type === type && Number.isFinite(parseUserVote(x.vote)))
     .sort((a, b) => {
       const voteDiff = parseUserVote(b.vote) - parseUserVote(a.vote);
@@ -681,21 +369,20 @@ function getRanked(type) {
 
       return (a.title || "").localeCompare(b.title || "", "it");
     })
-    .slice(0, CONFIG.MAX_RANKED_ITEMS);
-
-  state.cache.ranked.set(cacheKey, ranked);
-  return ranked;
+    .slice(0, 250);
 }
 
 function resetRanking() {
   const empty = `<p class="empty-hint">Aggiungi voti per vedere la classifica.</p>`;
 
-  ["top100Podium", "top100List", "top100SeriesPodium", "top100SeriesList"].forEach(id => {
+  const ids = ["top100Podium", "top100List", "top100SeriesPodium", "top100SeriesList"];
+  ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = empty;
   });
 
-  ["top100CountBadge", "top100SeriesCountBadge"].forEach(id => {
+  const badges = ["top100CountBadge", "top100SeriesCountBadge"];
+  badges.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = "0";
   });
@@ -717,12 +404,22 @@ function renderRanking() {
   renderRankingList(document.getElementById("top100SeriesList"), series.slice(3), 4, "Serie TV");
 }
 
-function getTopGenresForStats() {
-  const cacheKey = snapshotDBKey();
-  if (state.cache.genreStatsKey === cacheKey) return state.cache.genreStats;
+function renderStats() {
+  const seen = db.seen.length;
+  const watch = db.watchlist.length;
+  const movies = db.seen.filter(x => x.media_type === "movie").length;
+  const series = db.seen.filter(x => x.media_type === "tv").length;
+
+  animateStats(seen, watch, movies, series);
+
+  if (db.seen.length < 3) {
+    renderGenreBars([]);
+    resetRanking();
+    return;
+  }
 
   const genreCount = {};
-  state.db.seen.forEach(item => {
+  db.seen.forEach(item => {
     (item.genre_names || []).forEach(g => {
       genreCount[g] = (genreCount[g] || 0) + 1;
     });
@@ -733,26 +430,7 @@ function getTopGenresForStats() {
     .slice(0, 5)
     .map(([label, value]) => ({ label, value }));
 
-  state.cache.genreStatsKey = cacheKey;
-  state.cache.genreStats = topGenres;
-  return topGenres;
-}
-
-function renderStats() {
-  const seen = state.db.seen.length;
-  const watch = state.db.watchlist.length;
-  const movies = state.db.seen.filter(x => x.media_type === "movie").length;
-  const series = state.db.seen.filter(x => x.media_type === "tv").length;
-
-  animateStats(seen, watch, movies, series);
-
-  if (state.db.seen.length < 3) {
-    renderGenreBars([]);
-    resetRanking();
-    return;
-  }
-
-  renderGenreBars(getTopGenresForStats());
+  renderGenreBars(topGenres);
   renderRanking();
 }
 
@@ -773,10 +451,8 @@ async function doSearch() {
   if (!input || !sec || !res || !empty || !count) return;
 
   const q = input.value.trim();
-  state.pending.searchQuery = q;
 
   if (!q) {
-    state.loading.search = false;
     sec.classList.add("hidden");
     res.innerHTML = "";
     count.textContent = "";
@@ -785,8 +461,6 @@ async function doSearch() {
     return;
   }
 
-  const reqId = ++state.searchReqCounter;
-  state.loading.search = true;
   sec.classList.remove("hidden");
   res.innerHTML = "";
   count.textContent = "";
@@ -795,17 +469,9 @@ async function doSearch() {
   closeAllSearchActionMenus();
 
   try {
-    const items = await runSingleFlight(
-      `search:${state.filters.currentType}:${q}`,
-      () => withTimeout(tmdbSearch(q, state.filters.currentType), CONFIG.REQUEST_TIMEOUT_MS)
-    );
+    const items = await tmdbSearch(q, currentType);
 
-    if (reqId !== state.searchReqCounter || state.pending.searchQuery !== q) return;
-
-    const safeItems = normalizeList(items);
-    state.items = safeItems;
-
-    if (!safeItems.length) {
+    if (!items.length) {
       empty.textContent = "Nessun risultato trovato.";
       empty.classList.remove("hidden");
       showToast("Nessun risultato trovato.", "info", "Ricerca");
@@ -813,18 +479,13 @@ async function doSearch() {
     }
 
     empty.classList.add("hidden");
-    count.textContent = `${safeItems.length} risultati`;
-    res.innerHTML = renderSearchResults(safeItems, state.db);
-  } catch (error) {
-    if (reqId !== state.searchReqCounter) return;
-    debug.error("Search error", error);
+    count.textContent = `${items.length} risultati`;
+    res.innerHTML = renderSearchResults(items, db);
+  } catch (e) {
+    console.error(e);
     empty.textContent = "Errore di ricerca. Controlla la connessione.";
     empty.classList.remove("hidden");
     showToast("Errore di ricerca.", "error", "Ricerca");
-  } finally {
-    if (reqId === state.searchReqCounter) {
-      state.loading.search = false;
-    }
   }
 }
 
@@ -834,10 +495,8 @@ function openDetail(item) {
 
     closeAllSearchActionMenus();
 
-    const safeItem = normalizeMediaItem(item);
-    if (!safeItem) return;
-
-    state.currentDetail = safeItem;
+    const safeItem = normalizedItem(item);
+    currentDetail = safeItem;
 
     const stored = getStoredItem(safeItem);
     const src = stored || safeItem;
@@ -858,167 +517,115 @@ function openDetail(item) {
     const poster = posterUrl(src.poster_path || "");
     const backdrop = src.backdrop_path ? backdropUrl(src.backdrop_path) : poster;
 
-    if (detailBackdrop) {
-      detailBackdrop.style.backgroundImage = backdrop ? `url('${backdrop}')` : "";
-    }
+    if (detailBackdrop) detailBackdrop.style.backgroundImage = backdrop ? `url('${backdrop}')` : "";
+    if (detailPoster) detailPoster.style.backgroundImage = poster ? `url('${poster}')` : "";
 
-    if (detailPoster) {
-      detailPoster.style.backgroundImage = poster ? `url('${poster}')` : "";
-    }
-
-    if (detailTitle) detailTitle.textContent = src.title || "";
-    if (detailYear) {
-      detailYear.textContent = src.year || "";
-      toggleElement(detailYear, !!src.year);
-    }
-    if (detailType) {
-      const typeLabel = safeMediaLabel(src);
-      detailType.textContent = typeLabel || "";
-      toggleElement(detailType, !!typeLabel);
-    }
-    if (detailOverview) {
-      detailOverview.textContent = src.overview || "";
-      toggleElement(detailOverview, !!src.overview);
-    }
+    if (detailTitle) detailTitle.textContent = src.title || "Titolo";
+    if (detailYear) detailYear.textContent = src.year || "—";
+    if (detailType) detailType.textContent = mediaLabel(src);
+    if (detailOverview) detailOverview.textContent = src.overview || "Nessuna trama disponibile.";
 
     if (detailFacts) {
-      const factsHtml = safeRenderDetailFacts(src);
-      detailFacts.innerHTML = factsHtml || "";
-      toggleElement(detailFacts, !!factsHtml);
+      try {
+        detailFacts.innerHTML = renderDetailFacts(src, inSeen, inWatch);
+      } catch (err) {
+        console.error("Errore facts detail:", err);
+        detailFacts.innerHTML = `
+          <span class="detail-fact">${escapeHtml(mediaLabel(src))}</span>
+          <span class="detail-fact">${escapeHtml(src.year || "—")}</span>
+        `;
+      }
     }
 
     if (detailGenres) {
-      const genreChips = (src.genre_names || []).slice(0, 4)
+      detailGenres.innerHTML = (src.genre_names || []).slice(0, 4)
         .map(g => `<span class="chip">${escapeHtml(g)}</span>`)
         .join("");
-      detailGenres.innerHTML = genreChips;
-      toggleElement(detailGenres, !!genreChips);
     }
 
     if (detailVoteInput) detailVoteInput.value = src.vote || "";
     if (detailCommentInput) detailCommentInput.value = src.comment || "";
 
-    if (detailSeenBtn) {
-      detailSeenBtn.textContent = inSeen(src) ? "✓ Già tra i visti" : "Segna come visto";
-    }
+    if (detailSeenBtn) detailSeenBtn.textContent = inSeen(src) ? "✓ Già tra i visti" : "Segna come visto";
+    if (detailWatchBtn) detailWatchBtn.textContent = inWatch(src) ? "★ Già in watchlist" : "Aggiungi a watchlist";
 
-    if (detailWatchBtn) {
-      detailWatchBtn.textContent = inWatch(src) ? "★ Già in watchlist" : "Aggiungi a watchlist";
-    }
-
-    safeSwitchScreen("detail");
-  } catch (error) {
-    debug.error("Errore openDetail", error);
+    switchScreen("detail");
+  } catch (e) {
+    console.error("Errore openDetail:", e);
     showToast("Errore apertura scheda.", "error", "Errore");
   }
 }
 
 async function doShowDetails(type, id) {
   closeAllSearchActionMenus();
-  try {
-    state.loading.detail = true;
-    const item = await fetchDetailSafe(type, id);
-    if (!item) throw new Error("detail-not-found");
-    openDetail(item);
-  } catch (error) {
-    debug.error("doShowDetails error", error);
-    showToast("Errore apertura scheda.", "error", "Errore");
-  } finally {
-    state.loading.detail = false;
-  }
+  const item = await tmdbFetchDetail(type, id);
+  openDetail(item);
 }
 
 async function doAddSeen(type, id) {
   closeAllSearchActionMenus();
 
-  try {
-    const item = await fetchDetailSafe(type, id);
-    if (!item) throw new Error("item-not-found");
+  const item = await tmdbFetchDetail(type, id);
 
-    if (inSeen(item)) {
-      openDetail(item);
-      return;
-    }
-
-    state.db.seen.unshift(item);
-    state.db.watchlist = state.db.watchlist.filter(x => safeUniqueKey(x) !== safeUniqueKey(item));
-
-    ensureStateConsistency();
-    renderAll();
+  if (inSeen(item)) {
     openDetail(item);
-    persistDB().catch(() => {
-      showToast("Errore salvataggio", "error");
-    });
-
-    showToast(`"${item.title}" aggiunto ai visti.`, "success", "Salvato");
-    haptic([12, 20, 12]);
-  } catch (error) {
-    debug.error("doAddSeen error", error);
-    showToast("Errore salvataggio.", "error", "Errore");
+    return;
   }
+
+  db.seen.unshift(item);
+  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
+
+  await saveDB(db);
+  renderAll();
+  openDetail(item);
+
+  showToast(`"${item.title}" aggiunto ai visti.`, "success", "Salvato");
+  haptic([12, 20, 12]);
 }
 
 async function doAddWatch(type, id) {
   closeAllSearchActionMenus();
 
-  try {
-    const item = await fetchDetailSafe(type, id);
-    if (!item) throw new Error("item-not-found");
+  const item = await tmdbFetchDetail(type, id);
 
-    if (!inSeen(item) && !inWatch(item)) {
-      state.db.watchlist.unshift(item);
-      ensureStateConsistency();
-      renderAll();
-      persistDB().catch(() => {
-        showToast("Errore salvataggio", "error");
-      });
-      showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
-      haptic([10]);
-    }
-
-    openDetail(item);
-  } catch (error) {
-    debug.error("doAddWatch error", error);
-    showToast("Errore aggiornamento watchlist.", "error", "Errore");
+  if (!inSeen(item) && !inWatch(item)) {
+    db.watchlist.unshift(item);
+    await saveDB(db);
+    renderAll();
+    showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
+    haptic([10]);
   }
+
+  openDetail(item);
 }
 
 async function doMoveToSeen(key) {
-  const item = state.db.watchlist.find(x => safeUniqueKey(x) === key);
+  const item = db.watchlist.find(x => uniqueKey(x) === key);
   if (!item) return;
 
-  state.db.watchlist = state.db.watchlist.filter(x => safeUniqueKey(x) !== key);
+  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
-  if (!state.db.seen.find(x => safeUniqueKey(x) === key)) {
-    const movedItem = normalizeMediaItem({
-      ...item,
-      savedAt: new Date().toISOString()
-    });
-    if (movedItem) state.db.seen.unshift(movedItem);
+  if (!db.seen.find(x => uniqueKey(x) === key)) {
+    item.savedAt = new Date().toISOString();
+    db.seen.unshift(item);
   }
 
-  ensureStateConsistency();
+  await saveDB(db);
   renderAll();
-  persistDB().catch(() => {
-    showToast("Errore salvataggio", "error");
-  });
 
   showToast(`"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
   haptic([12, 20, 12]);
 }
 
 async function doRemoveSeen(key) {
-  const item = state.db.seen.find(x => safeUniqueKey(x) === key);
-  state.db.seen = state.db.seen.filter(x => safeUniqueKey(x) !== key);
+  const item = db.seen.find(x => uniqueKey(x) === key);
+  db.seen = db.seen.filter(x => uniqueKey(x) !== key);
 
-  ensureStateConsistency();
+  await saveDB(db);
   renderAll();
-  persistDB().catch(() => {
-    showToast("Errore salvataggio", "error");
-  });
 
-  if (state.currentDetail && safeUniqueKey(state.currentDetail) === key) {
-    safeSwitchScreen("home");
+  if (currentDetail && uniqueKey(currentDetail) === key) {
+    switchScreen("home");
   }
 
   if (item) {
@@ -1028,17 +635,14 @@ async function doRemoveSeen(key) {
 }
 
 async function doRemoveWatch(key) {
-  const item = state.db.watchlist.find(x => safeUniqueKey(x) === key);
-  state.db.watchlist = state.db.watchlist.filter(x => safeUniqueKey(x) !== key);
+  const item = db.watchlist.find(x => uniqueKey(x) === key);
+  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
-  ensureStateConsistency();
+  await saveDB(db);
   renderAll();
-  persistDB().catch(() => {
-    showToast("Errore salvataggio", "error");
-  });
 
-  if (state.currentDetail && safeUniqueKey(state.currentDetail) === key) {
-    safeSwitchScreen("home");
+  if (currentDetail && uniqueKey(currentDetail) === key) {
+    switchScreen("home");
   }
 
   if (item) {
@@ -1048,7 +652,7 @@ async function doRemoveWatch(key) {
 }
 
 async function doSaveDetailNotes() {
-  if (!state.currentDetail) return;
+  if (!currentDetail) return;
 
   const voteInput = document.getElementById("detailVoteInput");
   const commentInput = document.getElementById("detailCommentInput");
@@ -1057,47 +661,40 @@ async function doSaveDetailNotes() {
   const check = validateVote(voteInput.value);
   if (!check.ok) return;
 
-  const key = safeUniqueKey(state.currentDetail);
+  const key = uniqueKey(currentDetail);
   const vote = check.value;
   const comment = commentInput.value.trim();
 
-  let target = state.db.seen.find(x => safeUniqueKey(x) === key) || state.db.watchlist.find(x => safeUniqueKey(x) === key);
+  let target = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
 
   if (!target) {
-    target = normalizeMediaItem({ ...state.currentDetail });
-    if (!target) return;
-    state.db.watchlist.unshift(target);
+    target = { ...currentDetail };
+    db.watchlist.unshift(target);
   }
 
   target.vote = vote;
   target.comment = comment;
 
-  ensureStateConsistency();
+  await saveDB(db);
   renderAll();
   openDetail(target);
-  persistDB().catch(() => {
-    showToast("Errore salvataggio", "error");
-  });
 
   showToast("Voto e commento salvati.", "success", "Aggiornato");
   haptic([12, 20, 12]);
 }
 
 async function doRemoveCurrentDetail() {
-  if (!state.currentDetail) return;
+  if (!currentDetail) return;
 
-  const key = safeUniqueKey(state.currentDetail);
-  const title = state.currentDetail.title;
+  const key = uniqueKey(currentDetail);
+  const title = currentDetail.title;
 
-  state.db.seen = state.db.seen.filter(x => safeUniqueKey(x) !== key);
-  state.db.watchlist = state.db.watchlist.filter(x => safeUniqueKey(x) !== key);
+  db.seen = db.seen.filter(x => uniqueKey(x) !== key);
+  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
-  ensureStateConsistency();
+  await saveDB(db);
   renderAll();
-  safeSwitchScreen("home");
-  persistDB().catch(() => {
-    showToast("Errore salvataggio", "error");
-  });
+  switchScreen("home");
 
   showToast(`"${title}" rimosso dalla libreria.`, "info", "Rimosso");
   haptic([14]);
@@ -1105,78 +702,57 @@ async function doRemoveCurrentDetail() {
 
 function getSelectedGenre() {
   const el = document.getElementById("genreSelect");
-  return el?.value || "all";
+  return el ? el.value : "all";
 }
 
 async function recommendTonightFive(isAuto = false) {
   const el = document.getElementById("tonightSuggestion");
-  if (!el || state.loading.tonight) return;
+  if (!el) return;
 
-  const reqId = ++state.tonightReqCounter;
+  const reqId = ++tonightReqCounter;
 
-  if (state.db.seen.length < 3) {
+  if (db.seen.length < 3) {
     el.innerHTML = `<p class="tonight__hint">Aggiungi almeno 3 titoli visti per i consigli personalizzati.</p>`;
     if (!isAuto) showToast("Aggiungi almeno 3 titoli visti.", "info", "Consigli");
     return;
   }
 
-  state.loading.tonight = true;
   el.innerHTML = `<p class="tonight__hint">🔍 Sto cercando 5 titoli adatti…</p>`;
 
   const profile = getUserTasteProfile();
-  const queryConfig = safeBuildFallbackQueries(profile, null, {
-    useSelectedGenre: false,
-    selectedGenre: "all"
-  });
-  const type = queryConfig.type;
-  const levels = queryConfig.levels;
-  const excludedKeys = new Set([...state.db.seen, ...state.db.watchlist].map(safeUniqueKey).filter(Boolean));
+  const { type, levels } = buildFallbackQueries(profile, null, { useSelectedGenre: false, selectedGenre: "all" });
+  const excludedKeys = new Set([...db.seen, ...db.watchlist].map(uniqueKey));
 
   try {
     let candidates = [];
     let levelLabel = "";
 
     for (const level of levels) {
-      const urls = Array.isArray(level?.urls) ? level.urls : [];
-      if (!urls.length) continue;
-
-      const found = normalizeList(
-        await withTimeout(
-          tmdbFetchDiscoverLevel(urls, type, excludedKeys),
-          CONFIG.REQUEST_TIMEOUT_MS
-        )
-      );
-
+      const found = await tmdbFetchDiscoverLevel(level.urls, type, excludedKeys);
       candidates = [...candidates, ...found];
 
       const dedup = new Map();
-      candidates.forEach(item => {
-        const key = safeUniqueKey(item);
-        if (key && !excludedKeys.has(key)) dedup.set(key, item);
-      });
+      candidates.forEach(item => dedup.set(uniqueKey(item), item));
       candidates = [...dedup.values()];
 
       if (candidates.length >= 5) {
-        levelLabel = level?.label || "";
+        levelLabel = level.label;
         break;
       }
     }
 
-    if (reqId !== state.tonightReqCounter) return;
+    if (reqId !== tonightReqCounter) return;
 
     if (!candidates.length) {
       el.innerHTML = `<p class="tonight__hint">Nessun consiglio trovato. Riprova più tardi.</p>`;
       return;
     }
 
-    const ranked = candidates
-      .map(item => {
-        const affinity = calculateAffinity(item, profile);
-        const rankScore = scoreCandidate(item, profile) + affinity / 20 + Math.random() * 1.1;
-        return { item, affinity, rankScore };
-      })
-      .sort((a, b) => b.rankScore - a.rankScore)
-      .slice(0, 18);
+    const ranked = candidates.map(item => {
+      const affinity = calculateAffinity(item, profile);
+      const rankScore = scoreCandidate(item, profile) + affinity / 20 + Math.random() * 1.1;
+      return { item, affinity, rankScore };
+    }).sort((a, b) => b.rankScore - a.rankScore).slice(0, 18);
 
     const finalFive = pickDiverse(ranked, 5).sort((a, b) => b.affinity - a.affinity);
 
@@ -1193,73 +769,57 @@ async function recommendTonightFive(isAuto = false) {
       reasons: buildReason(entry.item, profile, entry.affinity)
     }));
 
-    const note = levelLabel && levelLabel !== "ricerca precisa"
+    const note = (levelLabel && levelLabel !== "ricerca precisa")
       ? "Ho allargato un po' la ricerca per trovare 5 proposte."
       : "";
 
     el.innerHTML = renderTonightFive(enriched, null, note);
 
     if (!isAuto) haptic([10]);
-    if (isAuto) state.lastAutoRecommendAt = Date.now();
-  } catch (error) {
-    debug.error("recommendTonightFive error", error);
-    if (reqId !== state.tonightReqCounter) return;
+    if (isAuto) lastAutoRecommendAt = Date.now();
+  } catch (e) {
+    console.error(e);
+    if (reqId !== tonightReqCounter) return;
     el.innerHTML = `<p class="tonight__hint">Errore di ricerca. Controlla la connessione.</p>`;
     showToast("Errore nella ricerca dei consigli.", "error", "Consigli");
-  } finally {
-    if (reqId === state.tonightReqCounter) {
-      state.loading.tonight = false;
-    }
   }
 }
 
 async function maybeAutoRecommend() {
-  if (Date.now() - state.lastAutoRecommendAt < CONFIG.TONIGHT_COOLDOWN_MS) return;
+  if (Date.now() - lastAutoRecommendAt < TONIGHT_COOLDOWN_MS) return;
   await recommendTonightFive(true);
 }
 
 async function discoverByTaste() {
   const el = document.getElementById("tonightSuggestion");
-  if (!el || state.loading.discover) return;
+  if (!el) return;
 
-  if (state.db.seen.length < 3) {
+  if (db.seen.length < 3) {
     el.innerHTML = `<p class="tonight__hint">Aggiungi almeno 3 titoli visti per i consigli personalizzati.</p>`;
     showToast("Aggiungi almeno 3 titoli visti.", "info", "Scopri");
     return;
   }
 
-  state.loading.discover = true;
   el.innerHTML = `<p class="tonight__hint">🔍 Sto cercando qualcosa di nuovo…</p>`;
 
   const profile = getUserTasteProfile();
   const selectedGenre = getSelectedGenre();
-  const queryConfig = safeBuildFallbackQueries(profile, null, {
+  const { type, levels, selectedBoosts } = buildFallbackQueries(profile, null, {
     useSelectedGenre: selectedGenre !== "all",
     selectedGenre
   });
-  const type = queryConfig.type;
-  const levels = queryConfig.levels;
-  const selectedBoosts = queryConfig.selectedBoosts;
-  const excludedKeys = new Set([...state.db.seen, ...state.db.watchlist].map(safeUniqueKey).filter(Boolean));
+
+  const excludedKeys = new Set([...db.seen, ...db.watchlist].map(uniqueKey));
 
   try {
     let candidates = [];
     let levelLabel = "";
 
     for (const level of levels) {
-      const urls = Array.isArray(level?.urls) ? level.urls : [];
-      if (!urls.length) continue;
-
-      const found = normalizeList(
-        await withTimeout(
-          tmdbFetchDiscoverLevel(urls, type, excludedKeys),
-          CONFIG.REQUEST_TIMEOUT_MS
-        )
-      );
-
+      const found = await tmdbFetchDiscoverLevel(level.urls, type, excludedKeys);
       if (found.length > 0) {
         candidates = found;
-        levelLabel = level?.label || "";
+        levelLabel = level.label;
         break;
       }
     }
@@ -1277,12 +837,7 @@ async function discoverByTaste() {
       .sort((a, b) => b.score - a.score);
 
     const topPool = scored.slice(0, Math.min(12, scored.length));
-    const chosen = topPool[Math.floor(Math.random() * topPool.length)]?.item;
-
-    if (!chosen) {
-      el.innerHTML = `<p class="tonight__hint">Nessun risultato. Riprova più tardi.</p>`;
-      return;
-    }
+    const chosen = topPool[Math.floor(Math.random() * topPool.length)].item;
 
     registerSuggested([chosen]);
 
@@ -1300,12 +855,10 @@ async function discoverByTaste() {
 
     el.innerHTML = renderDiscoverResult(chosen, whyBits, rating, fallbackNote);
     haptic([10]);
-  } catch (error) {
-    debug.error("discoverByTaste error", error);
+  } catch (e) {
+    console.error(e);
     el.innerHTML = `<p class="tonight__hint">Errore di ricerca. Controlla la connessione.</p>`;
     showToast("Errore nella ricerca.", "error", "Scopri");
-  } finally {
-    state.loading.discover = false;
   }
 }
 
@@ -1313,7 +866,7 @@ function suggestClassic() {
   const el = document.getElementById("tonightSuggestion");
   if (!el) return;
 
-  const pool = state.db.seen.filter(x => Number.isFinite(parseUserVote(x.vote)) && parseUserVote(x.vote) >= 7);
+  const pool = db.seen.filter(x => Number.isFinite(parseUserVote(x.vote)) && parseUserVote(x.vote) >= 7);
 
   if (!pool.length) {
     el.innerHTML = `<p class="tonight__hint">Nessun titolo con voto ≥ 7. Inizia a votare i tuoi preferiti.</p>`;
@@ -1336,31 +889,23 @@ function suggestClassic() {
 }
 
 function exportBackup() {
-  try {
-    const blob = new Blob([JSON.stringify(state.db, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "cineTracker-backup.json";
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "cineTracker-backup.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
 
-    showToast("Backup esportato.", "success", "Backup");
-    haptic([12, 20, 12]);
-  } catch (error) {
-    debug.error("exportBackup error", error);
-    showToast("Errore esportazione backup.", "error", "Backup");
-  }
+  showToast("Backup esportato.", "success", "Backup");
+  haptic([12, 20, 12]);
 }
 
 function importBackup(file) {
-  if (!file) return;
-
   const reader = new FileReader();
 
   reader.onload = async (e) => {
     try {
-      const rawText = typeof e?.target?.result === "string" ? e.target.result : "";
-      const imported = JSON.parse(rawText);
+      const imported = JSON.parse(e.target.result);
 
       if (!imported || !Array.isArray(imported.seen) || !Array.isArray(imported.watchlist)) {
         showToast("File backup non valido.", "error", "Backup");
@@ -1369,28 +914,21 @@ function importBackup(file) {
 
       if (!confirm("Sostituire i dati attuali con quelli del backup?")) return;
 
-      state.db = dedupeDB({
-        seen: imported.seen.map(normalizeMediaItem).filter(Boolean),
-        watchlist: imported.watchlist.map(normalizeMediaItem).filter(Boolean)
-      });
+      db = {
+        seen: imported.seen.map(normalizedItem),
+        watchlist: imported.watchlist.map(normalizedItem)
+      };
 
-      ensureStateConsistency();
+      await saveDB(db);
       renderAll();
-      safeSwitchScreen("home");
-      persistDB().catch(() => {
-        showToast("Errore salvataggio", "error");
-      });
+      switchScreen("home");
 
       showToast("Backup importato.", "success", "Backup");
       haptic([12, 20, 12]);
-    } catch (error) {
-      debug.error("importBackup error", error);
+    } catch (e) {
+      console.error(e);
       showToast("File backup non leggibile.", "error", "Backup");
     }
-  };
-
-  reader.onerror = () => {
-    showToast("Errore lettura file.", "error", "Backup");
   };
 
   reader.readAsText(file);
@@ -1428,28 +966,17 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       haptic([8]);
       const screen = btn.dataset.screen;
-      state.currentView = screen || "home";
-      safeSwitchScreen(screen);
+      switchScreen(screen);
 
       if (screen === "tonight") maybeAutoRecommend();
       if (screen === "stats") setTimeout(animateBarGroups, 80);
     });
   });
 
-  if (searchBtn) {
-    searchBtn.addEventListener("click", () => {
-      haptic([8]);
-      doSearch();
-    });
-  }
-
+  if (searchBtn) searchBtn.addEventListener("click", () => { haptic([8]); doSearch(); });
   if (searchInput) {
     searchInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") doSearch();
-    });
-
-    searchInput.addEventListener("input", () => {
-      debouncedSearch();
     });
   }
 
@@ -1457,7 +984,7 @@ function bindEvents() {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab[data-type]").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
-      state.filters.currentType = tab.dataset.type || "multi";
+      currentType = tab.dataset.type;
       closeAllSearchActionMenus();
       haptic([8]);
     });
@@ -1468,19 +995,13 @@ function bindEvents() {
       const btn = e.target.closest(".filter-pill[data-filter]");
       if (!btn) return;
       haptic([8]);
-      state.filters.currentLibraryFilter = btn.dataset.filter || "all";
-      state.filters.currentLibraryGenre = "all";
+      currentLibraryFilter = btn.dataset.filter;
+      currentLibraryGenre = "all";
       doRenderLibrary();
     });
   }
 
-  if (libraryBackBtn) {
-    libraryBackBtn.addEventListener("click", () => {
-      state.currentView = "home";
-      safeSwitchScreen("home");
-    });
-  }
-
+  if (libraryBackBtn) libraryBackBtn.addEventListener("click", () => switchScreen("home"));
   if (openWatchAll) openWatchAll.addEventListener("click", () => { haptic([8]); openLibrary("watch", "all"); });
   if (openSeenMovies) openSeenMovies.addEventListener("click", () => { haptic([8]); openLibrary("seen", "movie"); });
   if (openSeenSeries) openSeenSeries.addEventListener("click", () => { haptic([8]); openLibrary("seen", "series"); });
@@ -1508,11 +1029,10 @@ function bindEvents() {
   }
 
   if (exportBtn) exportBtn.addEventListener("click", () => { haptic([8]); exportBackup(); });
-
   if (importBtn && importFileInput) {
     importBtn.addEventListener("click", () => importFileInput.click());
     importFileInput.addEventListener("change", (e) => {
-      const file = e.target?.files?.[0];
+      const file = e.target.files[0];
       if (file) importBackup(file);
       e.target.value = "";
     });
@@ -1520,15 +1040,13 @@ function bindEvents() {
 
   if (detailBackBtn) {
     detailBackBtn.addEventListener("click", () => {
-      const prev = getPreviousScreen() || "home";
-      state.currentView = prev;
-      safeSwitchScreen(prev);
+      switchScreen(getPreviousScreen() || "home");
     });
   }
 
   if (detailSeenBtn) {
     detailSeenBtn.addEventListener("click", async () => {
-      if (!state.currentDetail) return;
+      if (!currentDetail) return;
 
       const voteInput = document.getElementById("detailVoteInput");
       const commentInput = document.getElementById("detailCommentInput");
@@ -1537,35 +1055,28 @@ function bindEvents() {
       const check = validateVote(voteInput.value);
       if (!check.ok) return;
 
-      if (!inSeen(state.currentDetail)) {
-        const item = normalizeMediaItem({
-          ...state.currentDetail,
+      if (!inSeen(currentDetail)) {
+        db.seen.unshift({
+          ...currentDetail,
           vote: check.value,
           comment: commentInput.value.trim()
         });
-
-        if (!item) return;
-
-        state.db.seen.unshift(item);
-        state.db.watchlist = state.db.watchlist.filter(x => safeUniqueKey(x) !== safeUniqueKey(state.currentDetail));
-        ensureStateConsistency();
+        db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
+        await saveDB(db);
         renderAll();
-        persistDB().catch(() => {
-          showToast("Errore salvataggio", "error");
-        });
-        showToast(`"${state.currentDetail.title}" aggiunto ai visti.`, "success", "Salvato");
+        showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Salvato");
         haptic([12, 20, 12]);
       } else {
         await doSaveDetailNotes();
       }
 
-      openDetail(state.currentDetail);
+      openDetail(currentDetail);
     });
   }
 
   if (detailWatchBtn) {
     detailWatchBtn.addEventListener("click", async () => {
-      if (!state.currentDetail) return;
+      if (!currentDetail) return;
 
       const voteInput = document.getElementById("detailVoteInput");
       const commentInput = document.getElementById("detailCommentInput");
@@ -1574,29 +1085,22 @@ function bindEvents() {
       const check = validateVote(voteInput.value);
       if (!check.ok) return;
 
-      if (!inSeen(state.currentDetail) && !inWatch(state.currentDetail)) {
-        const item = normalizeMediaItem({
-          ...state.currentDetail,
+      if (!inSeen(currentDetail) && !inWatch(currentDetail)) {
+        db.watchlist.unshift({
+          ...currentDetail,
           vote: check.value,
           comment: commentInput.value.trim()
         });
-
-        if (!item) return;
-
-        state.db.watchlist.unshift(item);
-        ensureStateConsistency();
+        await saveDB(db);
         renderAll();
-        persistDB().catch(() => {
-          showToast("Errore salvataggio", "error");
-        });
-        showToast(`"${state.currentDetail.title}" in watchlist.`, "success", "Watchlist");
+        showToast(`"${currentDetail.title}" in watchlist.`, "success", "Watchlist");
         haptic([10]);
-      } else if (inWatch(state.currentDetail)) {
+      } else if (inWatch(currentDetail)) {
         await doSaveDetailNotes();
         return;
       }
 
-      openDetail(state.currentDetail);
+      openDetail(currentDetail);
     });
   }
 
@@ -1604,7 +1108,7 @@ function bindEvents() {
 
   if (detailRemoveBtn) {
     detailRemoveBtn.addEventListener("click", () => {
-      if (!state.currentDetail) return;
+      if (!currentDetail) return;
       if (confirm("Rimuovere questo titolo dalla libreria?")) {
         doRemoveCurrentDetail();
       }
@@ -1634,7 +1138,7 @@ function bindEvents() {
 
     try {
       if (genreBtn) {
-        state.filters.currentLibraryGenre = genreBtn.dataset.genreFilter || "all";
+        currentLibraryGenre = genreBtn.dataset.genreFilter;
         doRenderLibrary();
         return;
       }
@@ -1677,16 +1181,17 @@ function bindEvents() {
 
       if (storedBtn) {
         const key = storedBtn.dataset.key;
-        const item = state.db.seen.find(x => safeUniqueKey(x) === key) || state.db.watchlist.find(x => safeUniqueKey(x) === key);
+        const item = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
         if (item) openDetail(item);
         return;
       }
 
       if (tonightBtn) {
         await doShowDetails(tonightBtn.dataset.type, tonightBtn.dataset.id);
+        return;
       }
-    } catch (error) {
-      debug.error("Delegated click error", error);
+    } catch (e) {
+      console.error(e);
       showToast("Si è verificato un problema. Riprova.", "error", "Errore");
     }
   });
@@ -1696,7 +1201,6 @@ function bindEvents() {
     if (!SCREENS[name]) return;
 
     Object.values(SCREENS).forEach(screen => {
-      if (!screen) return;
       screen.classList.add("hidden");
       screen.classList.remove("screen-enter");
     });
@@ -1708,118 +1212,63 @@ function bindEvents() {
       btn.classList.toggle("active", btn.dataset.screen === name);
     });
 
-    state.currentView = name;
-
     if (name === "tonight") maybeAutoRecommend();
     if (name === "stats") setTimeout(animateBarGroups, 80);
   });
 }
 
-function toggleElement(el, shouldShow) {
-  if (!el) return;
-  el.classList.toggle("hidden", !shouldShow);
-}
-
-function safeSwitchScreen(name) {
-  if (!name) return;
+async function bootApp() {
   try {
-    switchScreen(name);
-    state.currentView = name;
-  } catch (error) {
-    debug.warn("switchScreen failed", error, name);
-  }
-}
+    try {
+      db = await loadDB();
+    } catch (e) {
+      console.warn("loadDB error", e);
+      db = { seen: [], watchlist: [] };
+    }
 
-async function persistDB() {
-  state.saving = true;
-  ensureStateConsistency();
-  try {
-    await saveDB(state.db);
-    invalidateCaches();
-  } catch (error) {
-    debug.error("saveDB failed", error);
-    throw error;
+    if (!db || !db.seen || !db.watchlist) {
+      db = { seen: [], watchlist: [] };
+    }
+
+    try { initScreens(); } catch(e) { console.warn(e); }
+    try { hideComingSoonButton(); } catch(e) { console.warn(e); }
+    try { bindEvents(); } catch(e) { console.warn(e); }
+    try { history.replaceState({ screen: "home" }, ""); } catch(e) {}
+    try { renderAll(); } catch(e) { console.warn(e); }
+
+  } catch (e) {
+    console.error("BOOT ERROR:", e);
   } finally {
-    state.saving = false;
+    const app = document.querySelector(".app");
+    if (app) app.classList.add("app--ready");
+
+    const splash = document.getElementById("splashScreen");
+    if (splash) {
+      splash.style.opacity = "0";
+      setTimeout(() => {
+        if (splash.parentNode) splash.parentNode.removeChild(splash);
+      }, 300);
+    }
   }
 }
 
-async function fetchDetailSafe(type, id) {
-  const safeType = normalizeMediaType(type);
-  const safeItemId = safeId(id);
-  if (!safeItemId) return null;
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(bootApp, 80);
+});
 
-  const cacheKey = `detail:${safeType}:${safeItemId}`;
-  const item = await runSingleFlight(
-    cacheKey,
-    () => withTimeout(tmdbFetchDetail(safeType, safeItemId), CONFIG.REQUEST_TIMEOUT_MS)
-  );
-
-  return normalizeMediaItem(item);
-}
-
-function safeBuildFallbackQueries(profile, seed, options) {
-  try {
-    const result = buildFallbackQueries(profile, seed, options) || {};
-    return {
-      type: result.type || "movie",
-      levels: Array.isArray(result.levels) ? result.levels : [],
-      selectedBoosts: Array.isArray(result.selectedBoosts) ? result.selectedBoosts : []
-    };
-  } catch (error) {
-    debug.warn("buildFallbackQueries failed", error);
-    return {
-      type: "movie",
-      levels: [],
-      selectedBoosts: []
-    };
-  }
-}
-
-function runSingleFlight(key, factory) {
-  if (state.pending.requests.has(key)) {
-    return state.pending.requests.get(key);
-  }
-
-  const promise = Promise.resolve()
-    .then(factory)
-    .finally(() => {
-      state.pending.requests.delete(key);
-    });
-
-  state.pending.requests.set(key, promise);
-  return promise;
-}
-
-function withTimeout(promise, ms) {
-  let timeoutId = null;
-
-  return new Promise((resolve, reject) => {
-    timeoutId = window.setTimeout(() => {
-      reject(new Error("timeout"));
-    }, ms);
-
-    Promise.resolve(promise)
-      .then(value => {
-        window.clearTimeout(timeoutId);
-        resolve(value);
-      })
-      .catch(error => {
-        window.clearTimeout(timeoutId);
-        reject(error);
-      });
-  });
-}
-
-function debounce(fn, delay = 250) {
-  let timer = null;
-  return (...args) => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => fn(...args), delay);
-  };
-}
-
-function getVisibleScreenName() {
-  const entry = Object.entries(SCREENS || {}).find(([, el]) => el && !el.classList.contains("hidden"));
-  return entry?.[0] || "";
-}
+supabase
+  .channel("realtime-cinetracker")
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "Coltel" },
+    async () => {
+      try {
+        const newDB = await loadDB();
+        db = newDB;
+        renderAll();
+      } catch (e) {
+        console.error("Errore realtime sync:", e);
+      }
+    }
+  )
+  .subscribe();
