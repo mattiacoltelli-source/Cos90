@@ -29,6 +29,49 @@ let currentLibraryGenre = "all";
 let lastAutoRecommendAt = 0;
 let tonightReqCounter = 0;
 
+// ─── FIX 1: BANNER OFFLINE ───────────────────────────────────────────────────
+// Mostra un banner in fondo allo schermo quando l'utente è offline,
+// e lo nasconde automaticamente quando la connessione torna.
+
+let _offlineBanner = null;
+
+function showOfflineBanner() {
+  if (_offlineBanner) return;
+  _offlineBanner = document.createElement("div");
+  _offlineBanner.id = "offlineBanner";
+  _offlineBanner.textContent = "⚠️ Sei offline — i dati potrebbero non essere aggiornati";
+  Object.assign(_offlineBanner.style, {
+    position: "fixed",
+    bottom: "0",
+    left: "0",
+    right: "0",
+    padding: "10px 16px",
+    background: "var(--red, #ff5f5f)",
+    color: "#fff",
+    fontSize: "13px",
+    fontFamily: "var(--font-body, sans-serif)",
+    textAlign: "center",
+    zIndex: "9999",
+    transition: "opacity 0.3s ease",
+  });
+  document.body.appendChild(_offlineBanner);
+}
+
+function hideOfflineBanner() {
+  if (!_offlineBanner) return;
+  _offlineBanner.remove();
+  _offlineBanner = null;
+  showToast("Connessione ripristinata", "success");
+}
+
+function initNetworkWatcher() {
+  if (!navigator.onLine) showOfflineBanner();
+  window.addEventListener("offline", () => showOfflineBanner());
+  window.addEventListener("online",  () => hideOfflineBanner());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function backdropUrl(path) {
   return path ? `https://image.tmdb.org/t/p/w1280${path}` : "";
 }
@@ -461,6 +504,12 @@ async function doSearch() {
     return;
   }
 
+  // FIX 1: controlla connessione prima di cercare
+  if (!navigator.onLine) {
+    showToast("Sei offline. Controlla la connessione.", "error", "Ricerca");
+    return;
+  }
+
   sec.classList.remove("hidden");
   res.innerHTML = "";
   count.textContent = "";
@@ -717,6 +766,13 @@ async function recommendTonightFive(isAuto = false) {
     return;
   }
 
+  // FIX 1: controlla connessione prima di fare fetch
+  if (!navigator.onLine) {
+    el.innerHTML = `<p class="tonight__hint">Sei offline. Connettiti per ricevere consigli.</p>`;
+    if (!isAuto) showToast("Sei offline. Controlla la connessione.", "error", "Consigli");
+    return;
+  }
+
   el.innerHTML = `<p class="tonight__hint">🔍 Sto cercando 5 titoli adatti…</p>`;
 
   const profile = getUserTasteProfile();
@@ -797,6 +853,13 @@ async function discoverByTaste() {
   if (db.seen.length < 3) {
     el.innerHTML = `<p class="tonight__hint">Aggiungi almeno 3 titoli visti per i consigli personalizzati.</p>`;
     showToast("Aggiungi almeno 3 titoli visti.", "info", "Scopri");
+    return;
+  }
+
+  // FIX 1: controlla connessione prima di fare fetch
+  if (!navigator.onLine) {
+    el.innerHTML = `<p class="tonight__hint">Sei offline. Connettiti per scoprire nuovi titoli.</p>`;
+    showToast("Sei offline. Controlla la connessione.", "error", "Scopri");
     return;
   }
 
@@ -1230,6 +1293,7 @@ async function bootApp() {
       db = { seen: [], watchlist: [] };
     }
 
+    try { initNetworkWatcher(); } catch(e) { console.warn(e); }  // FIX 1
     try { initScreens(); } catch(e) { console.warn(e); }
     try { hideComingSoonButton(); } catch(e) { console.warn(e); }
     try { bindEvents(); } catch(e) { console.warn(e); }

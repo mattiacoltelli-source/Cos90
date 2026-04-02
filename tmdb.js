@@ -14,7 +14,20 @@ const GENRE_NAME_TO_ID = {
   "Azione & Avventura":10759, "Sci-Fi & Fantasy":10765
 };
 
+// ─── CACHE IN MEMORIA ────────────────────────────────────────────────────────
+// Evita fetch ripetute nella stessa sessione per ricerche, dettagli e discover.
+// Si azzera ad ogni ricarica — nessun rischio di dati stantii.
+const _tmdbCache = new Map();
+function cacheGet(key) { return _tmdbCache.has(key) ? _tmdbCache.get(key) : null; }
+function cacheSet(key, value) { _tmdbCache.set(key, value); }
+
+// ─── SEARCH ──────────────────────────────────────────────────────────────────
+
 export async function tmdbSearch(query, type = "multi") {
+  const cacheKey = `search|${type}|${query.trim().toLowerCase()}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
   const endpoint = type === "movie"
     ? `${BASE_URL}/search/movie?api_key=${API_KEY}&language=it-IT&query=${encodeURIComponent(query)}`
     : type === "tv"
@@ -24,29 +37,49 @@ export async function tmdbSearch(query, type = "multi") {
   const res = await fetch(endpoint);
   if (!res.ok) throw new Error("Errore TMDb search");
   const data = await res.json();
-  return (data.results || []).filter(x => x.media_type !== "person").slice(0, 20);
+  const results = (data.results || []).filter(x => x.media_type !== "person").slice(0, 20);
+
+  cacheSet(cacheKey, results);
+  return results;
 }
 
+// ─── DETAIL ──────────────────────────────────────────────────────────────────
+
 export async function tmdbFetchDetail(type, id) {
+  const cacheKey = `detail|${type}|${id}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
   const res = await fetch(
     `${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=it-IT&append_to_response=credits`
   );
   if (!res.ok) throw new Error("Errore dettaglio TMDb");
 
   const item = await res.json();
-  return normalizedItem({ ...item, media_type: type });
+  const result = normalizedItem({ ...item, media_type: type });
+
+  cacheSet(cacheKey, result);
+  return result;
 }
+
+// ─── DISCOVER ────────────────────────────────────────────────────────────────
 
 export async function tmdbFetchDiscoverLevel(urls, type, excludedKeys) {
   const map = new Map();
 
   const responses = await Promise.all(
     urls.map(async (url) => {
+      const cacheKey = `discover|${url}`;
+      const cached = cacheGet(cacheKey);
+      if (cached) return cached;
+
       try {
         const res = await fetch(url);
         if (!res.ok) return [];
         const data = await res.json();
-        return data.results || [];
+        const results = data.results || [];
+        cacheSet(cacheKey, results);
+        return results;
       } catch {
         return [];
       }
@@ -67,6 +100,8 @@ export async function tmdbFetchDiscoverLevel(urls, type, excludedKeys) {
 
   return [...map.values()];
 }
+
+// ─── FALLBACK QUERIES ────────────────────────────────────────────────────────
 
 export function buildFallbackQueries(profile, forcedType, options = {}) {
   const useSelectedGenre = options.useSelectedGenre === true;
