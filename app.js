@@ -182,10 +182,10 @@ function getHistoryPenalty(key) {
     if (entry.key !== key) return;
     const hoursAgo = (now - entry.at) / (1000 * 60 * 60);
 
-    if (hoursAgo < 6) penalty += 8;
-    else if (hoursAgo < 24) penalty += 5;
-    else if (hoursAgo < 72) penalty += 3;
-    else if (hoursAgo < 168) penalty += 1.5;
+    if (hoursAgo < 6) penalty += 15;
+    else if (hoursAgo < 24) penalty += 10;
+    else if (hoursAgo < 72) penalty += 5;
+    else if (hoursAgo < 168) penalty += 2.5;
   });
 
   return penalty;
@@ -806,7 +806,7 @@ async function recommendTonightFive(isAuto = false) {
 
     const ranked = candidates.map(item => {
       const affinity = calculateAffinity(item, profile);
-      const rankScore = scoreCandidate(item, profile) + affinity / 20 + Math.random() * 1.1;
+      const rankScore = scoreCandidate(item, profile) + affinity / 20 + Math.random() * 2.5;
       return { item, affinity, rankScore };
     }).sort((a, b) => b.rankScore - a.rankScore).slice(0, 18);
 
@@ -895,7 +895,7 @@ async function discoverByTaste() {
     const scored = candidates
       .map(item => ({
         item,
-        score: scoreCandidate(item, profile, selectedBoosts) + Math.random() * 1.3
+        score: scoreCandidate(item, profile, selectedBoosts) + Math.random() * 2.5
       }))
       .sort((a, b) => b.score - a.score);
 

@@ -1,9 +1,6 @@
 // ─── CINETRACKER SERVICE WORKER ──────────────────────────────────────────────
-// Versione cache: incrementa CACHE_NAME quando aggiorni i file statici,
-// così la vecchia cache viene eliminata automaticamente.
-const CACHE_NAME = "cinetracker-v1";
+const CACHE_NAME = "cinetracker-2026-04-04-0944";
 
-// File statici da mettere in cache al primo avvio
 const STATIC_FILES = [
   "./",
   "./index.html",
@@ -20,19 +17,15 @@ const STATIC_FILES = [
 ];
 
 // ─── INSTALL ─────────────────────────────────────────────────────────────────
-// Al primo avvio: mette in cache tutti i file statici
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_FILES);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_FILES))
   );
   self.skipWaiting();
 });
 
 // ─── ACTIVATE ────────────────────────────────────────────────────────────────
-// Elimina le cache vecchie quando viene installata una nuova versione
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
@@ -48,30 +41,22 @@ self.addEventListener("activate", (event) => {
 });
 
 // ─── FETCH ───────────────────────────────────────────────────────────────────
-// Strategia: Cache First per i file statici, Network First per le API
-//
-// - File statici (JS, CSS, HTML, immagini): serviti dalla cache, veloci
-// - Chiamate TMDB e Supabase: sempre dalla rete (dati freschi),
-//   con fallback alla cache se offline
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Chiamate API esterne → sempre dalla rete
   const isApi =
     url.hostname.includes("themoviedb.org") ||
     url.hostname.includes("supabase.co") ||
     url.hostname.includes("esm.sh");
 
   if (isApi) {
-    // Network First: prova la rete, se fallisce usa cache
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // File statici → Cache First: serve dalla cache, aggiorna in background
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const networkFetch = fetch(event.request).then((response) => {
@@ -81,8 +66,6 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       });
-
-      // Restituisce subito la cache se disponibile, altrimenti aspetta la rete
       return cached || networkFetch;
     })
   );

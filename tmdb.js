@@ -136,7 +136,7 @@ export function buildFallbackQueries(profile, forcedType, options = {}) {
   }
 
   const minVotes = type === "movie" ? "&vote_count.gte=120" : "&vote_count.gte=40";
-  const [p1, p2, p3, p4] = [randomPage(3), randomPage(3), randomPage(3), randomPage(3)];
+  const [p1, p2, p3, p4] = [randomPage(10), randomPage(10), randomPage(10), randomPage(10)];
 
   return {
     type,
@@ -159,15 +159,15 @@ export function buildFallbackQueries(profile, forcedType, options = {}) {
       {
         label: "solo genere",
         urls: [
-          `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}&sort_by=popularity.desc${minVotes}&page=${randomPage(4)}`,
-          `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}&sort_by=vote_average.desc${minVotes}&page=${randomPage(4)}`
+          `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre ? `&with_genres=${primaryGenre}` : ""}&sort_by=popularity.desc${minVotes}&page=${randomPage(10)}`,
+          `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboGenres ? `&with_genres=${comboGenres}` : ""}&sort_by=vote_average.desc${minVotes}&page=${randomPage(10)}`
         ]
       },
       {
         label: "fallback finale",
         urls: [
-          `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=popularity.desc${minVotes}&page=${randomPage(4)}`,
-          `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=vote_count.desc${minVotes}&page=${randomPage(4)}`
+          `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=popularity.desc${minVotes}&page=${randomPage(10)}`,
+          `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT&sort_by=vote_count.desc${minVotes}&page=${randomPage(10)}`
         ]
       }
     ]
