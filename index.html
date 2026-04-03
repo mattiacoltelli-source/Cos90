@@ -331,5 +331,13 @@
   <div id="toastWrap"></div>
 
   <script type="module" src="app.js"></script>
+
+  <!-- Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
+    }
+  </script>
+
 </body>
 </html>
