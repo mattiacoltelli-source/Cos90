@@ -969,6 +969,31 @@ async function discoverByTaste() {
 
     registerSuggested([chosen]);
 
+    // ── DEBUG: stato interno visibile nella mini console ──────────────────
+    try {
+      const chosenEntry = topPool.find(e => e.item === chosen);
+      const baseScore = chosenEntry ? chosenEntry.score : 0;
+      const randomComponent = Math.min(2.5, baseScore - scoreCandidate(chosen, profile, selectedBoosts));
+      const pureScore = baseScore - randomComponent;
+      const tmdbVote = Number(chosen.vote_average) || 0;
+      const tmdbBonus = tmdbVote > 0 ? Math.min(0.45, (tmdbVote - 6) * 0.1) : 0;
+      const decadeMatch = profile.topDecade && decadeScoreLabel(chosen.year) === profile.topDecade;
+      const tipoMatch = chosen.media_type === profile.prefType;
+      const matchG = (chosen.genre_names || []).filter(g => profile.topGenres.includes(g));
+      const genreLabel = selectedGenre !== "all" ? selectedGenre : "Qualsiasi";
+
+      console.log("── ✨ SCOPRI QUALCOSA DI NUOVO ──────────");
+      console.log(`🎭 Genere selezionato: ${genreLabel}`);
+      console.log(`🔍 Candidati trovati: ${candidates.length} · top pool: ${topPool.length}`);
+      console.log(`🎯 Scelto: ${chosen.title || chosen.name} (${chosen.year || "?"})`);
+      console.log(`   score puro: ${pureScore.toFixed(1)} · random: +${randomComponent.toFixed(1)}`);
+      console.log(`   generi film: ${(chosen.genre_names || []).join(" · ") || "—"}`);
+      console.log(`   match tuoi generi: ${matchG.length ? matchG.join(" ✓ ") + " ✓" : "nessuno"}`);
+      console.log(`   decade ${decadeMatch ? "✓ +0.35" : "✗"} · tipo ${tipoMatch ? "✓ +0.25" : "✗"} · tmdb(${tmdbVote.toFixed(1)}) ${tmdbBonus >= 0 ? "+" : ""}${tmdbBonus.toFixed(2)}`);
+      console.log("────────────────────────────────────────");
+    } catch (e) { /* debug non blocca mai l'app */ }
+    // ── FINE DEBUG ────────────────────────────────────────────────────────
+
     const genres = chosen.genre_names || [];
     const matchGenres = genres.filter(g => profile.topGenres.includes(g));
     const rating = rawNumberToFixed(chosen.vote_average || 0, 1, "n.d.");
