@@ -831,7 +831,7 @@ async function recommendTonightFive(isAuto = false) {
       console.log(`🔍 Candidati trovati: ${candidates.length} · selezionati: ${finalFive.length}`);
       finalFive.forEach((entry, i) => {
         const genres = (entry.item.genre_names || []).slice(0, 2).join(", ");
-        const aff = Math.round(entry.affinity * 100);
+        const aff = Math.round(entry.affinity);
         console.log(`🎯 ${i + 1}. ${entry.item.title || entry.item.name} (${entry.item.year || "?"}) · match ${aff}% · ${genres}`);
       });
       console.log("─────────────────────────────────────────");
