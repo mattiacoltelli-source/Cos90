@@ -819,6 +819,25 @@ async function recommendTonightFive(isAuto = false) {
 
     registerSuggested(finalFive.map(x => x.item));
 
+    // ── DEBUG: stato interno visibile nella mini console ──────────────────
+    try {
+      const topG = profile.topGenres.slice(0, 4).join(", ") || "—";
+      const decade = profile.topDecade || "—";
+      const prefType = profile.prefType === "movie" ? "Film" : profile.prefType === "tv" ? "Serie TV" : "Misto";
+      console.log("── ⭐ 5 CONSIGLI PER TE ─────────────────");
+      console.log(`📚 Visti: ${db.seen.length} titoli · Watchlist: ${db.watchlist.length}`);
+      console.log(`🎭 Gusti: ${topG}`);
+      console.log(`📅 Decade preferita: ${decade} · Preferenza: ${prefType}`);
+      console.log(`🔍 Candidati trovati: ${candidates.length} · selezionati: ${finalFive.length}`);
+      finalFive.forEach((entry, i) => {
+        const genres = (entry.item.genre_names || []).slice(0, 2).join(", ");
+        const aff = Math.round(entry.affinity * 100);
+        console.log(`🎯 ${i + 1}. ${entry.item.title || entry.item.name} (${entry.item.year || "?"}) · match ${aff}% · ${genres}`);
+      });
+      console.log("─────────────────────────────────────────");
+    } catch (e) { /* debug non blocca mai l'app */ }
+    // ── FINE DEBUG ────────────────────────────────────────────────────────
+
     const enriched = finalFive.map(entry => ({
       item: entry.item,
       affinity: entry.affinity,
