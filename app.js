@@ -147,7 +147,7 @@ function getUserTasteProfile() {
 
   const topGenres = Object.entries(genreCount)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
+    .slice(0, 5)
     .map(([g]) => g);
 
   const topDecade = Object.entries(decadeCount)
@@ -821,19 +821,65 @@ async function recommendTonightFive(isAuto = false) {
 
     // ── DEBUG: stato interno visibile nella mini console ──────────────────
     try {
-      const topG = profile.topGenres.slice(0, 4).join(", ") || "—";
+      const topG = profile.topGenres.join(" · ") || "—";
       const decade = profile.topDecade || "—";
       const prefType = profile.prefType === "movie" ? "Film" : profile.prefType === "tv" ? "Serie TV" : "Misto";
+
       console.log("── ⭐ 5 CONSIGLI PER TE ─────────────────");
-      console.log(`📚 Visti: ${db.seen.length} titoli · Watchlist: ${db.watchlist.length}`);
-      console.log(`🎭 Gusti: ${topG}`);
-      console.log(`📅 Decade preferita: ${decade} · Preferenza: ${prefType}`);
-      console.log(`🔍 Candidati trovati: ${candidates.length} · selezionati: ${finalFive.length}`);
+      console.log(`📚 Visti: ${db.seen.length} · Watchlist: ${db.watchlist.length}`);
+      console.log(`🎭 Top 5: ${topG}`);
+      console.log(`📅 Decade: ${decade} · Preferenza: ${prefType}`);
+      console.log(`🔍 Candidati: ${candidates.length} · selezionati: ${finalFive.length}`);
+      console.log("─────────────────────────────────────────");
+
       finalFive.forEach((entry, i) => {
-        const genres = (entry.item.genre_names || []).slice(0, 2).join(", ");
+        const item = entry.item;
         const aff = Math.round(entry.affinity);
-        console.log(`🎯 ${i + 1}. ${entry.item.title || entry.item.name} (${entry.item.year || "?"}) · match ${aff}% · ${genres}`);
+        const tmdbVote = Number(item.vote_average) || 0;
+        const year = item.year || "?";
+        const title = item.title || item.name || "?";
+
+        // Ricalcola breakdown esatto uguale a calculateAffinity
+        const genres = item.genre_names || [];
+        let genreBase = 0;
+        let matched = 0;
+        const matchedDetails = [];
+
+        genres.forEach(g => {
+          if (profile.genreAverages[g]) {
+            genreBase += profile.genreAverages[g];
+            matched++;
+            matchedDetails.push(`${g}(${profile.genreAverages[g].toFixed(1)})`);
+          } else if (profile.topGenres.includes(g)) {
+            genreBase += 7.5;
+            matched++;
+            matchedDetails.push(`${g}(7.5)`);
+          }
+        });
+
+        if (!matched) {
+          genreBase = Math.max(6.4, profile.avgVote);
+          matched = 1;
+          matchedDetails.push(`nessun match → base ${genreBase.toFixed(1)}`);
+        }
+
+        const base = genreBase / matched;
+        const decadeMatch = profile.topDecade && decadeScoreLabel(item.year) === profile.topDecade;
+        const tipoMatch = item.media_type === profile.prefType;
+        const tmdbBonus = tmdbVote > 0 ? Math.min(0.45, (tmdbVote - 6) * 0.1) : 0;
+        const score10 = Math.max(6.2, Math.min(9.6, base + (decadeMatch ? 0.35 : 0) + (tipoMatch ? 0.25 : 0) + tmdbBonus));
+
+        const genreStr = matchedDetails.length ? matchedDetails.join(" ") : "nessun genere matched";
+        const decadeStr = decadeMatch ? "+0.35" : "✗";
+        const tipoStr = tipoMatch ? "+0.25" : "✗";
+        const tmdbStr = `tmdb(${tmdbVote.toFixed(1)}) +${tmdbBonus.toFixed(2)}`;
+
+        console.log(`🎯 ${i + 1}. ${title} (${year}) · ${aff}%`);
+        console.log(`   generi: ${genreStr} → base ${base.toFixed(2)}`);
+        console.log(`   decade ${decadeStr} · tipo ${tipoStr} · ${tmdbStr}`);
+        console.log(`   totale: ${score10.toFixed(2)}/10 → ${aff}%`);
       });
+
       console.log("─────────────────────────────────────────");
     } catch (e) { /* debug non blocca mai l'app */ }
     // ── FINE DEBUG ────────────────────────────────────────────────────────
