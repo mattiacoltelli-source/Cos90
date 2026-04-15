@@ -808,9 +808,69 @@ async function recommendTonightFive(isAuto = false) {
       const affinity = calculateAffinity(item, profile);
       const rankScore = scoreCandidate(item, profile) + affinity / 20 + Math.random() * 2.5;
       return { item, affinity, rankScore };
-    }).sort((a, b) => b.rankScore - a.rankScore).slice(0, 18);
+    }).sort((a, b) => b.rankScore - a.rankScore).slice(0, 40);
 
-    const finalFive = pickDiverse(ranked, 5).sort((a, b) => b.affinity - a.affinity);
+    // ── SELEZIONE PER DECADE ──────────────────────────────────────────────────
+    // Regola FISSA (indipendente dalla decade preferita dell'utente):
+    //   Slot A → 1 film dal 2000–2009
+    //   Slot B → 2 film dal 2010–2019
+    //   Slot C → 2 film dal 2020 a oggi
+    // Fallback a cascata: se uno slot è parzialmente vuoto, si riempie prima
+    // con film di altre decadi (scoperta), poi — in ultima istanza — con i
+    // migliori rimasti qualsiasi. I 5 consigli ci sono SEMPRE.
+
+    function itemInFixedDecade(item, start, end) {
+      if (!item.year || item.year === "—") return false;
+      const y = Number(item.year);
+      return Number.isFinite(y) && y >= start && y <= end;
+    }
+
+    const usedKeys = new Set();
+
+    function pickSlot(filterFn, count) {
+      const result = [];
+      for (const entry of ranked) {
+        if (result.length >= count) break;
+        const key = uniqueKey(entry.item);
+        if (usedKeys.has(key)) continue;
+        if (!filterFn(entry.item)) continue;
+        result.push(entry);
+        usedKeys.add(key);
+      }
+      return result;
+    }
+
+    // Slot principali
+    const slot2000s = pickSlot(i => itemInFixedDecade(i, 2000, 2009), 1);
+    const slot2010s = pickSlot(i => itemInFixedDecade(i, 2010, 2019), 2);
+    const slot2020s = pickSlot(i => itemInFixedDecade(i, 2020, 9999), 2);
+
+    let finalFive = [...slot2000s, ...slot2010s, ...slot2020s];
+
+    // Fallback a cascata: slot vuoti → decade diversa (scoperta),
+    // poi genere non affine, poi qualsiasi — slot mai vuoti.
+    if (finalFive.length < 5) {
+      // Prima passa: film di decadi non ancora rappresentate (es. anni '90, '80…)
+      const otherDecades = pickSlot(
+        i => !itemInFixedDecade(i, 2000, 9999),
+        5 - finalFive.length
+      );
+      finalFive = [...finalFive, ...otherDecades];
+    }
+
+    if (finalFive.length < 5) {
+      // Seconda passa: qualsiasi film rimasto non ancora selezionato
+      for (const entry of ranked) {
+        if (finalFive.length >= 5) break;
+        const key = uniqueKey(entry.item);
+        if (usedKeys.has(key)) continue;
+        finalFive.push(entry);
+        usedKeys.add(key);
+      }
+    }
+
+    finalFive = finalFive.slice(0, 5).sort((a, b) => b.affinity - a.affinity);
+    // ── FINE SELEZIONE PER DECADE ─────────────────────────────────────────────
 
     if (!finalFive.length) {
       el.innerHTML = `<p class="tonight__hint">Nessun consiglio trovato.</p>`;
@@ -830,6 +890,7 @@ async function recommendTonightFive(isAuto = false) {
       console.log(`🎭 Top 5: ${topG}`);
       console.log(`📅 Decade: ${decade} · Preferenza: ${prefType}`);
       console.log(`🔍 Candidati: ${candidates.length} · selezionati: ${finalFive.length}`);
+      console.log(`📆 Slot 2000s: ${slot2000s.length}/1 · Slot 2010s: ${slot2010s.length}/2 · Slot 2020+: ${slot2020s.length}/2 · totale: ${finalFive.length}/5`);
       console.log("─────────────────────────────────────────");
 
       finalFive.forEach((entry, i) => {

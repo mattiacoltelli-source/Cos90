@@ -1,5 +1,5 @@
 // ─── CINETRACKER SERVICE WORKER ──────────────────────────────────────────────
-const CACHE_NAME = "cinetracker-2026-04-12-1900";
+const CACHE_NAME = "cinetracker-2026-04-15-1000";
 
 const STATIC_FILES = [
   "./",
