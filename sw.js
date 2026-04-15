@@ -1,72 +1,53 @@
-// ─── CINETRACKER SERVICE WORKER ──────────────────────────────────────────────
-const CACHE_NAME = "cinetracker-2026-04-15-1000";
+const CACHE_NAME = "cinetracker-v1";
 
-const STATIC_FILES = [
+const FILES_TO_CACHE = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./ui.js",
-  "./tmdb.js",
-  "./storage.js",
-  "./supabase.js",
   "./cine-core.js",
+  "./storage.js",
+  "./tmdb.js",
+  "./supabase.js",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"
 ];
 
-// ─── INSTALL ─────────────────────────────────────────────────────────────────
-
+// INSTALL
 self.addEventListener("install", (event) => {
+  self.skipWaiting(); // attiva subito
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_FILES))
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(FILES_TO_CACHE);
+    })
   );
-  self.skipWaiting();
 });
 
-// ─── ACTIVATE ────────────────────────────────────────────────────────────────
-
+// ACTIVATE
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
+    caches.keys().then((keys) => {
+      return Promise.all(
         keys
           .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key))
-      )
-    )
+      );
+    })
   );
-  self.clients.claim();
+  self.clients.claim(); // prende controllo subito
 });
 
-// ─── FETCH ───────────────────────────────────────────────────────────────────
-
+// FETCH → network first
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-
-  const isApi =
-    url.hostname.includes("themoviedb.org") ||
-    url.hostname.includes("supabase.co") ||
-    url.hostname.includes("esm.sh");
-
-  if (isApi) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request).then((response) => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
+    fetch(event.request)
+      .then((response) => {
         return response;
-      });
-      return cached || networkFetch;
-    })
+      })
+      .catch(() => {
+        return caches.match(event.request);
+      })
   );
 });
