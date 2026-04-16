@@ -17,6 +17,8 @@ import {
 } from "./tmdb.js";
 
 const TONIGHT_COOLDOWN_MS = 20000;
+const API_KEY = "f8d5e378edf5128176f0d89f49310151";
+const BASE_URL = "https://api.themoviedb.org/3";
 
 let db = { seen: [], watchlist: [] };
 let suggestHistory = loadSuggestHistory();
@@ -29,9 +31,7 @@ let currentLibraryGenre = "all";
 let lastAutoRecommendAt = 0;
 let tonightReqCounter = 0;
 
-// ─── FIX 1: BANNER OFFLINE ───────────────────────────────────────────────────
-// Mostra un banner in fondo allo schermo quando l'utente è offline,
-// e lo nasconde automaticamente quando la connessione torna.
+// ─── BANNER OFFLINE ───────────────────────────────────────────────────────────
 
 let _offlineBanner = null;
 
@@ -504,7 +504,6 @@ async function doSearch() {
     return;
   }
 
-  // FIX 1: controlla connessione prima di cercare
   if (!navigator.onLine) {
     showToast("Sei offline. Controlla la connessione.", "error", "Ricerca");
     return;
@@ -754,6 +753,43 @@ function getSelectedGenre() {
   return el ? el.value : "all";
 }
 
+// ─── FETCH PER DECADE ─────────────────────────────────────────────────────────
+// Fa query TMDB mirate su un range di anni specifico + generi utente.
+// Questo è il fix al problema root: invece di sperare che il pool generico
+// contenga film di tutte le decadi, li chiediamo esplicitamente a TMDB.
+
+const GENRE_NAME_TO_ID_LOCAL = {
+  "Azione":28,"Avventura":12,"Animazione":16,"Commedia":35,
+  "Crime":80,"Documentario":99,"Drama":18,"Dramma":18,
+  "Famiglia":10751,"Fantasy":14,"Storia":36,"Horror":27,
+  "Musica":10402,"Mistero":9648,"Romance":10749,"Fantascienza":878,
+  "Thriller":53,"Guerra":10752,"Western":37,
+  "Azione & Avventura":10759,"Sci-Fi & Fantasy":10765
+};
+
+async function fetchCandidatesForDecade(type, yearStart, yearEnd, genreIds, excludedKeys) {
+  const minVotes = type === "movie" ? "&vote_count.gte=80" : "&vote_count.gte=30";
+  const dateParam = type === "movie"
+    ? `&primary_release_date.gte=${yearStart}-01-01&primary_release_date.lte=${yearEnd}-12-31`
+    : `&first_air_date.gte=${yearStart}-01-01&first_air_date.lte=${yearEnd}-12-31`;
+
+  const primaryGenre = genreIds[0] ? `&with_genres=${genreIds[0]}` : "";
+  const comboGenres = genreIds.slice(0, 2).filter(Boolean).join(",");
+  const comboParam = comboGenres ? `&with_genres=${comboGenres}` : "";
+
+  const urls = [
+    `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${comboParam}${dateParam}&sort_by=popularity.desc${minVotes}&page=${randomPage(5)}`,
+    `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${primaryGenre}${dateParam}&sort_by=vote_average.desc${minVotes}&page=${randomPage(5)}`,
+    // URL senza filtro genere come safety net
+    `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${dateParam}&sort_by=popularity.desc${minVotes}&page=${randomPage(5)}`
+  ];
+
+  const results = await tmdbFetchDiscoverLevel(urls, type, excludedKeys);
+  return results;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function recommendTonightFive(isAuto = false) {
   const el = document.getElementById("tonightSuggestion");
   if (!el) return;
@@ -766,7 +802,6 @@ async function recommendTonightFive(isAuto = false) {
     return;
   }
 
-  // FIX 1: controlla connessione prima di fare fetch
   if (!navigator.onLine) {
     el.innerHTML = `<p class="tonight__hint">Sei offline. Connettiti per ricevere consigli.</p>`;
     if (!isAuto) showToast("Sei offline. Controlla la connessione.", "error", "Consigli");
@@ -776,174 +811,115 @@ async function recommendTonightFive(isAuto = false) {
   el.innerHTML = `<p class="tonight__hint">🔍 Sto cercando 5 titoli adatti…</p>`;
 
   const profile = getUserTasteProfile();
-  const { type, levels } = buildFallbackQueries(profile, null, { useSelectedGenre: false, selectedGenre: "all" });
+  const type = profile.prefType;
   const excludedKeys = new Set([...db.seen, ...db.watchlist].map(uniqueKey));
 
+  // Ricava gli ID dei generi preferiti dall'utente
+  const genreIds = profile.topGenres
+    .map(g => GENRE_NAME_TO_ID_LOCAL[g])
+    .filter(Boolean);
+
   try {
-    let candidates = [];
-    let levelLabel = "";
+    // ── FETCH SEPARATI PER DECADE ─────────────────────────────────────────────
+    // Ogni slot fa una query TMDB mirata sul proprio range di anni.
+    // Così ogni pool contiene davvero film di quella decade, indipendentemente
+    // dalla decade preferita dell'utente (che prima distorceva tutto).
 
-    for (const level of levels) {
-      const found = await tmdbFetchDiscoverLevel(level.urls, type, excludedKeys);
-      candidates = [...candidates, ...found];
+    const [raw2000s, raw2010s, raw2020s] = await Promise.all([
+      fetchCandidatesForDecade(type, 2000, 2009, genreIds, excludedKeys),
+      fetchCandidatesForDecade(type, 2010, 2019, genreIds, excludedKeys),
+      fetchCandidatesForDecade(type, 2020, 2026, genreIds, excludedKeys)
+    ]);
 
-      const dedup = new Map();
-      candidates.forEach(item => dedup.set(uniqueKey(item), item));
-      candidates = [...dedup.values()];
+    if (reqId !== tonightReqCounter) return;
 
-      if (candidates.length >= 5) {
-        levelLabel = level.label;
-        break;
+    // Funzione locale per rankare e scegliere i migliori N da un pool
+    function rankAndPick(pool, count) {
+      const ranked = pool.map(item => ({
+        item,
+        affinity: calculateAffinity(item, profile),
+        rankScore: scoreCandidate(item, profile) + Math.random() * 2.5
+      })).sort((a, b) => b.rankScore - a.rankScore);
+      return ranked.slice(0, count);
+    }
+
+    // Slot principali: i migliori da ogni pool per decade
+    const slot2000s = rankAndPick(raw2000s, 1);
+    const slot2010s = rankAndPick(raw2010s, 2);
+    const slot2020s = rankAndPick(raw2020s, 2);
+
+    // Traccia le chiavi già usate per evitare duplicati nel fallback
+    const usedKeys = new Set([
+      ...slot2000s.map(e => uniqueKey(e.item)),
+      ...slot2010s.map(e => uniqueKey(e.item)),
+      ...slot2020s.map(e => uniqueKey(e.item))
+    ]);
+
+    let finalFive = [...slot2000s, ...slot2010s, ...slot2020s];
+
+    // ── FALLBACK ──────────────────────────────────────────────────────────────
+    // Se un pool era vuoto (raro ma possibile), riempiamo con un fetch generico
+    // sui generi preferiti senza vincoli di anno — slot mai vuoti garantiti.
+    if (finalFive.length < 5) {
+      const { type: fbType, levels } = buildFallbackQueries(profile, null, {
+        useSelectedGenre: false,
+        selectedGenre: "all"
+      });
+
+      let fbCandidates = [];
+      for (const level of levels) {
+        const found = await tmdbFetchDiscoverLevel(level.urls, fbType, excludedKeys);
+        fbCandidates = [...fbCandidates, ...found];
+        const dedup = new Map();
+        fbCandidates.forEach(i => dedup.set(uniqueKey(i), i));
+        fbCandidates = [...dedup.values()];
+        if (fbCandidates.length >= 10) break;
+      }
+
+      const fbRanked = fbCandidates
+        .filter(i => !usedKeys.has(uniqueKey(i)))
+        .map(item => ({
+          item,
+          affinity: calculateAffinity(item, profile),
+          rankScore: scoreCandidate(item, profile) + Math.random() * 2.5
+        }))
+        .sort((a, b) => b.rankScore - a.rankScore);
+
+      for (const entry of fbRanked) {
+        if (finalFive.length >= 5) break;
+        finalFive.push(entry);
+        usedKeys.add(uniqueKey(entry.item));
       }
     }
 
     if (reqId !== tonightReqCounter) return;
 
-    if (!candidates.length) {
+    if (!finalFive.length) {
       el.innerHTML = `<p class="tonight__hint">Nessun consiglio trovato. Riprova più tardi.</p>`;
       return;
     }
 
-    const ranked = candidates.map(item => {
-      const affinity = calculateAffinity(item, profile);
-      const rankScore = scoreCandidate(item, profile) + affinity / 20 + Math.random() * 2.5;
-      return { item, affinity, rankScore };
-    }).sort((a, b) => b.rankScore - a.rankScore).slice(0, 40);
-
-    // ── SELEZIONE PER DECADE ──────────────────────────────────────────────────
-    // Regola FISSA (indipendente dalla decade preferita dell'utente):
-    //   Slot A → 1 film dal 2000–2009
-    //   Slot B → 2 film dal 2010–2019
-    //   Slot C → 2 film dal 2020 a oggi
-    // Fallback a cascata: se uno slot è parzialmente vuoto, si riempie prima
-    // con film di altre decadi (scoperta), poi — in ultima istanza — con i
-    // migliori rimasti qualsiasi. I 5 consigli ci sono SEMPRE.
-
-    function itemInFixedDecade(item, start, end) {
-      if (!item.year || item.year === "—") return false;
-      const y = Number(item.year);
-      return Number.isFinite(y) && y >= start && y <= end;
-    }
-
-    const usedKeys = new Set();
-
-    function pickSlot(filterFn, count) {
-      const result = [];
-      for (const entry of ranked) {
-        if (result.length >= count) break;
-        const key = uniqueKey(entry.item);
-        if (usedKeys.has(key)) continue;
-        if (!filterFn(entry.item)) continue;
-        result.push(entry);
-        usedKeys.add(key);
-      }
-      return result;
-    }
-
-    // Slot principali
-    const slot2000s = pickSlot(i => itemInFixedDecade(i, 2000, 2009), 1);
-    const slot2010s = pickSlot(i => itemInFixedDecade(i, 2010, 2019), 2);
-    const slot2020s = pickSlot(i => itemInFixedDecade(i, 2020, 9999), 2);
-
-    let finalFive = [...slot2000s, ...slot2010s, ...slot2020s];
-
-    // Fallback a cascata: slot vuoti → decade diversa (scoperta),
-    // poi genere non affine, poi qualsiasi — slot mai vuoti.
-    if (finalFive.length < 5) {
-      // Prima passa: film di decadi non ancora rappresentate (es. anni '90, '80…)
-      const otherDecades = pickSlot(
-        i => !itemInFixedDecade(i, 2000, 9999),
-        5 - finalFive.length
-      );
-      finalFive = [...finalFive, ...otherDecades];
-    }
-
-    if (finalFive.length < 5) {
-      // Seconda passa: qualsiasi film rimasto non ancora selezionato
-      for (const entry of ranked) {
-        if (finalFive.length >= 5) break;
-        const key = uniqueKey(entry.item);
-        if (usedKeys.has(key)) continue;
-        finalFive.push(entry);
-        usedKeys.add(key);
-      }
-    }
-
     finalFive = finalFive.slice(0, 5).sort((a, b) => b.affinity - a.affinity);
-    // ── FINE SELEZIONE PER DECADE ─────────────────────────────────────────────
-
-    if (!finalFive.length) {
-      el.innerHTML = `<p class="tonight__hint">Nessun consiglio trovato.</p>`;
-      return;
-    }
 
     registerSuggested(finalFive.map(x => x.item));
 
-    // ── DEBUG: stato interno visibile nella mini console ──────────────────
+    // ── DEBUG CONSOLE ─────────────────────────────────────────────────────────
     try {
-      const topG = profile.topGenres.join(" · ") || "—";
-      const decade = profile.topDecade || "—";
-      const prefType = profile.prefType === "movie" ? "Film" : profile.prefType === "tv" ? "Serie TV" : "Misto";
-
       console.log("── ⭐ 5 CONSIGLI PER TE ─────────────────");
       console.log(`📚 Visti: ${db.seen.length} · Watchlist: ${db.watchlist.length}`);
-      console.log(`🎭 Top 5: ${topG}`);
-      console.log(`📅 Decade: ${decade} · Preferenza: ${prefType}`);
-      console.log(`🔍 Candidati: ${candidates.length} · selezionati: ${finalFive.length}`);
-      console.log(`📆 Slot 2000s: ${slot2000s.length}/1 · Slot 2010s: ${slot2010s.length}/2 · Slot 2020+: ${slot2020s.length}/2 · totale: ${finalFive.length}/5`);
+      console.log(`🎭 Top generi: ${profile.topGenres.join(" · ") || "—"}`);
+      console.log(`📅 Decade pref: ${profile.topDecade || "—"} · Tipo: ${profile.prefType}`);
+      console.log(`📆 Pool 2000s: ${raw2000s.length} · Pool 2010s: ${raw2010s.length} · Pool 2020s: ${raw2020s.length}`);
+      console.log(`🎯 Slot 2000s: ${slot2000s.length}/1 · Slot 2010s: ${slot2010s.length}/2 · Slot 2020+: ${slot2020s.length}/2 · Totale: ${finalFive.length}/5`);
       console.log("─────────────────────────────────────────");
-
       finalFive.forEach((entry, i) => {
         const item = entry.item;
         const aff = Math.round(entry.affinity);
-        const tmdbVote = Number(item.vote_average) || 0;
-        const year = item.year || "?";
-        const title = item.title || item.name || "?";
-
-        // Ricalcola breakdown esatto uguale a calculateAffinity
-        const genres = item.genre_names || [];
-        let genreBase = 0;
-        let matched = 0;
-        const matchedDetails = [];
-
-        genres.forEach(g => {
-          if (profile.genreAverages[g]) {
-            genreBase += profile.genreAverages[g];
-            matched++;
-            matchedDetails.push(`${g}(${profile.genreAverages[g].toFixed(1)})`);
-          } else if (profile.topGenres.includes(g)) {
-            genreBase += 7.5;
-            matched++;
-            matchedDetails.push(`${g}(7.5)`);
-          }
-        });
-
-        if (!matched) {
-          genreBase = Math.max(6.4, profile.avgVote);
-          matched = 1;
-          matchedDetails.push(`nessun match → base ${genreBase.toFixed(1)}`);
-        }
-
-        const base = genreBase / matched;
-        const decadeMatch = profile.topDecade && decadeScoreLabel(item.year) === profile.topDecade;
-        const tipoMatch = item.media_type === profile.prefType;
-        const tmdbBonus = tmdbVote > 0 ? Math.min(0.45, (tmdbVote - 6) * 0.1) : 0;
-        const score10 = Math.max(6.2, Math.min(9.6, base + (decadeMatch ? 0.35 : 0) + (tipoMatch ? 0.25 : 0) + tmdbBonus));
-
-        const genreStr = matchedDetails.length ? matchedDetails.join(" ") : "nessun genere matched";
-        const decadeStr = decadeMatch ? "+0.35" : "✗";
-        const tipoStr = tipoMatch ? "+0.25" : "✗";
-        const tmdbStr = `tmdb(${tmdbVote.toFixed(1)}) +${tmdbBonus.toFixed(2)}`;
-
-        console.log(`🎯 ${i + 1}. ${title} (${year}) · ${aff}%`);
-        console.log(`   generi: ${genreStr} → base ${base.toFixed(2)}`);
-        console.log(`   decade ${decadeStr} · tipo ${tipoStr} · ${tmdbStr}`);
-        console.log(`   totale: ${score10.toFixed(2)}/10 → ${aff}%`);
+        console.log(`🎬 ${i + 1}. ${item.title || item.name} (${item.year || "?"}) · ${aff}% · ${(item.genre_names || []).slice(0,2).join(", ")}`);
       });
-
       console.log("─────────────────────────────────────────");
     } catch (e) { /* debug non blocca mai l'app */ }
-    // ── FINE DEBUG ────────────────────────────────────────────────────────
+    // ── FINE DEBUG ────────────────────────────────────────────────────────────
 
     const enriched = finalFive.map(entry => ({
       item: entry.item,
@@ -951,14 +927,11 @@ async function recommendTonightFive(isAuto = false) {
       reasons: buildReason(entry.item, profile, entry.affinity)
     }));
 
-    const note = (levelLabel && levelLabel !== "ricerca precisa")
-      ? "Ho allargato un po' la ricerca per trovare 5 proposte."
-      : "";
-
-    el.innerHTML = renderTonightFive(enriched, null, note);
+    el.innerHTML = renderTonightFive(enriched, null, "");
 
     if (!isAuto) haptic([10]);
     if (isAuto) lastAutoRecommendAt = Date.now();
+
   } catch (e) {
     console.error(e);
     if (reqId !== tonightReqCounter) return;
@@ -982,7 +955,6 @@ async function discoverByTaste() {
     return;
   }
 
-  // FIX 1: controlla connessione prima di fare fetch
   if (!navigator.onLine) {
     el.innerHTML = `<p class="tonight__hint">Sei offline. Connettiti per scoprire nuovi titoli.</p>`;
     showToast("Sei offline. Controlla la connessione.", "error", "Scopri");
@@ -1030,12 +1002,8 @@ async function discoverByTaste() {
 
     registerSuggested([chosen]);
 
-    // ── DEBUG: stato interno visibile nella mini console ──────────────────
+    // ── DEBUG ─────────────────────────────────────────────────────────────────
     try {
-      const chosenEntry = topPool.find(e => e.item === chosen);
-      const baseScore = chosenEntry ? chosenEntry.score : 0;
-      const randomComponent = Math.min(2.5, baseScore - scoreCandidate(chosen, profile, selectedBoosts));
-      const pureScore = baseScore - randomComponent;
       const tmdbVote = Number(chosen.vote_average) || 0;
       const tmdbBonus = tmdbVote > 0 ? Math.min(0.45, (tmdbVote - 6) * 0.1) : 0;
       const decadeMatch = profile.topDecade && decadeScoreLabel(chosen.year) === profile.topDecade;
@@ -1047,13 +1015,12 @@ async function discoverByTaste() {
       console.log(`🎭 Genere selezionato: ${genreLabel}`);
       console.log(`🔍 Candidati trovati: ${candidates.length} · top pool: ${topPool.length}`);
       console.log(`🎯 Scelto: ${chosen.title || chosen.name} (${chosen.year || "?"})`);
-      console.log(`   score puro: ${pureScore.toFixed(1)} · random: +${randomComponent.toFixed(1)}`);
       console.log(`   generi film: ${(chosen.genre_names || []).join(" · ") || "—"}`);
       console.log(`   match tuoi generi: ${matchG.length ? matchG.join(" ✓ ") + " ✓" : "nessuno"}`);
       console.log(`   decade ${decadeMatch ? "✓ +0.35" : "✗"} · tipo ${tipoMatch ? "✓ +0.25" : "✗"} · tmdb(${tmdbVote.toFixed(1)}) ${tmdbBonus >= 0 ? "+" : ""}${tmdbBonus.toFixed(2)}`);
       console.log("────────────────────────────────────────");
     } catch (e) { /* debug non blocca mai l'app */ }
-    // ── FINE DEBUG ────────────────────────────────────────────────────────
+    // ── FINE DEBUG ────────────────────────────────────────────────────────────
 
     const genres = chosen.genre_names || [];
     const matchGenres = genres.filter(g => profile.topGenres.includes(g));
@@ -1444,7 +1411,7 @@ async function bootApp() {
       db = { seen: [], watchlist: [] };
     }
 
-    try { initNetworkWatcher(); } catch(e) { console.warn(e); }  // FIX 1
+    try { initNetworkWatcher(); } catch(e) { console.warn(e); }
     try { initScreens(); } catch(e) { console.warn(e); }
     try { hideComingSoonButton(); } catch(e) { console.warn(e); }
     try { bindEvents(); } catch(e) { console.warn(e); }
