@@ -899,7 +899,8 @@ async function recommendTonightFive(isAuto = false) {
       return;
     }
 
-    finalFive = finalFive.slice(0, 5).sort((a, b) => b.affinity - a.affinity);
+    // Ordine cronologico: dal più vecchio al più recente
+    finalFive = finalFive.slice(0, 5).sort((a, b) => Number(a.item.year || 0) - Number(b.item.year || 0));
 
     registerSuggested(finalFive.map(x => x.item));
 
@@ -915,7 +916,29 @@ async function recommendTonightFive(isAuto = false) {
       finalFive.forEach((entry, i) => {
         const item = entry.item;
         const aff = Math.round(entry.affinity);
-        console.log(`🎬 ${i + 1}. ${item.title || item.name} (${item.year || "?"}) · ${aff}% · ${(item.genre_names || []).slice(0,2).join(", ")}`);
+        const tmdbVote = Number(item.vote_average) || 0;
+        const genres = item.genre_names || [];
+        let genreBase = 0, matched = 0;
+        const matchedDetails = [];
+        genres.forEach(g => {
+          if (profile.genreAverages[g]) {
+            genreBase += profile.genreAverages[g]; matched++;
+            matchedDetails.push(`${g}(${profile.genreAverages[g].toFixed(1)})`);
+          } else if (profile.topGenres.includes(g)) {
+            genreBase += 7.5; matched++;
+            matchedDetails.push(`${g}(7.5)`);
+          }
+        });
+        if (!matched) { genreBase = Math.max(6.4, profile.avgVote); matched = 1; matchedDetails.push(`base ${genreBase.toFixed(1)}`); }
+        const base = genreBase / matched;
+        const decadeMatch = profile.topDecade && decadeScoreLabel(item.year) === profile.topDecade;
+        const tipoMatch = item.media_type === profile.prefType;
+        const tmdbBonus = tmdbVote > 0 ? Math.min(0.45, (tmdbVote - 6) * 0.1) : 0;
+        const score10 = Math.max(6.2, Math.min(9.6, base + (decadeMatch ? 0.35 : 0) + (tipoMatch ? 0.25 : 0) + tmdbBonus));
+        console.log(`🎯 ${i + 1}. ${item.title || item.name} (${item.year || "?"}) · ${aff}%`);
+        console.log(`   generi: ${matchedDetails.join(" ")} → base ${base.toFixed(2)}`);
+        console.log(`   decade ${decadeMatch ? "+0.35" : "✗"} · tipo ${tipoMatch ? "+0.25" : "✗"} · tmdb(${tmdbVote.toFixed(1)}) +${tmdbBonus.toFixed(2)}`);
+        console.log(`   totale: ${score10.toFixed(2)}/10 → ${aff}%`);
       });
       console.log("─────────────────────────────────────────");
     } catch (e) { /* debug non blocca mai l'app */ }
@@ -1008,16 +1031,33 @@ async function discoverByTaste() {
       const tmdbBonus = tmdbVote > 0 ? Math.min(0.45, (tmdbVote - 6) * 0.1) : 0;
       const decadeMatch = profile.topDecade && decadeScoreLabel(chosen.year) === profile.topDecade;
       const tipoMatch = chosen.media_type === profile.prefType;
-      const matchG = (chosen.genre_names || []).filter(g => profile.topGenres.includes(g));
       const genreLabel = selectedGenre !== "all" ? selectedGenre : "Qualsiasi";
-
+      const genres = chosen.genre_names || [];
+      let genreBase = 0, matched = 0;
+      const matchedDetails = [];
+      genres.forEach(g => {
+        if (profile.genreAverages[g]) {
+          genreBase += profile.genreAverages[g]; matched++;
+          matchedDetails.push(`${g}(${profile.genreAverages[g].toFixed(1)})`);
+        } else if (profile.topGenres.includes(g)) {
+          genreBase += 7.5; matched++;
+          matchedDetails.push(`${g}(7.5)`);
+        }
+      });
+      if (!matched) { genreBase = Math.max(6.4, profile.avgVote); matched = 1; matchedDetails.push(`base ${genreBase.toFixed(1)}`); }
+      const base = genreBase / matched;
+      const score10 = Math.max(6.2, Math.min(9.6, base + (decadeMatch ? 0.35 : 0) + (tipoMatch ? 0.25 : 0) + tmdbBonus));
+      const aff = Math.round(score10 * 10);
       console.log("── ✨ SCOPRI QUALCOSA DI NUOVO ──────────");
-      console.log(`🎭 Genere selezionato: ${genreLabel}`);
-      console.log(`🔍 Candidati trovati: ${candidates.length} · top pool: ${topPool.length}`);
-      console.log(`🎯 Scelto: ${chosen.title || chosen.name} (${chosen.year || "?"})`);
-      console.log(`   generi film: ${(chosen.genre_names || []).join(" · ") || "—"}`);
-      console.log(`   match tuoi generi: ${matchG.length ? matchG.join(" ✓ ") + " ✓" : "nessuno"}`);
-      console.log(`   decade ${decadeMatch ? "✓ +0.35" : "✗"} · tipo ${tipoMatch ? "✓ +0.25" : "✗"} · tmdb(${tmdbVote.toFixed(1)}) ${tmdbBonus >= 0 ? "+" : ""}${tmdbBonus.toFixed(2)}`);
+      console.log(`📚 Visti: ${db.seen.length} · Watchlist: ${db.watchlist.length}`);
+      console.log(`🎭 Top generi: ${profile.topGenres.join(" · ") || "—"}`);
+      console.log(`📅 Decade pref: ${profile.topDecade || "—"} · Tipo: ${profile.prefType}`);
+      console.log(`🔍 Genere selezionato: ${genreLabel} · Candidati: ${candidates.length} · top pool: ${topPool.length}`);
+      console.log("─────────────────────────────────────────");
+      console.log(`🎯 1. ${chosen.title || chosen.name} (${chosen.year || "?"}) · ${aff}%`);
+      console.log(`   generi: ${matchedDetails.join(" ")} → base ${base.toFixed(2)}`);
+      console.log(`   decade ${decadeMatch ? "+0.35" : "✗"} · tipo ${tipoMatch ? "+0.25" : "✗"} · tmdb(${tmdbVote.toFixed(1)}) +${tmdbBonus.toFixed(2)}`);
+      console.log(`   totale: ${score10.toFixed(2)}/10 → ${aff}%`);
       console.log("────────────────────────────────────────");
     } catch (e) { /* debug non blocca mai l'app */ }
     // ── FINE DEBUG ────────────────────────────────────────────────────────────
@@ -1057,6 +1097,42 @@ function suggestClassic() {
 
   const pick = pool[Math.floor(Math.random() * pool.length)];
   const vote = pick.vote || "";
+
+  // ── DEBUG ─────────────────────────────────────────────────────────────────
+  try {
+    const profile = getUserTasteProfile();
+    const tmdbVote = Number(pick.vote_average) || 0;
+    const tmdbBonus = tmdbVote > 0 ? Math.min(0.45, (tmdbVote - 6) * 0.1) : 0;
+    const decadeMatch = profile.topDecade && decadeScoreLabel(pick.year) === profile.topDecade;
+    const tipoMatch = pick.media_type === profile.prefType;
+    const genres = pick.genre_names || [];
+    let genreBase = 0, matched = 0;
+    const matchedDetails = [];
+    genres.forEach(g => {
+      if (profile.genreAverages[g]) {
+        genreBase += profile.genreAverages[g]; matched++;
+        matchedDetails.push(`${g}(${profile.genreAverages[g].toFixed(1)})`);
+      } else if (profile.topGenres.includes(g)) {
+        genreBase += 7.5; matched++;
+        matchedDetails.push(`${g}(7.5)`);
+      }
+    });
+    if (!matched) { genreBase = Math.max(6.4, profile.avgVote); matched = 1; matchedDetails.push(`base ${genreBase.toFixed(1)}`); }
+    const base = genreBase / matched;
+    const score10 = Math.max(6.2, Math.min(9.6, base + (decadeMatch ? 0.35 : 0) + (tipoMatch ? 0.25 : 0) + tmdbBonus));
+    const aff = Math.round(score10 * 10);
+    console.log("── 🏛️ RIVEDI UN CLASSICO ────────────────");
+    console.log(`📚 Visti: ${db.seen.length} · Pool classici (voto ≥ 7): ${pool.length}`);
+    console.log(`🎭 Top generi: ${profile.topGenres.join(" · ") || "—"}`);
+    console.log(`📅 Decade pref: ${profile.topDecade || "—"} · Tipo: ${profile.prefType}`);
+    console.log("─────────────────────────────────────────");
+    console.log(`🎯 1. ${pick.title || pick.name} (${pick.year || "?"}) · ${aff}% · tuo voto: ${vote}`);
+    console.log(`   generi: ${matchedDetails.join(" ")} → base ${base.toFixed(2)}`);
+    console.log(`   decade ${decadeMatch ? "+0.35" : "✗"} · tipo ${tipoMatch ? "+0.25" : "✗"} · tmdb(${tmdbVote.toFixed(1)}) +${tmdbBonus.toFixed(2)}`);
+    console.log(`   totale: ${score10.toFixed(2)}/10 → ${aff}%`);
+    console.log("─────────────────────────────────────────");
+  } catch (e) { /* debug non blocca mai l'app */ }
+  // ── FINE DEBUG ────────────────────────────────────────────────────────────
 
   const numericVote = parseUserVote(pick.vote);
   const comment = numericVote >= 9
