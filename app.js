@@ -412,7 +412,7 @@ function getRanked(type) {
 
       return (a.title || "").localeCompare(b.title || "", "it");
     })
-    .slice(0, 250);
+    .slice(0, 500);
 }
 
 function resetRanking() {
