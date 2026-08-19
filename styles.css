@@ -1592,6 +1592,20 @@ select option {
   opacity: 1;
 }
 
+#updateBanner {
+  position: fixed; left:16px; right:16px; bottom: 92px; z-index: 10000;
+  background: var(--surface); border:1px solid rgba(245,196,81,.35); border-radius: var(--radius-md);
+  padding: 12px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  box-shadow: var(--shadow-lg);
+  animation: updateBannerIn 300ms var(--ease);
+}
+@keyframes updateBannerIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+#updateBanner span { font-size:13px; font-weight:600; color: var(--text); }
+#updateBanner button {
+  background: linear-gradient(160deg, var(--gold2), var(--gold)); color:#241a04; font-family: var(--font-display);
+  font-weight:800; font-size:13px; padding:9px 16px; border-radius: var(--radius-sm); border:none; flex-shrink:0;
+}
+
 .toast.success { border-color: rgba(62,201,122,.3); }
 .toast.error   { border-color: rgba(255,95,95,.28); }
 .toast.info    { border-color: rgba(245,196,81,.22); }

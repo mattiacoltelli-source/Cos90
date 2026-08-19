@@ -23,6 +23,48 @@ const BASE_URL = "https://api.themoviedb.org/3";
 let db = { seen: [], watchlist: [] };
 let suggestHistory = loadSuggestHistory();
 
+// ─── AGGIORNAMENTI (service worker leggero, solo notifica) ───────────────────
+
+function initUpdateCheck() {
+  if (!("serviceWorker" in navigator)) return;
+
+  navigator.serviceWorker.register("./sw.js").then(reg => {
+    reg.update(); // controlla subito se c'è una versione più recente
+
+    reg.addEventListener("updatefound", () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener("statechange", () => {
+        if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+          showUpdateBanner(newWorker);
+        }
+      });
+    });
+  }).catch(() => {});
+
+  let alreadyReloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (alreadyReloading) return;
+    alreadyReloading = true;
+    window.location.reload();
+  });
+}
+
+function showUpdateBanner(worker) {
+  if (document.getElementById("updateBanner")) return;
+  const bar = document.createElement("div");
+  bar.id = "updateBanner";
+  bar.innerHTML = `
+    <span>🔄 Nuova versione disponibile</span>
+    <button id="updateBtn">Aggiorna</button>
+  `;
+  document.body.appendChild(bar);
+  document.getElementById("updateBtn").addEventListener("click", () => {
+    worker.postMessage({ type: "SKIP_WAITING" });
+    bar.remove();
+  });
+}
+
 let currentType = "multi";
 let currentDetail = null;
 let currentLibraryMode = "watch";
@@ -1488,6 +1530,7 @@ async function bootApp() {
     }
 
     try { initNetworkWatcher(); } catch(e) { console.warn(e); }
+    try { initUpdateCheck(); } catch(e) { console.warn(e); }
     try { initScreens(); } catch(e) { console.warn(e); }
     try { hideComingSoonButton(); } catch(e) { console.warn(e); }
     try { bindEvents(); } catch(e) { console.warn(e); }
