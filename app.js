@@ -2,7 +2,7 @@ import { supabase } from "./supabase.js";
 import {
   uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
   decadeOf, posterUrl, buildDateRange, randomPage,
-  escapeHtml, mediaLabel, rawNumberToFixed
+  escapeHtml, mediaLabel, rawNumberToFixed, mergeRemoteIntoLocal
 } from "./cine-core.js";
 import { loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
 import {
@@ -1588,26 +1588,25 @@ supabase
       // l'evento realtime non si vedrebbe mai in UI. queueRealtimeSync()
       // bypassa la cache e legge davvero lo stato appena cambiato.
       //
-      // FIX RACE CONDITION DEFINITIVO: due cose insieme chiudono la race
-      // con i salvataggi in corso:
-      // 1) queueRealtimeSync mette il refresh nella STESSA coda dei push
-      //    (pushChain in storage.js), quindi legge Supabase solo DOPO che
-      //    ogni nostro salvataggio già in coda è stato scritto — non può
-      //    più leggere uno stato remoto "vecchio" rispetto a una nostra
-      //    modifica appena fatta.
-      // 2) Qui sotto MUTIAMO l'oggetto `db` esistente (db.seen = ...,
-      //    db.watchlist = ...) invece di riassegnare la variabile
-      //    (`db = newDB`). Se un salvataggio è già in coda ha catturato
-      //    per riferimento questo STESSO oggetto `db`: se lo sostituissimo
-      //    con un oggetto nuovo, quel salvataggio continuerebbe a vedere lo
-      //    snapshot vecchio quando esegue davvero, e la cancellazione "a
-      //    specchio" potrebbe cancellare come "orfano" un titolo arrivato
-      //    nel frattempo da un altro dispositivo. Mutando sul posto, invece,
-      //    qualunque salvataggio già in coda vede sempre i dati più
-      //    recenti nel momento in cui viene eseguito.
+      // FIX RACE CONDITION — parte 1: queueRealtimeSync mette il refresh
+      // nella STESSA coda dei push (pushChain in storage.js), quindi legge
+      // Supabase solo DOPO che ogni nostro salvataggio già in coda è stato
+      // scritto — non può più leggere uno stato remoto "vecchio" rispetto a
+      // una nostra modifica appena fatta.
+      //
+      // FIX RACE CONDITION — parte 2 (residua, chiusa qui): tra il momento
+      // in cui questo refresh viene accodato e il momento in cui esegue
+      // davvero (serve una fetch di rete), l'utente può aver aggiunto un
+      // nuovo titolo in locale. Una sovrascrittura totale (`db.seen =
+      // newDB.seen`) cancellerebbe quel titolo appena aggiunto — sia dalla
+      // UI sia dal prossimo salvataggio, che legge `db` per riferimento.
+      // mergeRemoteIntoLocal() risolve questo: aggiorna/aggiunge gli item
+      // remoti per chiave, ma non rimuove MAI un item presente solo in
+      // locale (l'oggetto `db` resta comunque mutato sul posto, non
+      // riassegnato, per lo stesso motivo del fix precedente).
       queueRealtimeSync(newDB => {
-        db.seen = newDB.seen;
-        db.watchlist = newDB.watchlist;
+        db.seen = mergeRemoteIntoLocal(db.seen, newDB.seen);
+        db.watchlist = mergeRemoteIntoLocal(db.watchlist, newDB.watchlist);
         renderAll();
       });
     }

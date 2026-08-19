@@ -212,6 +212,26 @@ export function uniqueKey(item) {
   return `${item.media_type}_${item.id}`;
 }
 
+// FIX RACE CONDITION REALTIME: unisce lo stato appena letto da Supabase
+// con quello locale SENZA cancellare mai un item presente solo in locale.
+// Motivo: tra il momento in cui un refresh realtime viene accodato e il
+// momento in cui esegue davvero (serve una fetch di rete), l'utente puo'
+// aver aggiunto un nuovo titolo. Una sovrascrittura totale (db.seen =
+// newDB.seen) cancellerebbe quel titolo appena aggiunto, sia dalla UI sia
+// dal prossimo salvataggio (che legge `db` per riferimento). Con questo
+// merge, gli item remoti aggiornano/aggiungono quelli locali per chiave,
+// ma un item presente solo in locale non viene mai rimosso da qui: nel
+// caso raro in cui sia stato invece cancellato da un altro dispositivo,
+// resta visibile localmente fino al prossimo caricamento completo — una
+// staleness temporanea, molto meno grave di una cancellazione spuria.
+export function mergeRemoteIntoLocal(localItems, remoteItems) {
+  const merged = new Map((localItems || []).map(item => [uniqueKey(item), item]));
+  for (const remoteItem of (remoteItems || [])) {
+    merged.set(uniqueKey(remoteItem), remoteItem);
+  }
+  return Array.from(merged.values());
+}
+
 export function decadeOf(year) {
   if (!year || year === "—" || isNaN(Number(year))) return "Sconosciuta";
   const y = Number(year);

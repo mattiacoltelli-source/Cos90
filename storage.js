@@ -217,7 +217,7 @@ async function _pushToSupabase(db) {
   }
 
   // UPSERT degli item correnti
-  const rows = [
+  const rawRows = [
     ...(db.seen || []).map((item) => ({
       user_id: USER_ID,
       tmdb_id: item.id,
@@ -237,6 +237,29 @@ async function _pushToSupabase(db) {
       data: item,
     })),
   ];
+
+  // FIX COLLISIONE FILM/SERIE: il vincolo di unicità su Supabase è
+  // (user_id, tmdb_id, list) e NON include media_type. TMDb usa id numerici
+  // indipendenti per film e serie, quindi un film e una serie con lo stesso
+  // id nella stessa lista producono due righe con la stessa chiave di
+  // conflitto nello stesso upsert — Postgres rifiuta l'intera istruzione
+  // ("ON CONFLICT DO UPDATE command cannot affect row a second time"),
+  // facendo fallire la sincronizzazione dell'intero batch, non solo delle
+  // righe in collisione. Deduplichiamo qui come rete di sicurezza, prima di
+  // costruire la query: nel caso raro di collisione teniamo un solo item
+  // (il primo, cioè quello aggiunto più di recente grazie a unshift) e
+  // scartiamo l'altro con un warning, invece di far fallire tutto il push.
+  const seenKeys = new Set();
+  const rows = [];
+  for (const row of rawRows) {
+    const key = `${row.tmdb_id}|${row.list}`;
+    if (seenKeys.has(key)) {
+      console.warn(`Collisione id TMDb tra film e serie (id=${row.tmdb_id}, lista=${row.list}): tengo solo il primo, l'altro non verrà sincronizzato su Supabase.`);
+      continue;
+    }
+    seenKeys.add(key);
+    rows.push(row);
+  }
 
   if (!rows.length) return;
 
