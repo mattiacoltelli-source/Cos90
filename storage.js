@@ -66,6 +66,19 @@ async function withRetry(fn, maxAttempts = 3, baseDelayMs = 1000) {
   throw lastError;
 }
 
+// ─── FIX DATA-LOSS: baseline affidabile ──────────────────────────────────────
+// _pushToSupabase cancella su Supabase le righe remote assenti in `db` (mirror
+// sync). Questo è sicuro SOLO se `db` riflette davvero lo stato completo
+// (caricato con successo da Supabase, o da una cache che a sua volta derivava
+// da un caricamento riuscito). Se il primo caricamento fallisce e l'app
+// procede con un db vuoto "di fallback", NON dobbiamo lasciare che un
+// successivo salvataggio interpreti tutto il resto come "orfano" e lo cancelli.
+let reliableBaseline = false;
+
+export function hasReliableBaseline() {
+  return reliableBaseline;
+}
+
 // ─── LOAD DB ─────────────────────────────────────────────────────────────────
 // Ritorna subito la cache locale (istantaneo), poi
 // sincronizza da Supabase in background aggiornando la cache.
@@ -74,11 +87,19 @@ export async function loadDB() {
   const cache = loadLocalCache();
 
   if (cache) {
+    reliableBaseline = true; // la cache deriva da un sync riuscito in passato
     syncFromSupabase(); // solo in background, non aspettiamo
     return cache;
   }
 
   // Prima apertura assoluta (o cache invalidata per versioning): aspettiamo Supabase
+  return await syncFromSupabase();
+}
+
+// Bypassa sempre la cache e va a leggere lo stato reale su Supabase.
+// Usata dal listener realtime, dove serve il dato fresco e non quello
+// potenzialmente stale già in cache locale.
+export async function refreshFromSupabase() {
   return await syncFromSupabase();
 }
 
@@ -106,6 +127,7 @@ async function syncFromSupabase() {
 
     const db = { seen, watchlist };
     saveLocalCache(db);
+    reliableBaseline = true;
     return db;
 
   } catch (e) {
@@ -117,45 +139,68 @@ async function syncFromSupabase() {
 // ─── SAVE DB ─────────────────────────────────────────────────────────────────
 // Aggiorna subito la cache locale, poi salva su Supabase in background
 // con retry automatico in caso di errore di rete (FIX 2).
+//
+// FIX RACE CONDITION: i push vengono incodati su `pushChain` così che ogni
+// _pushToSupabase parta solo dopo che il precedente è completamente finito.
+// Senza questo, due saveDB() ravvicinati (es. "segna visto" + "salva voto")
+// potevano sovrapporre due cicli fetch→delete→upsert e produrre cancellazioni
+// o upsert basati su uno stato remoto non più aggiornato.
+let pushChain = Promise.resolve();
 
 export async function saveDB(db) {
   // 1. Salva subito in locale (istantaneo)
   saveLocalCache(db);
 
-  // 2. Push su Supabase in background con retry automatico
-  withRetry(() => _pushToSupabase(db)).catch(e => {
-    console.warn("Errore sync Supabase dopo tutti i tentativi:", e);
-  });
+  // 2. Push su Supabase in background con retry automatico, in coda.
+  // NB: non si fa await di pushChain qui apposta — saveDB deve restare
+  // "fire and forget" verso la rete (i chiamanti fanno `await saveDB(db)`
+  // aspettandosi che si risolva subito, per aggiornare la UI all'istante
+  // anche offline). L'incodamento serve solo a evitare che due push si
+  // sovrappongano, non a farli attendere dal chiamante.
+  pushChain = pushChain
+    .then(() => withRetry(() => _pushToSupabase(db)))
+    .catch(e => {
+      console.warn("Errore sync Supabase dopo tutti i tentativi:", e);
+    });
 }
 
 async function _pushToSupabase(db) {
-  // DELETE righe orfane (fix precedente mantenuto)
-  const { data: remoteRows, error: fetchError } = await supabase
-    .from("Coltel")
-    .select("tmdb_id, list")
-    .eq("user_id", USER_ID);
+  // FIX DATA-LOSS: la cancellazione "a specchio" presuppone che `db`
+  // rappresenti davvero l'intera libreria. Se non abbiamo mai ottenuto una
+  // baseline affidabile da Supabase (es. il caricamento iniziale è fallito
+  // e l'app è partita con una libreria vuota "di fallback"), saltiamo la
+  // fase di DELETE: meglio lasciare righe remote "in più" temporaneamente
+  // che cancellare per errore l'intera libreria dell'utente.
+  if (!reliableBaseline) {
+    console.warn("Baseline non affidabile: salto la cancellazione delle righe orfane su Supabase.");
+  } else {
+    const { data: remoteRows, error: fetchError } = await supabase
+      .from("Coltel")
+      .select("tmdb_id, list")
+      .eq("user_id", USER_ID);
 
-  if (!fetchError && remoteRows) {
-    const localKeys = new Set([
-      ...(db.seen      || []).map(item => `${item.id}|seen`),
-      ...(db.watchlist || []).map(item => `${item.id}|watchlist`),
-    ]);
+    if (!fetchError && remoteRows) {
+      const localKeys = new Set([
+        ...(db.seen      || []).map(item => `${item.id}|seen`),
+        ...(db.watchlist || []).map(item => `${item.id}|watchlist`),
+      ]);
 
-    const toDelete = remoteRows.filter(
-      row => !localKeys.has(`${row.tmdb_id}|${row.list}`)
-    );
-
-    if (toDelete.length > 0) {
-      await Promise.all(
-        toDelete.map(row =>
-          supabase
-            .from("Coltel")
-            .delete()
-            .eq("user_id", USER_ID)
-            .eq("tmdb_id", row.tmdb_id)
-            .eq("list", row.list)
-        )
+      const toDelete = remoteRows.filter(
+        row => !localKeys.has(`${row.tmdb_id}|${row.list}`)
       );
+
+      if (toDelete.length > 0) {
+        await Promise.all(
+          toDelete.map(row =>
+            supabase
+              .from("Coltel")
+              .delete()
+              .eq("user_id", USER_ID)
+              .eq("tmdb_id", row.tmdb_id)
+              .eq("list", row.list)
+          )
+        );
+      }
     }
   }
 

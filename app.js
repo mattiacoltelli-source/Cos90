@@ -4,7 +4,7 @@ import {
   decadeOf, posterUrl, buildDateRange, randomPage,
   escapeHtml, mediaLabel, rawNumberToFixed
 } from "./cine-core.js";
-import { loadDB, saveDB, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
+import { loadDB, saveDB, refreshFromSupabase, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
 import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
@@ -1394,7 +1394,12 @@ function bindEvents() {
         renderAll();
         showToast(`"${currentDetail.title}" in watchlist.`, "success", "Watchlist");
         haptic([10]);
-      } else if (inWatch(currentDetail)) {
+      } else {
+        // FIX BUG UI: mancava il caso "già tra i visti, non in watchlist".
+        // Prima si cadeva su openDetail(currentDetail) che ripristinava i
+        // valori salvati, scartando in silenzio voto/commento appena digitati.
+        // doSaveDetailNotes() trova comunque l'item giusto (in seen o in
+        // watchlist) e salva le note, qualunque sia la lista in cui si trova.
         await doSaveDetailNotes();
         return;
       }
@@ -1522,11 +1527,20 @@ async function bootApp() {
       db = await loadDB();
     } catch (e) {
       console.warn("loadDB error", e);
-      db = { seen: [], watchlist: [] };
+      db = null;
     }
 
     if (!db || !db.seen || !db.watchlist) {
       db = { seen: [], watchlist: [] };
+      // Se non abbiamo mai avuto una baseline affidabile (né cache né
+      // Supabase hanno risposto), avvisiamo l'utente: la libreria potrebbe
+      // NON essere vuota davvero, solo non ancora caricata. saveDB() è
+      // comunque protetto e non cancellerà nulla su Supabase in questo stato.
+      if (!hasReliableBaseline()) {
+        try {
+          showToast("Sincronizzazione non riuscita: controlla la connessione. Le modifiche fatte ora resteranno solo su questo dispositivo finché non torni online.", "error", "Offline");
+        } catch (e) { console.warn(e); }
+      }
     }
 
     try { initNetworkWatcher(); } catch(e) { console.warn(e); }
@@ -1564,9 +1578,15 @@ supabase
     { event: "*", schema: "public", table: "Coltel" },
     async () => {
       try {
-        const newDB = await loadDB();
-        db = newDB;
-        renderAll();
+        // FIX SYNC MULTI-DISPOSITIVO: loadDB() ritorna la cache locale se
+        // presente, quindi qui arriveremmo sempre allo stato "vecchio" e
+        // l'evento realtime non si vedrebbe mai in UI. refreshFromSupabase()
+        // bypassa la cache e legge davvero lo stato appena cambiato.
+        const newDB = await refreshFromSupabase();
+        if (newDB) {
+          db = newDB;
+          renderAll();
+        }
       } catch (e) {
         console.error("Errore realtime sync:", e);
       }
