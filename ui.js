@@ -39,6 +39,18 @@ export function haptic(pattern = 10) {
 
 export function animateValue(el, target, duration = 600) {
   const end = Number(target) || 0;
+
+  // Se lo schermo che contiene il numero è nascosto (es. animazione lanciata
+  // all'avvio, prima che l'utente apra la tab Statistiche), non c'è nulla da
+  // mostrare: fissiamo subito il valore finale ma NON lo segnamo come "già
+  // animato", così la prima volta che la schermata diventa visibile davvero
+  // il conteggio riparte da zero invece di comparire già fermo.
+  if (el.offsetParent === null) {
+    el.textContent = String(end);
+    delete el.dataset.currentValue;
+    return;
+  }
+
   const current = Number(el.dataset.currentValue || 0);
 
   if (current === end) {
@@ -82,14 +94,16 @@ export function animateBarGroups() {
     bar.style.width = "0%";
   });
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      bars.forEach((bar, i) => {
-        setTimeout(() => {
-          bar.style.width = `${bar.dataset.width}%`;
-        }, i * 70);
-      });
-    });
+  // Forza un reflow sincrono tra lo stato a 0% e quello finale: con il solo
+  // doppio requestAnimationFrame il browser a volte unisce le due modifiche
+  // nello stesso frame e salta la transizione (è quello che succedeva
+  // rientrando una seconda volta nella tab Statistiche).
+  void bars[0].offsetWidth;
+
+  bars.forEach((bar, i) => {
+    setTimeout(() => {
+      bar.style.width = `${bar.dataset.width}%`;
+    }, i * 70);
   });
 }
 
