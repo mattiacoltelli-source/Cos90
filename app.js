@@ -6,7 +6,7 @@ import {
 } from "./cine-core.js";
 import { loadDB, saveDB, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
 import {
-  showToast, haptic, animateStats, animateBarGroups,
+  showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
   renderShelf, renderSearchResults, renderLibraryList,
   renderGenreFilters, renderGenreBars, renderPodium, renderRankingList,
@@ -1268,7 +1268,7 @@ function bindEvents() {
       switchScreen(screen);
 
       if (screen === "tonight") maybeAutoRecommend();
-      if (screen === "stats") setTimeout(animateBarGroups, 80);
+      if (screen === "stats") renderStats();
     });
   });
 
@@ -1512,7 +1512,7 @@ function bindEvents() {
     });
 
     if (name === "tonight") maybeAutoRecommend();
-    if (name === "stats") setTimeout(animateBarGroups, 80);
+    if (name === "stats") renderStats();
   });
 }
 

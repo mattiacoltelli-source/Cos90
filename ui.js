@@ -254,6 +254,8 @@ export function renderGenreBars(entries) {
       </div>
     </div>
   `).join("");
+
+  animateBarGroups();
 }
 
 const MEDALS = [
