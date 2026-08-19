@@ -96,13 +96,6 @@ export async function loadDB() {
   return await syncFromSupabase();
 }
 
-// Bypassa sempre la cache e va a leggere lo stato reale su Supabase.
-// Usata dal listener realtime, dove serve il dato fresco e non quello
-// potenzialmente stale già in cache locale.
-export async function refreshFromSupabase() {
-  return await syncFromSupabase();
-}
-
 async function syncFromSupabase() {
   try {
     const res = await supabase
@@ -162,6 +155,25 @@ export async function saveDB(db) {
     .catch(e => {
       console.warn("Errore sync Supabase dopo tutti i tentativi:", e);
     });
+}
+
+// ─── FIX RACE CONDITION REALTIME ─────────────────────────────────────────────
+// Il listener realtime (chiamato da app.js quando arriva un cambiamento da un
+// altro dispositivo) deve leggere lo stato remoto SOLO dopo che ogni nostro
+// salvataggio già in coda è stato scritto — altrimenti potrebbe leggere
+// Supabase mentre un nostro upsert è ancora in volo, ottenere uno stato senza
+// quella modifica, e quel refresh "vecchio" farebbe poi cancellare come
+// "orfano" un titolo che in realtà è stato appena salvato con successo.
+// Per questo instradiamo anche il refresh sulla stessa `pushChain`: eredita
+// automaticamente l'ordinamento FIFO con i salvataggi già incodati.
+export function queueRealtimeSync(applyFn) {
+  pushChain = pushChain
+    .then(() => syncFromSupabase())
+    .then(newDB => { if (newDB) applyFn(newDB); })
+    .catch(e => {
+      console.warn("Errore sync realtime:", e);
+    });
+  return pushChain;
 }
 
 async function _pushToSupabase(db) {

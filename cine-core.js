@@ -81,8 +81,16 @@ export function normalizeGenres(item) {
   return [];
 }
 
+// FIX XSS: poster_path/backdrop_path arrivano da TMDb in condizioni normali,
+// ma possono anche arrivare da un backup importato dall'utente o da una
+// scrittura diretta su Supabase (nessuna autenticazione, chiave pubblica).
+// Validiamo il formato atteso da TMDb (es. "/qJ2tW6WMUDux911r6m7haRef0WH.jpg")
+// PRIMA di usarlo per costruire un URL: qualunque valore che non rispetti
+// questo formato viene scartato, invece di finire in un attributo HTML.
+const TMDB_IMAGE_PATH_RE = /^\/[A-Za-z0-9]+\.(jpg|jpeg|png|webp)$/i;
+
 export function posterUrl(path) {
-  return path ? `${IMG}${path}` : "";
+  return TMDB_IMAGE_PATH_RE.test(path || "") ? `${IMG}${path}` : "";
 }
 
 export function yearOf(item) {

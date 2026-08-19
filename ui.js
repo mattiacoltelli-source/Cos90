@@ -151,13 +151,13 @@ export function renderShelf(containerId, items) {
 
   el.innerHTML = items.map(item => `
     <div class="shelf-card open-stored-detail" data-key="${uniqueKey(item)}">
-      <div class="shelf-card__poster" style="background-image:url('${posterUrl(item.poster_path)}')">
+      <div class="shelf-card__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
         <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
         ${item.vote ? `<span class="shelf-card__vote">★ ${escapeHtml(item.vote)}</span>` : ""}
       </div>
       <div class="shelf-card__info">
         <div class="shelf-card__title">${escapeHtml(item.title)}</div>
-        <div class="shelf-card__meta">${item.year}</div>
+        <div class="shelf-card__meta">${escapeHtml(item.year)}</div>
       </div>
     </div>
   `).join("");
@@ -171,7 +171,7 @@ export function renderSearchResults(items, db) {
 
     return `
       <div class="poster-card">
-        <div class="poster-card__img" style="background-image:url('${posterUrl(n.poster_path)}')">
+        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(n.poster_path))}')">
           <span class="badge ${mediaBadgeClass(n)}">${mediaLabel(n)}</span>
 
           <div class="poster-card__overlay">
@@ -186,7 +186,7 @@ export function renderSearchResults(items, db) {
 
         <div class="poster-card__info">
           <div class="poster-card__title">${escapeHtml(n.title)}</div>
-          <div class="poster-card__meta">${n.year} · ${mediaLabel(n)}</div>
+          <div class="poster-card__meta">${escapeHtml(n.year)} · ${mediaLabel(n)}</div>
           <button class="btn btn--ghost btn--sm action-details" data-id="${n.id}" data-type="${n.media_type}">
             Scheda →
           </button>
@@ -199,11 +199,11 @@ export function renderSearchResults(items, db) {
 export function renderLibraryList(items, mode) {
   return items.map(item => `
     <div class="list-item">
-      <div class="list-item__thumb" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+      <div class="list-item__thumb" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
 
       <div class="list-item__body">
         <div class="list-item__title">${escapeHtml(item.title)}</div>
-        <div class="list-item__meta">${item.year} · ${mediaLabel(item)}</div>
+        <div class="list-item__meta">${escapeHtml(item.year)} · ${mediaLabel(item)}</div>
 
         <div class="chip-row">
           ${item.genre_names?.[0] ? `<span class="chip">${escapeHtml(item.genre_names[0])}</span>` : ""}
@@ -287,7 +287,7 @@ export function renderPodium(podiumEl, items, typeLabel) {
   podiumEl.innerHTML = items.map((item, i) => `
     <div class="podium-card podium-card--${MEDALS[i].cls} open-stored-detail" data-key="${uniqueKey(item)}">
       <div class="podium-card__medal">${MEDALS[i].icon}</div>
-      <div class="podium-card__poster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+      <div class="podium-card__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
       <div class="podium-card__title">${escapeHtml(item.title)}</div>
       <div class="podium-card__meta">${escapeHtml(item.year)} · ${typeLabel}</div>
       <div class="podium-card__vote">★ ${escapeHtml(item.vote)}</div>
@@ -304,7 +304,7 @@ export function renderRankingList(listEl, items, offset, typeLabel) {
   listEl.innerHTML = items.map((item, i) => `
     <div class="rank-row open-stored-detail" data-key="${uniqueKey(item)}">
       <div class="rank-row__pos">${i + offset}</div>
-      <div class="rank-row__poster" style="background-image:url('${posterUrl(item.poster_path)}')"></div>
+      <div class="rank-row__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
       <div class="rank-row__info">
         <div class="rank-row__title">${escapeHtml(item.title)}</div>
         <div class="rank-row__meta">${escapeHtml(item.year)} · ${typeLabel}</div>
@@ -322,7 +322,7 @@ export function renderTonightFive(entries, profile, note) {
     <div class="tonight-list">
       ${entries.map(({ item, affinity, reasons }) => `
         <div class="tonight-card open-tonight-detail" data-id="${item.id}" data-type="${item.media_type}">
-          <div class="tonight-card__poster" style="background-image:url('${posterUrl(item.poster_path)}')">
+          <div class="tonight-card__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
             <div class="tonight-card__affinity">${affinity}%</div>
           </div>
 
@@ -341,7 +341,7 @@ export function renderTonightFive(entries, profile, note) {
 
 export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
   const poster = chosen.poster_path
-    ? `<div class="discover-poster" style="background-image:url('${posterUrl(chosen.poster_path)}')"></div>`
+    ? `<div class="discover-poster" style="background-image:url('${escapeHtml(posterUrl(chosen.poster_path))}')"></div>`
     : `<div class="discover-poster"></div>`;
 
   return `
@@ -349,7 +349,7 @@ export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
       ${poster}
       <div class="discover-result__body">
         <div class="discover-result__title">✨ ${escapeHtml(chosen.title)}</div>
-        <div class="discover-result__meta">${chosen.year} · ${mediaLabel(chosen)} · ★ ${rating}/10</div>
+        <div class="discover-result__meta">${escapeHtml(chosen.year)} · ${mediaLabel(chosen)} · ★ ${rating}/10</div>
         <div class="discover-result__why">
           Scelto perché ${escapeHtml(whyBits.join(", "))}.${fallbackNote ? ` ${escapeHtml(fallbackNote)}` : ""}
         </div>
@@ -361,10 +361,10 @@ export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
 export function renderClassicResult(pick, voto, commento) {
   return `
     <div class="classic-result">
-      <div class="classic-result__poster" style="background-image:url('${posterUrl(pick.poster_path)}')"></div>
+      <div class="classic-result__poster" style="background-image:url('${escapeHtml(posterUrl(pick.poster_path))}')"></div>
       <div class="classic-result__body">
         <div class="classic-result__title">⭐ ${escapeHtml(pick.title)}</div>
-        <div class="classic-result__meta">${pick.year} · ${mediaLabel(pick)} · tuo voto: ${escapeHtml(voto)}</div>
+        <div class="classic-result__meta">${escapeHtml(pick.year)} · ${mediaLabel(pick)} · tuo voto: ${escapeHtml(voto)}</div>
         <div class="classic-result__why">${escapeHtml(commento)}</div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import {
   decadeOf, posterUrl, buildDateRange, randomPage,
   escapeHtml, mediaLabel, rawNumberToFixed
 } from "./cine-core.js";
-import { loadDB, saveDB, refreshFromSupabase, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
+import { loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
 import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
@@ -114,8 +114,12 @@ function initNetworkWatcher() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// FIX XSS: stessa validazione di posterUrl() in cine-core.js — path non nel
+// formato atteso da TMDb viene scartato invece di finire in un attributo HTML.
+const TMDB_BACKDROP_PATH_RE = /^\/[A-Za-z0-9]+\.(jpg|jpeg|png|webp)$/i;
+
 function backdropUrl(path) {
-  return path ? `https://image.tmdb.org/t/p/w1280${path}` : "";
+  return TMDB_BACKDROP_PATH_RE.test(path || "") ? `https://image.tmdb.org/t/p/w1280${path}` : "";
 }
 
 function inSeen(item) {
@@ -1213,10 +1217,12 @@ function importBackup(file) {
 
       if (!confirm("Sostituire i dati attuali con quelli del backup?")) return;
 
-      db = {
-        seen: imported.seen.map(normalizedItem),
-        watchlist: imported.watchlist.map(normalizedItem)
-      };
+      // Mutiamo l'oggetto `db` esistente invece di sostituirlo (stessa
+      // ragione del fix sul listener realtime): se un salvataggio precedente
+      // fosse ancora in coda con un riferimento al vecchio oggetto, vedrà
+      // comunque questi dati aggiornati nel momento in cui esegue davvero.
+      db.seen = imported.seen.map(normalizedItem);
+      db.watchlist = imported.watchlist.map(normalizedItem);
 
       await saveDB(db);
       renderAll();
@@ -1576,20 +1582,34 @@ supabase
   .on(
     "postgres_changes",
     { event: "*", schema: "public", table: "Coltel" },
-    async () => {
-      try {
-        // FIX SYNC MULTI-DISPOSITIVO: loadDB() ritorna la cache locale se
-        // presente, quindi qui arriveremmo sempre allo stato "vecchio" e
-        // l'evento realtime non si vedrebbe mai in UI. refreshFromSupabase()
-        // bypassa la cache e legge davvero lo stato appena cambiato.
-        const newDB = await refreshFromSupabase();
-        if (newDB) {
-          db = newDB;
-          renderAll();
-        }
-      } catch (e) {
-        console.error("Errore realtime sync:", e);
-      }
+    () => {
+      // FIX SYNC MULTI-DISPOSITIVO: loadDB() ritorna la cache locale se
+      // presente, quindi qui arriveremmo sempre allo stato "vecchio" e
+      // l'evento realtime non si vedrebbe mai in UI. queueRealtimeSync()
+      // bypassa la cache e legge davvero lo stato appena cambiato.
+      //
+      // FIX RACE CONDITION DEFINITIVO: due cose insieme chiudono la race
+      // con i salvataggi in corso:
+      // 1) queueRealtimeSync mette il refresh nella STESSA coda dei push
+      //    (pushChain in storage.js), quindi legge Supabase solo DOPO che
+      //    ogni nostro salvataggio già in coda è stato scritto — non può
+      //    più leggere uno stato remoto "vecchio" rispetto a una nostra
+      //    modifica appena fatta.
+      // 2) Qui sotto MUTIAMO l'oggetto `db` esistente (db.seen = ...,
+      //    db.watchlist = ...) invece di riassegnare la variabile
+      //    (`db = newDB`). Se un salvataggio è già in coda ha catturato
+      //    per riferimento questo STESSO oggetto `db`: se lo sostituissimo
+      //    con un oggetto nuovo, quel salvataggio continuerebbe a vedere lo
+      //    snapshot vecchio quando esegue davvero, e la cancellazione "a
+      //    specchio" potrebbe cancellare come "orfano" un titolo arrivato
+      //    nel frattempo da un altro dispositivo. Mutando sul posto, invece,
+      //    qualunque salvataggio già in coda vede sempre i dati più
+      //    recenti nel momento in cui viene eseguito.
+      queueRealtimeSync(newDB => {
+        db.seen = newDB.seen;
+        db.watchlist = newDB.watchlist;
+        renderAll();
+      });
     }
   )
   .subscribe();
