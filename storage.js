@@ -19,8 +19,10 @@ function saveLocalCache(db) {
       version: CACHE_VERSION,
       data: db
     }));
+    return true;
   } catch (e) {
     console.warn("Cache locale non salvata", e);
+    return false;
   }
 }
 
@@ -141,8 +143,11 @@ async function syncFromSupabase() {
 let pushChain = Promise.resolve();
 
 export async function saveDB(db) {
-  // 1. Salva subito in locale (istantaneo)
-  saveLocalCache(db);
+  // 1. Salva subito in locale (istantaneo). Il chiamante usa questo esito
+  // per sapere se può davvero dire all'utente "salvato" (vedi app.js): con
+  // localStorage pieno, salvare qui fallisce in silenzio e senza questo
+  // valore di ritorno l'app mostrava comunque un toast di successo.
+  const savedLocally = saveLocalCache(db);
 
   // 2. Push su Supabase in background con retry automatico, in coda.
   // NB: non si fa await di pushChain qui apposta — saveDB deve restare
@@ -155,6 +160,8 @@ export async function saveDB(db) {
     .catch(e => {
       console.warn("Errore sync Supabase dopo tutti i tentativi:", e);
     });
+
+  return savedLocally;
 }
 
 // ─── FIX RACE CONDITION REALTIME ─────────────────────────────────────────────

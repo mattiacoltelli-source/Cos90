@@ -160,6 +160,15 @@ function validateVote(rawVote) {
     return { ok: false, value: "" };
   }
 
+  // sanitizeVoteInput accetta numeri fuori scala clampandoli silenziosamente
+  // a 10 (es. "11" o "999" diventano "10"): avvisiamo l'utente, altrimenti
+  // sembra che il suo input sia stato salvato esattamente com'era digitato.
+  const rawTrimmed = String(rawVote).trim();
+  const rawNumeric = Number(rawTrimmed.replace(",", "."));
+  if (Number.isFinite(rawNumeric) && rawNumeric > 10 && cleaned === "10") {
+    showToast(`Il voto massimo è 10: "${rawTrimmed}" è stato impostato a 10.`, "info", "Voto");
+  }
+
   return { ok: true, value: cleaned };
 }
 
@@ -360,9 +369,9 @@ function renderHomeShelves() {
   toggleHidden("seenMovieShelfEmpty", seenMovies.length > 0);
   toggleHidden("seenSeriesShelfEmpty", seenSeries.length > 0);
 
-  toggleHidden("openWatchAll", db.watchlist.length === 0);
-  toggleHidden("openSeenMovies", db.seen.filter(x => x.media_type === "movie").length === 0);
-  toggleHidden("openSeenSeries", db.seen.filter(x => x.media_type === "tv").length === 0);
+  // "Vedi tutto" resta sempre visibile, anche a lista vuota: è l'unico modo
+  // per un utente nuovo di raggiungere la schermata Libreria (che gestisce
+  // già bene lo stato vuoto da sola, vedi doRenderLibrary).
 
   renderShelf("watchShelf", watchPrev);
   renderShelf("seenMovieShelf", seenMovies);
@@ -656,6 +665,17 @@ async function doShowDetails(type, id) {
   openDetail(item);
 }
 
+// Un salvataggio locale può fallire (es. localStorage pieno). In quel caso
+// non va mostrato lo stesso toast di successo: l'utente crederebbe che i
+// dati siano al sicuro mentre potrebbero non esserlo.
+function saveResultToast(savedLocally, successMsg, successType, successTitle) {
+  if (savedLocally) {
+    showToast(successMsg, successType, successTitle);
+  } else {
+    showToast("Spazio di archiviazione pieno: la modifica potrebbe non essere stata salvata. Libera spazio o esporta un backup.", "error", "Salvataggio non riuscito");
+  }
+}
+
 async function doAddSeen(type, id) {
   closeAllSearchActionMenus();
 
@@ -669,11 +689,11 @@ async function doAddSeen(type, id) {
   db.seen.unshift(item);
   db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(item));
 
-  await saveDB(db);
+  const savedLocally = await saveDB(db);
   renderAll();
   openDetail(item);
 
-  showToast(`"${item.title}" aggiunto ai visti.`, "success", "Salvato");
+  saveResultToast(savedLocally, `"${item.title}" aggiunto ai visti.`, "success", "Salvato");
   haptic([12, 20, 12]);
 }
 
@@ -684,9 +704,9 @@ async function doAddWatch(type, id) {
 
   if (!inSeen(item) && !inWatch(item)) {
     db.watchlist.unshift(item);
-    await saveDB(db);
+    const savedLocally = await saveDB(db);
     renderAll();
-    showToast(`"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
+    saveResultToast(savedLocally, `"${item.title}" aggiunto alla watchlist.`, "success", "Watchlist");
     haptic([10]);
   }
 
@@ -704,10 +724,10 @@ async function doMoveToSeen(key) {
     db.seen.unshift(item);
   }
 
-  await saveDB(db);
+  const savedLocally = await saveDB(db);
   renderAll();
 
-  showToast(`"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
+  saveResultToast(savedLocally, `"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
   haptic([12, 20, 12]);
 }
 
@@ -715,7 +735,7 @@ async function doRemoveSeen(key) {
   const item = db.seen.find(x => uniqueKey(x) === key);
   db.seen = db.seen.filter(x => uniqueKey(x) !== key);
 
-  await saveDB(db);
+  const savedLocally = await saveDB(db);
   renderAll();
 
   if (currentDetail && uniqueKey(currentDetail) === key) {
@@ -723,7 +743,7 @@ async function doRemoveSeen(key) {
   }
 
   if (item) {
-    showToast(`"${item.title}" rimosso dai visti.`, "info", "Rimosso");
+    saveResultToast(savedLocally, `"${item.title}" rimosso dai visti.`, "info", "Rimosso");
     haptic([14]);
   }
 }
@@ -732,7 +752,7 @@ async function doRemoveWatch(key) {
   const item = db.watchlist.find(x => uniqueKey(x) === key);
   db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
-  await saveDB(db);
+  const savedLocally = await saveDB(db);
   renderAll();
 
   if (currentDetail && uniqueKey(currentDetail) === key) {
@@ -740,7 +760,7 @@ async function doRemoveWatch(key) {
   }
 
   if (item) {
-    showToast(`"${item.title}" rimosso dalla watchlist.`, "info", "Rimosso");
+    saveResultToast(savedLocally, `"${item.title}" rimosso dalla watchlist.`, "info", "Rimosso");
     haptic([14]);
   }
 }
@@ -769,11 +789,11 @@ async function doSaveDetailNotes() {
   target.vote = vote;
   target.comment = comment;
 
-  await saveDB(db);
+  const savedLocally = await saveDB(db);
   renderAll();
   openDetail(target);
 
-  showToast("Voto e commento salvati.", "success", "Aggiornato");
+  saveResultToast(savedLocally, "Voto e commento salvati.", "success", "Aggiornato");
   haptic([12, 20, 12]);
 }
 
@@ -786,11 +806,11 @@ async function doRemoveCurrentDetail() {
   db.seen = db.seen.filter(x => uniqueKey(x) !== key);
   db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
 
-  await saveDB(db);
+  const savedLocally = await saveDB(db);
   renderAll();
   switchScreen("home");
 
-  showToast(`"${title}" rimosso dalla libreria.`, "info", "Rimosso");
+  saveResultToast(savedLocally, `"${title}" rimosso dalla libreria.`, "info", "Rimosso");
   haptic([14]);
 }
 
@@ -1224,11 +1244,11 @@ function importBackup(file) {
       db.seen = imported.seen.map(normalizedItem);
       db.watchlist = imported.watchlist.map(normalizedItem);
 
-      await saveDB(db);
+      const savedLocally = await saveDB(db);
       renderAll();
       switchScreen("home");
 
-      showToast("Backup importato.", "success", "Backup");
+      saveResultToast(savedLocally, "Backup importato.", "success", "Backup");
       haptic([12, 20, 12]);
     } catch (e) {
       console.error(e);
@@ -1367,9 +1387,9 @@ function bindEvents() {
           comment: commentInput.value.trim()
         });
         db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== uniqueKey(currentDetail));
-        await saveDB(db);
+        const savedLocally = await saveDB(db);
         renderAll();
-        showToast(`"${currentDetail.title}" aggiunto ai visti.`, "success", "Salvato");
+        saveResultToast(savedLocally, `"${currentDetail.title}" aggiunto ai visti.`, "success", "Salvato");
         haptic([12, 20, 12]);
       } else {
         await doSaveDetailNotes();
@@ -1396,9 +1416,9 @@ function bindEvents() {
           vote: check.value,
           comment: commentInput.value.trim()
         });
-        await saveDB(db);
+        const savedLocally = await saveDB(db);
         renderAll();
-        showToast(`"${currentDetail.title}" in watchlist.`, "success", "Watchlist");
+        saveResultToast(savedLocally, `"${currentDetail.title}" in watchlist.`, "success", "Watchlist");
         haptic([10]);
       } else {
         // FIX BUG UI: mancava il caso "già tra i visti, non in watchlist".
