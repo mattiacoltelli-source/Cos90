@@ -368,6 +368,21 @@ select option {
 
 .shelf-card:hover .shelf-card__poster { transform: scale(1.03); }
 
+/* Placeholder statico mostrato nell'HTML prima che loadDB()/renderHomeShelves()
+   sostituiscano il contenuto reale (renderShelf sovrascrive sempre l'innerHTML,
+   quindi lo skeleton sparisce da solo, sia a lista vuota che piena). Evita che
+   le shelf restino a altezza zero durante il caricamento, e — non avendo un
+   background-image — non viene mai considerato un candidato LCP al posto del
+   vero poster. */
+.shelf-card--skeleton .shelf-card__poster {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .6; }
+}
+
 .shelf-card__poster::after {
   content: "";
   position: absolute;
