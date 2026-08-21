@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
+/* Font caricato in index.html (non-bloccante, pattern preload+swap) invece
+   che qui: un @import CSS è sempre render-blocking e non si può rendere
+   asincrono da dentro il CSS stesso. */
 
 :root {
   --bg: #080c12;
