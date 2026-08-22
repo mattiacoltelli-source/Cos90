@@ -134,20 +134,6 @@ function getStoredItem(item) {
   return inSeen(item) || inWatch(item) || null;
 }
 
-function closeAllSearchActionMenus(exceptCard = null) {
-  document.querySelectorAll(".poster-card.is-actions-open").forEach(card => {
-    if (exceptCard && card === exceptCard) return;
-    card.classList.remove("is-actions-open");
-  });
-}
-
-function toggleSearchActionMenu(card) {
-  if (!card) return;
-  const willOpen = !card.classList.contains("is-actions-open");
-  closeAllSearchActionMenus(card);
-  card.classList.toggle("is-actions-open", willOpen);
-}
-
 function validateVote(rawVote) {
   const cleaned = sanitizeVoteInput(rawVote);
 
@@ -536,7 +522,6 @@ function renderAll() {
   renderHomeShelves();
   doRenderLibrary();
   renderStats();
-  closeAllSearchActionMenus();
 }
 
 async function doSearch() {
@@ -555,7 +540,6 @@ async function doSearch() {
     res.innerHTML = "";
     count.textContent = "";
     empty.textContent = "Nessun risultato trovato.";
-    closeAllSearchActionMenus();
     return;
   }
 
@@ -569,7 +553,6 @@ async function doSearch() {
   count.textContent = "";
   empty.textContent = "Ricerca in corso…";
   empty.classList.remove("hidden");
-  closeAllSearchActionMenus();
 
   try {
     const items = await tmdbSearch(q, currentType);
@@ -595,8 +578,6 @@ async function doSearch() {
 function openDetail(item) {
   try {
     if (!item) return;
-
-    closeAllSearchActionMenus();
 
     const safeItem = normalizedItem(item);
     currentDetail = safeItem;
@@ -660,7 +641,6 @@ function openDetail(item) {
 }
 
 async function doShowDetails(type, id) {
-  closeAllSearchActionMenus();
   const item = await tmdbFetchDetail(type, id);
   openDetail(item);
 }
@@ -677,8 +657,6 @@ function saveResultToast(savedLocally, successMsg, successType, successTitle) {
 }
 
 async function doAddSeen(type, id) {
-  closeAllSearchActionMenus();
-
   const item = await tmdbFetchDetail(type, id);
 
   if (inSeen(item)) {
@@ -698,8 +676,6 @@ async function doAddSeen(type, id) {
 }
 
 async function doAddWatch(type, id) {
-  closeAllSearchActionMenus();
-
   const item = await tmdbFetchDetail(type, id);
 
   if (!inSeen(item) && !inWatch(item)) {
@@ -1310,7 +1286,6 @@ function bindEvents() {
       document.querySelectorAll(".tab[data-type]").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       currentType = tab.dataset.type;
-      closeAllSearchActionMenus();
       haptic([8]);
     });
   });
@@ -1454,12 +1429,6 @@ function bindEvents() {
     const moveWatchBtn = e.target.closest(".move-watch-seen");
     const storedBtn = e.target.closest(".open-stored-detail");
     const genreBtn = e.target.closest("[data-genre-filter]");
-    const posterImage = e.target.closest(".poster-card__img");
-    const posterCard = e.target.closest(".poster-card");
-
-    if (!posterCard && !e.target.closest(".results-grid")) {
-      closeAllSearchActionMenus();
-    }
 
     if (e.target.closest("button,.nav__btn,.tab,.filter-pill,.shelf-card,.poster-card,.podium-card,.rank-row")) {
       haptic([8]);
@@ -1483,13 +1452,7 @@ function bindEvents() {
       }
 
       if (detailsBtn) {
-        closeAllSearchActionMenus();
         await doShowDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
-        return;
-      }
-
-      if (posterImage && posterCard && !seenBtn && !watchBtn) {
-        toggleSearchActionMenu(posterCard);
         return;
       }
 

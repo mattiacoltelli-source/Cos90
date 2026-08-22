@@ -173,23 +173,16 @@ export function renderSearchResults(items, db) {
       <div class="poster-card">
         <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(n.poster_path))}')">
           <span class="badge ${mediaBadgeClass(n)}">${mediaLabel(n)}</span>
-
-          <div class="poster-card__overlay">
-            <button class="btn btn--icon action-seen" data-id="${n.id}" data-type="${n.media_type}" title="Segna visto">
-              ${seen ? "✓ Visto" : "+ Visto"}
-            </button>
-            <button class="btn btn--icon action-watch" data-id="${n.id}" data-type="${n.media_type}" title="Watchlist">
-              ${watch ? "★ Lista" : "♡ Lista"}
-            </button>
+          <div class="poster-card__actions">
+            <button class="poster-btn poster-btn--watch action-watch" data-id="${n.id}" data-type="${n.media_type}">${watch ? "★ In lista" : "♡ Watchlist"}</button>
+            <button class="poster-btn poster-btn--seen action-seen" data-id="${n.id}" data-type="${n.media_type}">${seen ? "✓ Visto" : "✓ Già visto"}</button>
           </div>
         </div>
 
         <div class="poster-card__info">
           <div class="poster-card__title">${escapeHtml(n.title)}</div>
           <div class="poster-card__meta">${escapeHtml(n.year)} · ${mediaLabel(n)}</div>
-          <button class="btn btn--ghost btn--sm action-details" data-id="${n.id}" data-type="${n.media_type}">
-            Scheda →
-          </button>
+          <button class="poster-card__scheda action-details" data-id="${n.id}" data-type="${n.media_type}">Scheda →</button>
         </div>
       </div>
     `;
@@ -325,7 +318,7 @@ export function renderTonightFive(entries, profile, note) {
     ${noteHtml}
     <div class="results-grid">
       ${entries.map(({ item, affinity, reasons }) => `
-        <div class="poster-card poster-card--tonight" data-tonight-key="${item.media_type}_${item.id}">
+        <div class="poster-card" data-tonight-key="${item.media_type}_${item.id}">
           <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
             <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
             <span class="tonight-card__affinity">${affinity}%</span>
@@ -353,7 +346,7 @@ export function renderTonightFive(entries, profile, note) {
 export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
   return `
     <div class="tonight-solo">
-      <div class="poster-card poster-card--tonight" data-tonight-key="${chosen.media_type}_${chosen.id}">
+      <div class="poster-card" data-tonight-key="${chosen.media_type}_${chosen.id}">
         <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(chosen.poster_path))}')">
           <span class="badge ${mediaBadgeClass(chosen)}">${mediaLabel(chosen)}</span>
           <div class="poster-card__actions">
@@ -379,7 +372,7 @@ export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
 export function renderClassicResult(pick, voto, commento) {
   return `
     <div class="tonight-solo">
-      <div class="poster-card poster-card--tonight open-stored-detail" data-key="${uniqueKey(pick)}">
+      <div class="poster-card open-stored-detail" data-key="${uniqueKey(pick)}">
         <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(pick.poster_path))}')">
           <span class="badge ${mediaBadgeClass(pick)}">${mediaLabel(pick)}</span>
         </div>

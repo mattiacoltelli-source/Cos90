@@ -506,41 +506,6 @@ select option {
   background: var(--surface2) center/cover no-repeat;
   position: relative;
   overflow: hidden;
-  cursor: pointer;
-}
-
-.poster-card__overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,.92), rgba(0,0,0,.1) 50%);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 10px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--t-mid);
-}
-
-.poster-card:hover .poster-card__overlay,
-.poster-card:focus-within .poster-card__overlay,
-.poster-card.is-actions-open .poster-card__overlay {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.poster-card__overlay .btn--icon {
-  background: rgba(255,255,255,.12);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,.2);
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  backdrop-filter: blur(6px);
-  box-shadow: none;
 }
 
 .poster-card__info {
@@ -1133,11 +1098,11 @@ select option {
   border-left: 3px solid var(--blue);
 }
 
-/* Card "poster grande" per i risultati di Stasera (5 consigli, Scopri,
-   Classico): stessa base di .poster-card usata in ricerca, ma con pulsanti
-   di aggiunta SEMPRE visibili invece che a comparsa al tap — qui l'obiettivo
-   è aggiungere titoli al volo, uno via l'altro, senza doppio tap. */
-.poster-card--tonight .poster-card__actions {
+/* Pulsanti di aggiunta della card "poster grande" (.poster-card): usata sia
+   nei risultati di ricerca sia in "Stasera" (5 consigli, Scopri, Classico).
+   Sempre visibili, non a comparsa al tap — per aggiungere più titoli di
+   fila senza un doppio tocco su ognuno. */
+.poster-card__actions {
   position: absolute;
   left: 6px;
   right: 6px;
