@@ -1108,11 +1108,12 @@ select option {
   right: 6px;
   bottom: 6px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
 }
 
 .poster-btn {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;

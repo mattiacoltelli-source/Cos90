@@ -174,8 +174,8 @@ export function renderSearchResults(items, db) {
         <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(n.poster_path))}')">
           <span class="badge ${mediaBadgeClass(n)}">${mediaLabel(n)}</span>
           <div class="poster-card__actions">
-            <button class="poster-btn poster-btn--watch action-watch" data-id="${n.id}" data-type="${n.media_type}">${watch ? "★ In lista" : "♡ Watchlist"}</button>
-            <button class="poster-btn poster-btn--seen action-seen" data-id="${n.id}" data-type="${n.media_type}">${seen ? "✓ Visto" : "✓ Già visto"}</button>
+            <button class="poster-btn poster-btn--watch action-watch" data-id="${n.id}" data-type="${n.media_type}">${watch ? "★ In lista" : "♡ Lista"}</button>
+            <button class="poster-btn poster-btn--seen action-seen" data-id="${n.id}" data-type="${n.media_type}">✓ Visto</button>
           </div>
         </div>
 
@@ -323,8 +323,8 @@ export function renderTonightFive(entries, profile, note) {
             <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
             <span class="tonight-card__affinity">${affinity}%</span>
             <div class="poster-card__actions">
-              <button class="poster-btn poster-btn--watch action-watch" data-id="${item.id}" data-type="${item.media_type}">♡ Watchlist</button>
-              <button class="poster-btn poster-btn--seen action-seen" data-id="${item.id}" data-type="${item.media_type}">✓ Già visto</button>
+              <button class="poster-btn poster-btn--watch action-watch" data-id="${item.id}" data-type="${item.media_type}">♡ Lista</button>
+              <button class="poster-btn poster-btn--seen action-seen" data-id="${item.id}" data-type="${item.media_type}">✓ Visto</button>
             </div>
           </div>
           <div class="poster-card__info">
@@ -350,8 +350,8 @@ export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
         <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(chosen.poster_path))}')">
           <span class="badge ${mediaBadgeClass(chosen)}">${mediaLabel(chosen)}</span>
           <div class="poster-card__actions">
-            <button class="poster-btn poster-btn--watch action-watch" data-id="${chosen.id}" data-type="${chosen.media_type}">♡ Watchlist</button>
-            <button class="poster-btn poster-btn--seen action-seen" data-id="${chosen.id}" data-type="${chosen.media_type}">✓ Già visto</button>
+            <button class="poster-btn poster-btn--watch action-watch" data-id="${chosen.id}" data-type="${chosen.media_type}">♡ Lista</button>
+            <button class="poster-btn poster-btn--seen action-seen" data-id="${chosen.id}" data-type="${chosen.media_type}">✓ Visto</button>
           </div>
         </div>
         <div class="poster-card__info">
