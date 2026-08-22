@@ -830,6 +830,30 @@ async function fetchCandidatesForDecade(type, yearStart, yearEnd, genreIds, excl
   return results;
 }
 
+// Pesca candidati ESCLUDENDO i generi preferiti dell'utente (TMDB
+// with_genres esclude quando la wanti in without_genres): non uno a caso,
+// ma con soglia di voto più alta del solito, così "fuori zona" non significa
+// "qualità bassa".
+async function fetchOutOfComfortZoneCandidates(type, excludeGenreIds, excludedKeys) {
+  const minVotes = type === "movie" ? "&vote_count.gte=150" : "&vote_count.gte=60";
+  const withoutGenres = excludeGenreIds.length ? `&without_genres=${excludeGenreIds.join(",")}` : "";
+
+  const urls = [
+    `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${withoutGenres}&sort_by=vote_average.desc${minVotes}&page=${randomPage(5)}`,
+    `${BASE_URL}/discover/${type}?api_key=${API_KEY}&language=it-IT${withoutGenres}&sort_by=popularity.desc${minVotes}&page=${randomPage(5)}`
+  ];
+
+  return tmdbFetchDiscoverLevel(urls, type, excludedKeys);
+}
+
+function buildOutOfZoneReason(item, profile) {
+  const reasons = ["fuori dai generi che guardi di solito"];
+  const tmdbVote = Number(item.vote_average) || 0;
+  if (tmdbVote >= 7.2) reasons.push("voto molto alto su TMDB");
+  if (profile.topDecade && decadeScoreLabel(item.year) === profile.topDecade) reasons.push("nella tua decade preferita");
+  return reasons;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function recommendTonightFive(isAuto = false) {
@@ -850,7 +874,7 @@ async function recommendTonightFive(isAuto = false) {
     return;
   }
 
-  el.innerHTML = `<p class="tonight__hint">🔍 Sto cercando 5 titoli adatti…</p>`;
+  el.innerHTML = `<p class="tonight__hint">🔍 Sto cercando 6 titoli adatti…</p>`;
 
   const profile = getUserTasteProfile();
   const type = profile.prefType;
@@ -862,15 +886,17 @@ async function recommendTonightFive(isAuto = false) {
     .filter(Boolean);
 
   try {
-    // ── FETCH SEPARATI PER DECADE ─────────────────────────────────────────────
+    // ── FETCH SEPARATI PER DECADE + FUORI ZONA ────────────────────────────────
     // Ogni slot fa una query TMDB mirata sul proprio range di anni.
     // Così ogni pool contiene davvero film di quella decade, indipendentemente
-    // dalla decade preferita dell'utente (che prima distorceva tutto).
+    // dalla decade preferita dell'utente (che prima distorceva tutto). In
+    // parallelo peschiamo anche un pool esplicitamente FUORI dai generi top.
 
-    const [raw2000s, raw2010s, raw2020s] = await Promise.all([
+    const [raw2000s, raw2010s, raw2020s, rawOutOfZone] = await Promise.all([
       fetchCandidatesForDecade(type, 2000, 2009, genreIds, excludedKeys),
       fetchCandidatesForDecade(type, 2010, 2019, genreIds, excludedKeys),
-      fetchCandidatesForDecade(type, 2020, 2026, genreIds, excludedKeys)
+      fetchCandidatesForDecade(type, 2020, 2026, genreIds, excludedKeys),
+      fetchOutOfComfortZoneCandidates(type, genreIds, excludedKeys)
     ]);
 
     if (reqId !== tonightReqCounter) return;
@@ -885,24 +911,24 @@ async function recommendTonightFive(isAuto = false) {
       return ranked.slice(0, count);
     }
 
-    // Slot principali: i migliori da ogni pool per decade
+    // 4 slot "ad alta affinità": i migliori da ogni pool per decade
     const slot2000s = rankAndPick(raw2000s, 1);
-    const slot2010s = rankAndPick(raw2010s, 2);
+    const slot2010s = rankAndPick(raw2010s, 1);
     const slot2020s = rankAndPick(raw2020s, 2);
 
-    // Traccia le chiavi già usate per evitare duplicati nel fallback
+    // Traccia le chiavi già usate per evitare duplicati nel fallback e nel pool fuori zona
     const usedKeys = new Set([
       ...slot2000s.map(e => uniqueKey(e.item)),
       ...slot2010s.map(e => uniqueKey(e.item)),
       ...slot2020s.map(e => uniqueKey(e.item))
     ]);
 
-    let finalFive = [...slot2000s, ...slot2010s, ...slot2020s];
+    let topFour = [...slot2000s, ...slot2010s, ...slot2020s];
 
     // ── FALLBACK ──────────────────────────────────────────────────────────────
     // Se un pool era vuoto (raro ma possibile), riempiamo con un fetch generico
     // sui generi preferiti senza vincoli di anno — slot mai vuoti garantiti.
-    if (finalFive.length < 5) {
+    if (topFour.length < 4) {
       const { type: fbType, levels } = buildFallbackQueries(profile, null, {
         useSelectedGenre: false,
         selectedGenre: "all"
@@ -928,34 +954,49 @@ async function recommendTonightFive(isAuto = false) {
         .sort((a, b) => b.rankScore - a.rankScore);
 
       for (const entry of fbRanked) {
-        if (finalFive.length >= 5) break;
-        finalFive.push(entry);
+        if (topFour.length >= 4) break;
+        topFour.push(entry);
         usedKeys.add(uniqueKey(entry.item));
       }
     }
 
     if (reqId !== tonightReqCounter) return;
 
-    if (!finalFive.length) {
+    if (!topFour.length) {
       el.innerHTML = `<p class="tonight__hint">Nessun consiglio trovato. Riprova più tardi.</p>`;
       return;
     }
 
     // Ordine cronologico: dal più vecchio al più recente
-    finalFive = finalFive.slice(0, 5).sort((a, b) => Number(a.item.year || 0) - Number(b.item.year || 0));
+    topFour = topFour.slice(0, 4).sort((a, b) => Number(a.item.year || 0) - Number(b.item.year || 0));
 
-    registerSuggested(finalFive.map(x => x.item));
+    // 2 slot fuori dai generi che guardi di solito, ma con voto TMDB alto
+    // (soglia già più severa in fetchOutOfComfortZoneCandidates): "diverso"
+    // qui non vuol dire "a caso".
+    const outOfZonePicked = rawOutOfZone
+      .filter(item => !usedKeys.has(uniqueKey(item)))
+      .map(item => ({
+        item,
+        affinity: calculateAffinity(item, profile),
+        rankScore: scoreCandidate(item, profile) + Math.random() * 2.5
+      }))
+      .sort((a, b) => b.rankScore - a.rankScore)
+      .slice(0, 2);
+
+    const finalSix = [...topFour, ...outOfZonePicked];
+
+    registerSuggested(finalSix.map(x => x.item));
 
     // ── DEBUG CONSOLE ─────────────────────────────────────────────────────────
     try {
-      console.log("── ⭐ 5 CONSIGLI PER TE ─────────────────");
+      console.log("── ⭐ 6 CONSIGLI PER TE ─────────────────");
       console.log(`📚 Visti: ${db.seen.length} · Watchlist: ${db.watchlist.length}`);
       console.log(`🎭 Top generi: ${profile.topGenres.join(" · ") || "—"}`);
       console.log(`📅 Decade pref: ${profile.topDecade || "—"} · Tipo: ${profile.prefType}`);
-      console.log(`📆 Pool 2000s: ${raw2000s.length} · Pool 2010s: ${raw2010s.length} · Pool 2020s: ${raw2020s.length}`);
-      console.log(`🎯 Slot 2000s: ${slot2000s.length}/1 · Slot 2010s: ${slot2010s.length}/2 · Slot 2020+: ${slot2020s.length}/2 · Totale: ${finalFive.length}/5`);
+      console.log(`📆 Pool 2000s: ${raw2000s.length} · Pool 2010s: ${raw2010s.length} · Pool 2020s: ${raw2020s.length} · Pool fuori zona: ${rawOutOfZone.length}`);
+      console.log(`🎯 Slot 2000s: ${slot2000s.length}/1 · Slot 2010s: ${slot2010s.length}/1 · Slot 2020+: ${slot2020s.length}/2 · Fuori zona: ${outOfZonePicked.length}/2 · Totale: ${finalSix.length}/6`);
       console.log("─────────────────────────────────────────");
-      finalFive.forEach((entry, i) => {
+      finalSix.forEach((entry, i) => {
         const item = entry.item;
         const aff = Math.round(entry.affinity);
         const tmdbVote = Number(item.vote_average) || 0;
@@ -986,10 +1027,12 @@ async function recommendTonightFive(isAuto = false) {
     } catch (e) { /* debug non blocca mai l'app */ }
     // ── FINE DEBUG ────────────────────────────────────────────────────────────
 
-    const enriched = finalFive.map(entry => ({
+    const enriched = finalSix.map(entry => ({
       item: entry.item,
       affinity: entry.affinity,
-      reasons: buildReason(entry.item, profile, entry.affinity)
+      reasons: outOfZonePicked.includes(entry)
+        ? buildOutOfZoneReason(entry.item, profile)
+        : buildReason(entry.item, profile, entry.affinity)
     }));
 
     el.innerHTML = renderTonightFive(enriched, null, "");
