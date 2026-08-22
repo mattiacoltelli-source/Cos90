@@ -168,21 +168,26 @@ export function renderSearchResults(items, db) {
     const n = normalizedItem(item);
     const seen = !!db.seen.find(x => uniqueKey(x) === uniqueKey(n));
     const watch = !!db.watchlist.find(x => uniqueKey(x) === uniqueKey(n));
+    const inLibrary = seen || watch;
 
     return `
       <div class="poster-card">
         <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(n.poster_path))}')">
           <span class="badge ${mediaBadgeClass(n)}">${mediaLabel(n)}</span>
-          <div class="poster-card__actions">
-            <button class="poster-btn poster-btn--watch action-watch" data-id="${n.id}" data-type="${n.media_type}">${watch ? "★ In lista" : "♡ Lista"}</button>
-            <button class="poster-btn poster-btn--seen action-seen" data-id="${n.id}" data-type="${n.media_type}">✓ Visto</button>
-          </div>
+          ${inLibrary
+            ? `<span class="poster-card__tag open-stored-detail" data-key="${uniqueKey(n)}">✓ Già in libreria · tocca per votare</span>`
+            : `
+              <div class="poster-card__actions">
+                <button class="poster-btn poster-btn--watch action-watch" data-id="${n.id}" data-type="${n.media_type}">♡ Lista</button>
+                <button class="poster-btn poster-btn--seen action-seen" data-id="${n.id}" data-type="${n.media_type}">✓ Visto</button>
+              </div>
+            `}
         </div>
 
         <div class="poster-card__info">
           <div class="poster-card__title">${escapeHtml(n.title)}</div>
           <div class="poster-card__meta">${escapeHtml(n.year)} · ${mediaLabel(n)}</div>
-          <button class="poster-card__scheda action-details" data-id="${n.id}" data-type="${n.media_type}">Scheda →</button>
+          ${!inLibrary ? `<button class="poster-card__scheda action-details" data-id="${n.id}" data-type="${n.media_type}">Scheda →</button>` : ""}
         </div>
       </div>
     `;

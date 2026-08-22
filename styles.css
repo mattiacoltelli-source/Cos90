@@ -508,6 +508,23 @@ select option {
   overflow: hidden;
 }
 
+.poster-card__tag {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  text-align: center;
+  background: rgba(0,0,0,.8);
+  color: var(--gold2);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(245,196,81,.35);
+  cursor: pointer;
+}
+
 .poster-card__info {
   padding: 12px;
 }
