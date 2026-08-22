@@ -1127,7 +1127,7 @@ select option {
 }
 
 .poster-btn--watch { background: rgba(17,24,32,.92); color: #dbe6f0; border-color: rgba(77,163,255,.55); }
-.poster-btn--seen { background: rgba(62,201,122,.94); color: #05190d; border-color: rgba(62,201,122,.9); }
+.poster-btn--seen { background: linear-gradient(160deg, var(--gold2), #dba83a); color: #18100a; border-color: rgba(245,196,81,.7); }
 .poster-btn:active { transform: scale(.96); }
 
 .tonight-card__affinity {
