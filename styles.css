@@ -1133,49 +1133,42 @@ select option {
   border-left: 3px solid var(--blue);
 }
 
-.tonight-list {
+/* Card "poster grande" per i risultati di Stasera (5 consigli, Scopri,
+   Classico): stessa base di .poster-card usata in ricerca, ma con pulsanti
+   di aggiunta SEMPRE visibili invece che a comparsa al tap — qui l'obiettivo
+   è aggiungere titoli al volo, uno via l'altro, senza doppio tap. */
+.poster-card--tonight .poster-card__actions {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
-.tonight-card {
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  cursor: pointer;
-  transition:
-    transform var(--t-mid) var(--ease),
-    border-color var(--t-mid),
-    box-shadow var(--t-mid);
+.poster-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .1px;
+  border: 1.5px solid transparent;
+  box-shadow: 0 4px 14px rgba(0,0,0,.45);
 }
 
-.tonight-card:hover {
-  border-color: rgba(245,196,81,.2);
-  box-shadow: 0 6px 22px rgba(0,0,0,.3);
-  transform: translateY(-1px);
-}
-
-.tonight-card:active { transform: scale(.99); }
-
-.tonight-card__poster {
-  width: 72px;
-  min-height: 108px;
-  background: var(--surface2) center/cover no-repeat;
-  border-right: 1px solid var(--border);
-  position: relative;
-  flex-shrink: 0;
-}
+.poster-btn--watch { background: rgba(17,24,32,.92); color: #dbe6f0; border-color: rgba(77,163,255,.55); }
+.poster-btn--seen { background: rgba(62,201,122,.94); color: #05190d; border-color: rgba(62,201,122,.9); }
+.poster-btn:active { transform: scale(.96); }
 
 .tonight-card__affinity {
   position: absolute;
-  bottom: 6px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 8px;
+  right: 8px;
   background: rgba(0,0,0,.75);
   color: var(--gold2);
   font-family: var(--font-display);
@@ -1185,106 +1178,38 @@ select option {
   border-radius: var(--radius-pill);
   backdrop-filter: blur(4px);
   white-space: nowrap;
-  border: 1px solid rgba(245,196,81,.25);
-}
-
-.tonight-card__body {
-  padding: 12px 14px 12px 0;
-}
-
-.tonight-card__title {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.tonight-card__meta {
-  font-size: 12px;
-  color: var(--text3);
-  margin: 4px 0 6px;
+  border: 1px solid rgba(245,196,81,.3);
+  z-index: 2;
 }
 
 .tonight-card__reason {
   font-size: 12px;
   color: var(--text2);
   line-height: 1.4;
+  margin-top: 4px;
 }
 
-.discover-result {
-  display: grid;
-  grid-template-columns: 80px 1fr;
-  gap: 14px;
-  align-items: start;
+.poster-card__scheda {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 8px;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--gold2);
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 14px;
-}
-
-.discover-poster {
-  width: 80px;
-  height: 120px;
   border-radius: var(--radius-sm);
-  background: var(--surface3) center/cover no-repeat;
-  border: 1px solid var(--border);
 }
 
-.discover-result__title {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 800;
-  margin-bottom: 4px;
-}
+.poster-card__scheda:active { transform: scale(.97); }
 
-.discover-result__meta {
-  font-size: 12px;
-  color: var(--text3);
-  margin-bottom: 8px;
-}
-
-.discover-result__why {
-  font-size: 13px;
-  color: var(--text2);
-  line-height: 1.45;
-}
-
-.classic-result {
-  display: grid;
-  grid-template-columns: 80px 1fr;
-  gap: 14px;
-  background: var(--surface2);
-  border: 1px solid rgba(245,196,81,.18);
-  border-radius: var(--radius-lg);
-  padding: 14px;
-}
-
-.classic-result__poster {
-  width: 80px;
-  height: 120px;
-  border-radius: var(--radius-sm);
-  background: var(--surface3) center/cover no-repeat;
-  border: 1px solid rgba(245,196,81,.18);
-}
-
-.classic-result__title {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 800;
-  margin-bottom: 4px;
-}
-
-.classic-result__meta {
-  font-size: 12px;
-  color: var(--text3);
-  margin-bottom: 8px;
-}
-
-.classic-result__why {
-  font-size: 13px;
-  color: var(--text2);
-  line-height: 1.45;
-}
+/* Risultato singolo (Scopri / Classico): la stessa card, centrata invece che
+   in griglia a 2 colonne. */
+.tonight-solo { display: flex; justify-content: center; }
+.tonight-solo .poster-card { width: 100%; max-width: 240px; }
 
 /* DETAIL */
 

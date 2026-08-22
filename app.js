@@ -1453,7 +1453,6 @@ function bindEvents() {
     const removeWatchBtn = e.target.closest(".remove-watch");
     const moveWatchBtn = e.target.closest(".move-watch-seen");
     const storedBtn = e.target.closest(".open-stored-detail");
-    const tonightBtn = e.target.closest(".open-tonight-detail");
     const genreBtn = e.target.closest("[data-genre-filter]");
     const posterImage = e.target.closest(".poster-card__img");
     const posterCard = e.target.closest(".poster-card");
@@ -1462,7 +1461,7 @@ function bindEvents() {
       closeAllSearchActionMenus();
     }
 
-    if (e.target.closest("button,.nav__btn,.tab,.filter-pill,.shelf-card,.tonight-card,.poster-card,.podium-card,.rank-row")) {
+    if (e.target.closest("button,.nav__btn,.tab,.filter-pill,.shelf-card,.poster-card,.podium-card,.rank-row")) {
       haptic([8]);
     }
 
@@ -1513,11 +1512,6 @@ function bindEvents() {
         const key = storedBtn.dataset.key;
         const item = db.seen.find(x => uniqueKey(x) === key) || db.watchlist.find(x => uniqueKey(x) === key);
         if (item) openDetail(item);
-        return;
-      }
-
-      if (tonightBtn) {
-        await doShowDetails(tonightBtn.dataset.type, tonightBtn.dataset.id);
         return;
       }
     } catch (e) {

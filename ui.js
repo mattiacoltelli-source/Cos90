@@ -314,24 +314,33 @@ export function renderRankingList(listEl, items, offset, typeLabel) {
   `).join("");
 }
 
+// Stessa card "poster grande" usata per i risultati di ricerca (poster-card),
+// con l'aggiunta di badge affinità e pulsanti sempre visibili (non a comparsa
+// al tap, come nell'overlay di ricerca): qui l'utente deve poter aggiungere
+// un titolo al volo, uno dopo l'altro, senza tap extra per rivelare i bottoni.
 export function renderTonightFive(entries, profile, note) {
   const noteHtml = note ? `<p class="tonight__note">${escapeHtml(note)}</p>` : "";
 
   return `
     ${noteHtml}
-    <div class="tonight-list">
+    <div class="results-grid">
       ${entries.map(({ item, affinity, reasons }) => `
-        <div class="tonight-card open-tonight-detail" data-id="${item.id}" data-type="${item.media_type}">
-          <div class="tonight-card__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
-            <div class="tonight-card__affinity">${affinity}%</div>
+        <div class="poster-card poster-card--tonight" data-tonight-key="${item.media_type}_${item.id}">
+          <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
+            <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
+            <span class="tonight-card__affinity">${affinity}%</span>
+            <div class="poster-card__actions">
+              <button class="poster-btn poster-btn--watch action-watch" data-id="${item.id}" data-type="${item.media_type}">♡ Watchlist</button>
+              <button class="poster-btn poster-btn--seen action-seen" data-id="${item.id}" data-type="${item.media_type}">✓ Già visto</button>
+            </div>
           </div>
-
-          <div class="tonight-card__body">
-            <div class="tonight-card__title">${escapeHtml(item.title)}</div>
-            <div class="tonight-card__meta">${escapeHtml(item.year)} · ${mediaLabel(item)} · ★ ${rawNumberToFixed(item.vote_average, 1)}</div>
+          <div class="poster-card__info">
+            <div class="poster-card__title">${escapeHtml(item.title)}</div>
+            <div class="poster-card__meta">${escapeHtml(item.year)} · ${mediaLabel(item)} · ★ ${rawNumberToFixed(item.vote_average, 1)} TMDB</div>
             <div class="tonight-card__reason">
               ${reasons.length ? `🎯 ${escapeHtml(reasons.join(" · "))}` : "🎯 Consigliato in base ai tuoi gusti"}
             </div>
+            <button class="poster-card__scheda action-details" data-id="${item.id}" data-type="${item.media_type}">Scheda →</button>
           </div>
         </div>
       `).join("")}
@@ -339,33 +348,46 @@ export function renderTonightFive(entries, profile, note) {
   `;
 }
 
+// Stessa card di sopra, in versione singola e centrata (usata da "Scopri" e
+// "Rivedi un classico": un solo titolo alla volta invece di una griglia).
 export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
-  const poster = chosen.poster_path
-    ? `<div class="discover-poster" style="background-image:url('${escapeHtml(posterUrl(chosen.poster_path))}')"></div>`
-    : `<div class="discover-poster"></div>`;
-
   return `
-    <div class="discover-result">
-      ${poster}
-      <div class="discover-result__body">
-        <div class="discover-result__title">✨ ${escapeHtml(chosen.title)}</div>
-        <div class="discover-result__meta">${escapeHtml(chosen.year)} · ${mediaLabel(chosen)} · ★ ${rating}/10</div>
-        <div class="discover-result__why">
-          Scelto perché ${escapeHtml(whyBits.join(", "))}.${fallbackNote ? ` ${escapeHtml(fallbackNote)}` : ""}
+    <div class="tonight-solo">
+      <div class="poster-card poster-card--tonight" data-tonight-key="${chosen.media_type}_${chosen.id}">
+        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(chosen.poster_path))}')">
+          <span class="badge ${mediaBadgeClass(chosen)}">${mediaLabel(chosen)}</span>
+          <div class="poster-card__actions">
+            <button class="poster-btn poster-btn--watch action-watch" data-id="${chosen.id}" data-type="${chosen.media_type}">♡ Watchlist</button>
+            <button class="poster-btn poster-btn--seen action-seen" data-id="${chosen.id}" data-type="${chosen.media_type}">✓ Già visto</button>
+          </div>
+        </div>
+        <div class="poster-card__info">
+          <div class="poster-card__title">✨ ${escapeHtml(chosen.title)}</div>
+          <div class="poster-card__meta">${escapeHtml(chosen.year)} · ${mediaLabel(chosen)} · ★ ${rating}/10</div>
+          <div class="tonight-card__reason">
+            Scelto perché ${escapeHtml(whyBits.join(", "))}.${fallbackNote ? ` ${escapeHtml(fallbackNote)}` : ""}
+          </div>
+          <button class="poster-card__scheda action-details" data-id="${chosen.id}" data-type="${chosen.media_type}">Scheda →</button>
         </div>
       </div>
     </div>
   `;
 }
 
+// Il classico è già in libreria: niente pulsanti di aggiunta, la card apre
+// direttamente la scheda salvata (stesso pattern delle shelf-card in home).
 export function renderClassicResult(pick, voto, commento) {
   return `
-    <div class="classic-result">
-      <div class="classic-result__poster" style="background-image:url('${escapeHtml(posterUrl(pick.poster_path))}')"></div>
-      <div class="classic-result__body">
-        <div class="classic-result__title">⭐ ${escapeHtml(pick.title)}</div>
-        <div class="classic-result__meta">${escapeHtml(pick.year)} · ${mediaLabel(pick)} · tuo voto: ${escapeHtml(voto)}</div>
-        <div class="classic-result__why">${escapeHtml(commento)}</div>
+    <div class="tonight-solo">
+      <div class="poster-card poster-card--tonight open-stored-detail" data-key="${uniqueKey(pick)}">
+        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(pick.poster_path))}')">
+          <span class="badge ${mediaBadgeClass(pick)}">${mediaLabel(pick)}</span>
+        </div>
+        <div class="poster-card__info">
+          <div class="poster-card__title">🏛️ ${escapeHtml(pick.title)}</div>
+          <div class="poster-card__meta">${escapeHtml(pick.year)} · ${mediaLabel(pick)} · tuo voto: ${escapeHtml(voto)}</div>
+          <div class="tonight-card__reason">${escapeHtml(commento)}</div>
+        </div>
       </div>
     </div>
   `;
