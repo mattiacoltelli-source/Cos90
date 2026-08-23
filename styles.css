@@ -563,6 +563,10 @@ select option {
   padding: 10px 0;
 }
 
+/* Sentinella per il caricamento progressivo di "Vedi tutto" (vedi app.js
+   doRenderLibrary): invisibile, serve solo da bersaglio a IntersectionObserver. */
+#libraryLoadMoreSentinel { height: 1px; }
+
 .list {
   display: flex;
   flex-direction: column;
