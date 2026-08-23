@@ -70,6 +70,16 @@ let currentDetail = null;
 let currentLibraryMode = "watch";
 let currentLibraryFilter = "all";
 let currentLibraryGenre = "all";
+
+// "Vedi tutto" (doRenderLibrary) carica i risultati a blocchi invece di
+// disegnarli tutti in un colpo solo: con un archivio grande, renderizzare
+// centinaia di card assieme (e far partire altrettante richieste per le
+// locandine) è la prima cosa a rallentare l'app. Vedi renderNextLibraryPage/
+// observeLibrarySentinel.
+const LIBRARY_PAGE_SIZE = 40;
+let libraryFilteredItems = [];
+let libraryRenderedCount = 0;
+let libraryLoadMoreObserver = null;
 let lastAutoRecommendAt = 0;
 let tonightReqCounter = 0;
 
@@ -432,8 +442,14 @@ function doRenderLibrary() {
   const emptyEl = document.getElementById("libraryEmpty");
   if (!listEl || !emptyEl) return;
 
+  // Azzerati SEMPRE (anche a lista vuota): la sentinella resta nel DOM tra
+  // un'apertura e l'altra, e senza questo reset un observer ancora "armato"
+  // potrebbe riattaccare in coda gli elementi del filtro precedente.
+  listEl.innerHTML = "";
+  libraryFilteredItems = items;
+  libraryRenderedCount = 0;
+
   if (!items.length) {
-    listEl.innerHTML = "";
     emptyEl.classList.remove("hidden");
     emptyEl.textContent = currentLibraryMode === "watch"
       ? (currentLibraryGenre === "all"
@@ -442,11 +458,38 @@ function doRenderLibrary() {
       : (currentLibraryGenre === "all"
         ? "Nessun titolo per questo filtro."
         : `Nessun titolo visto per "${currentLibraryGenre}".`);
+    observeLibrarySentinel();
     return;
   }
 
   emptyEl.classList.add("hidden");
-  listEl.innerHTML = renderLibraryList(items, currentLibraryMode);
+  renderNextLibraryPage();
+  observeLibrarySentinel();
+}
+
+// Aggiunge il prossimo blocco di risultati alla lista già disegnata, invece
+// di ridisegnare tutto da capo: chiamata sia dal render iniziale che dal
+// IntersectionObserver quando la sentinella in fondo alla lista diventa
+// visibile (utente vicino al fondo dello scroll).
+function renderNextLibraryPage() {
+  const next = libraryFilteredItems.slice(libraryRenderedCount, libraryRenderedCount + LIBRARY_PAGE_SIZE);
+  if (!next.length) return;
+  document.getElementById("libraryList").insertAdjacentHTML("beforeend", renderLibraryList(next, currentLibraryMode));
+  libraryRenderedCount += next.length;
+}
+
+// Un solo observer, riusato a ogni apertura di "Vedi tutto": osserva sempre
+// la stessa sentinella (mai ricreata nel DOM), quindi basta assicurarsi che
+// sia "in ascolto" — nessun rischio di observer duplicati.
+function observeLibrarySentinel() {
+  const sentinel = document.getElementById("libraryLoadMoreSentinel");
+  if (!sentinel) return;
+  if (!libraryLoadMoreObserver) {
+    libraryLoadMoreObserver = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) renderNextLibraryPage();
+    }, { rootMargin: "600px" }); // carica il blocco successivo un po' prima che l'utente arrivi in fondo
+    libraryLoadMoreObserver.observe(sentinel);
+  }
 }
 
 function openLibrary(mode, filter = "all") {
