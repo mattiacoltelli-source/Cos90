@@ -73,6 +73,22 @@ let currentLibraryGenre = "all";
 let lastAutoRecommendAt = 0;
 let tonightReqCounter = 0;
 
+// ─── CONFERMA AZIONE PERICOLOSA (sostituisce confirm() nativo del browser,
+// che appare come un banner bianco fuori dal tema dell'app) ──────────────────
+
+let confirmYesAction = null;
+
+function askConfirm(text, onYes) {
+  document.getElementById("confirmText").textContent = text;
+  confirmYesAction = onYes;
+  document.getElementById("confirmOverlay").classList.remove("hidden");
+}
+
+function closeConfirm() {
+  document.getElementById("confirmOverlay").classList.add("hidden");
+  confirmYesAction = null;
+}
+
 // ─── BANNER OFFLINE ───────────────────────────────────────────────────────────
 
 let _offlineBanner = null;
@@ -1261,34 +1277,41 @@ function exportBackup() {
 function importBackup(file) {
   const reader = new FileReader();
 
-  reader.onload = async (e) => {
+  reader.onload = (e) => {
+    let imported;
     try {
-      const imported = JSON.parse(e.target.result);
-
-      if (!imported || !Array.isArray(imported.seen) || !Array.isArray(imported.watchlist)) {
-        showToast("File backup non valido.", "error", "Backup");
-        return;
-      }
-
-      if (!confirm("Sostituire i dati attuali con quelli del backup?")) return;
-
-      // Mutiamo l'oggetto `db` esistente invece di sostituirlo (stessa
-      // ragione del fix sul listener realtime): se un salvataggio precedente
-      // fosse ancora in coda con un riferimento al vecchio oggetto, vedrà
-      // comunque questi dati aggiornati nel momento in cui esegue davvero.
-      db.seen = imported.seen.map(normalizedItem);
-      db.watchlist = imported.watchlist.map(normalizedItem);
-
-      const savedLocally = await saveDB(db);
-      renderAll();
-      switchScreen("home");
-
-      saveResultToast(savedLocally, "Backup importato.", "success", "Backup");
-      haptic([12, 20, 12]);
-    } catch (e) {
-      console.error(e);
+      imported = JSON.parse(e.target.result);
+    } catch (err) {
+      console.error(err);
       showToast("File backup non leggibile.", "error", "Backup");
+      return;
     }
+
+    if (!imported || !Array.isArray(imported.seen) || !Array.isArray(imported.watchlist)) {
+      showToast("File backup non valido.", "error", "Backup");
+      return;
+    }
+
+    askConfirm("Sostituire i dati attuali con quelli del backup?", async () => {
+      try {
+        // Mutiamo l'oggetto `db` esistente invece di sostituirlo (stessa
+        // ragione del fix sul listener realtime): se un salvataggio precedente
+        // fosse ancora in coda con un riferimento al vecchio oggetto, vedrà
+        // comunque questi dati aggiornati nel momento in cui esegue davvero.
+        db.seen = imported.seen.map(normalizedItem);
+        db.watchlist = imported.watchlist.map(normalizedItem);
+
+        const savedLocally = await saveDB(db);
+        renderAll();
+        switchScreen("home");
+
+        saveResultToast(savedLocally, "Backup importato.", "success", "Backup");
+        haptic([12, 20, 12]);
+      } catch (err) {
+        console.error(err);
+        showToast("File backup non leggibile.", "error", "Backup");
+      }
+    });
   };
 
   reader.readAsText(file);
@@ -1473,11 +1496,22 @@ function bindEvents() {
   if (detailRemoveBtn) {
     detailRemoveBtn.addEventListener("click", () => {
       if (!currentDetail) return;
-      if (confirm("Rimuovere questo titolo dalla libreria?")) {
+      askConfirm("Rimuovere questo titolo dalla libreria?", () => {
         doRemoveCurrentDetail();
-      }
+      });
     });
   }
+
+  const confirmYesBtn = document.getElementById("confirmYesBtn");
+  const confirmNoBtn = document.getElementById("confirmNoBtn");
+  if (confirmYesBtn) {
+    confirmYesBtn.addEventListener("click", async () => {
+      const action = confirmYesAction;
+      closeConfirm();
+      if (action) await action();
+    });
+  }
+  if (confirmNoBtn) confirmNoBtn.addEventListener("click", closeConfirm);
 
   document.addEventListener("click", async (e) => {
     const seenBtn = e.target.closest(".action-seen");

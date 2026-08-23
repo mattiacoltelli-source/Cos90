@@ -374,6 +374,18 @@
 
   <div id="toastWrap"></div>
 
+  <div id="confirmOverlay" class="confirm-overlay hidden">
+    <div class="confirm-card">
+      <div class="confirm-card__icon">⚠️</div>
+      <div class="confirm-card__title">Sei sicuro?</div>
+      <p class="confirm-card__text" id="confirmText">Questa azione non si può annullare.</p>
+      <div class="confirm-card__actions">
+        <button id="confirmYesBtn" class="btn btn--danger">Conferma</button>
+        <button id="confirmNoBtn" class="btn btn--ghost">Annulla</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="app.js"></script>
 
   <!-- Service Worker registrato da app.js (initUpdateCheck) -->

@@ -1525,6 +1525,52 @@ select option {
   font-weight:800; font-size:13px; padding:9px 16px; border-radius: var(--radius-sm); border:none; flex-shrink:0;
 }
 
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(5,8,14,.8);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.confirm-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 26px 22px;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.confirm-card__icon { font-size: 36px; margin-bottom: 8px; }
+
+.confirm-card__title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.confirm-card__text {
+  font-size: 14px;
+  color: var(--text3);
+  line-height: 1.4;
+  margin-bottom: 22px;
+}
+
+.confirm-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .toast.success { border-color: rgba(62,201,122,.3); }
 .toast.error   { border-color: rgba(255,95,95,.28); }
 .toast.info    { border-color: rgba(245,196,81,.22); }
