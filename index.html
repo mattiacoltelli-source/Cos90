@@ -11,6 +11,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://image.tmdb.org">
+
+  <!-- Il grafo dei moduli JS (app.js -> supabase.js -> supabase-sdk.js, ecc.) verrebbe
+       altrimenti scaricato a cascata: il browser scopre supabase-sdk.js (100KB+)
+       solo dopo aver scaricato E parsato supabase.js. Il modulepreload fa partire
+       tutti i download in parallelo fin da subito. -->
+  <link rel="modulepreload" href="app.js">
+  <link rel="modulepreload" href="cine-core.js">
+  <link rel="modulepreload" href="storage.js">
+  <link rel="modulepreload" href="ui.js">
+  <link rel="modulepreload" href="tmdb.js">
+  <link rel="modulepreload" href="supabase.js">
+  <link rel="modulepreload" href="supabase-sdk.js">
+
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap"></noscript>

@@ -149,9 +149,20 @@ export function renderShelf(containerId, items) {
   const el = document.getElementById(containerId);
   if (!el) return;
 
-  el.innerHTML = items.map(item => `
+  el.innerHTML = items.map((item, i) => {
+    const src = posterUrl(item.poster_path, "w342");
+    // Le prime card sono visibili subito (shelf orizzontale sopra la piega):
+    // caricamento eager e priorità alta perché una di queste è tipicamente
+    // il Largest Contentful Paint della home. Le altre restano lazy.
+    const img = src
+      ? `<img class="shelf-card__poster-img" src="${escapeHtml(src)}" alt=""
+           loading="${i < 3 ? "eager" : "lazy"}" fetchpriority="${i < 3 ? "high" : "auto"}" decoding="async"
+           onerror="this.style.display='none'">`
+      : "";
+    return `
     <div class="shelf-card open-stored-detail" data-key="${uniqueKey(item)}">
-      <div class="shelf-card__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
+      <div class="shelf-card__poster">
+        ${img}
         <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
         ${item.vote ? `<span class="shelf-card__vote">★ ${escapeHtml(item.vote)}</span>` : ""}
       </div>
@@ -160,7 +171,8 @@ export function renderShelf(containerId, items) {
         <div class="shelf-card__meta">${escapeHtml(item.year)}</div>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 }
 
 export function renderSearchResults(items, db) {

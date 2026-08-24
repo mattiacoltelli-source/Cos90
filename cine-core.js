@@ -1,6 +1,5 @@
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";
 const BASE_URL = "https://api.themoviedb.org/3";
-const IMG = "https://image.tmdb.org/t/p/w500";
 const TONIGHT_AUTO_COOLDOWN_MS = 20000;
 const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
 const SUGGEST_HISTORY_MAX = 40;
@@ -89,8 +88,8 @@ export function normalizeGenres(item) {
 // questo formato viene scartato, invece di finire in un attributo HTML.
 const TMDB_IMAGE_PATH_RE = /^\/[A-Za-z0-9]+\.(jpg|jpeg|png|webp)$/i;
 
-export function posterUrl(path) {
-  return TMDB_IMAGE_PATH_RE.test(path || "") ? `${IMG}${path}` : "";
+export function posterUrl(path, size = "w500") {
+  return TMDB_IMAGE_PATH_RE.test(path || "") ? `https://image.tmdb.org/t/p/${size}${path}` : "";
 }
 
 export function yearOf(item) {
