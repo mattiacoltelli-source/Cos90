@@ -368,6 +368,13 @@ select option {
 
 .shelf-card:hover .shelf-card__poster { transform: scale(1.03); }
 
+.shelf-card__poster-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* Placeholder statico mostrato nell'HTML prima che loadDB()/renderHomeShelves()
    sostituiscano il contenuto reale (renderShelf sovrascrive sempre l'innerHTML,
    quindi lo skeleton sparisce da solo, sia a lista vuota che piena). Evita che

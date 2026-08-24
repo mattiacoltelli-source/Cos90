@@ -1686,9 +1686,7 @@ async function bootApp() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  setTimeout(bootApp, 80);
-});
+document.addEventListener("DOMContentLoaded", bootApp);
 
 supabase
   .channel("realtime-cinetracker")
