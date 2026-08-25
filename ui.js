@@ -480,22 +480,22 @@ export function renderReportContent(report) {
 
   el.innerHTML = `
     <div class="taste-block">
-      <div class="taste-block__title">🎭 Il tuo profilo<span class="by">scritto da Claude</span></div>
+      <div class="taste-block__title">Il tuo profilo<span class="by">scritto da Claude</span></div>
       ${profileHtml}
     </div>
 
     <div class="taste-block">
-      <div class="taste-block__title">🎞️ Generi</div>
+      <div class="taste-block__title">Generi</div>
       <p>${mdBold(escapeHtml(genres_note))}</p>
     </div>
 
     <div class="taste-block">
-      <div class="taste-block__title">🎥 Registi che ti fidelizzano</div>
+      <div class="taste-block__title">Registi che ti fidelizzano</div>
       ${directorsHtml}
     </div>
 
     <div class="section">
-      <div class="taste-block__title" style="margin-bottom:12px;">✨ 10 titoli per te<span class="by">scritto da Claude</span></div>
+      <div class="taste-block__title" style="margin-bottom:12px;">10 titoli per te<span class="by">scritto da Claude</span></div>
       <div class="rec-shelf">${recsHtml}</div>
     </div>
   `;
