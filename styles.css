@@ -810,7 +810,7 @@ select option {
   border-radius: var(--radius-pill);
   background: var(--surface);
   border: 1px solid var(--border2);
-  color: var(--blue);
+  color: var(--text2);
   font-family: var(--font-display);
   font-size: 12.5px;
   font-weight: 700;
@@ -843,11 +843,26 @@ select option {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 10px;
-  color: var(--blue);
-  background: var(--blue-dim);
-  border: 1px solid rgba(77,163,255,.22);
+  color: var(--text3);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
   padding: 3px 9px;
   border-radius: var(--radius-pill);
+}
+
+/* Titoli di sezione del Report: più risalto rispetto al resto (badge/bottoni
+   restano neutri) — scoped a #screen-report per non toccare le Statistiche,
+   che riusano la stessa classe .taste-block__title. */
+#screen-report .taste-block__title {
+  font-size: 14px;
+  color: var(--blue);
+  letter-spacing: .2px;
+}
+
+#screen-report .taste-block p b,
+#screen-report .rec-card__why b {
+  color: var(--gold2);
+  font-weight: 700;
 }
 
 .director-row {

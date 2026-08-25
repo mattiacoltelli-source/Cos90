@@ -434,6 +434,14 @@ export function renderReportMeta(report) {
   el.textContent = `Aggiornato il ${formatReportDate(report.generated_at)} · prossimo aggiornamento automatico l'${nextReportDate(report.generated_at)}`;
 }
 
+// Converte i **grassetti** in stile markdown scritti da Claude in <b>, DOPO
+// aver già passato il testo da escapeHtml — l'escape avviene prima, quindi
+// non c'è HTML arbitrario da interpretare, solo questa singola sostituzione
+// controllata su testo già sicuro.
+function mdBold(escapedText) {
+  return escapedText.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+}
+
 export function renderReportContent(report) {
   const el = document.getElementById("reportBody");
   if (!el) return;
@@ -445,7 +453,7 @@ export function renderReportContent(report) {
 
   const { profile = [], genres_note = "", directors = [], recommendations = [] } = report.payload || {};
 
-  const profileHtml = profile.map(p => `<p>${escapeHtml(p)}</p>`).join("");
+  const profileHtml = profile.map(p => `<p>${mdBold(escapeHtml(p))}</p>`).join("");
 
   const directorsHtml = directors.length
     ? directors.map(d => `
@@ -465,7 +473,7 @@ export function renderReportContent(report) {
       <div class="rec-card__poster"${posterStyle}>${poster ? "" : `<span class="rec-card__num">${String(i + 1).padStart(2, "0")}</span>`}</div>
       <div class="rec-card__title">${escapeHtml(r.title)}</div>
       <div class="rec-card__meta">${escapeHtml(r.year)} &middot; ${escapeHtml(r.director)}</div>
-      <div class="rec-card__why">${escapeHtml(r.why)}</div>
+      <div class="rec-card__why">${mdBold(escapeHtml(r.why))}</div>
     </div>
   `;
   }).join("");
@@ -478,7 +486,7 @@ export function renderReportContent(report) {
 
     <div class="taste-block">
       <div class="taste-block__title">🎞️ Generi</div>
-      <p>${escapeHtml(genres_note)}</p>
+      <p>${mdBold(escapeHtml(genres_note))}</p>
     </div>
 
     <div class="taste-block">
