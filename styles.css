@@ -864,6 +864,16 @@ select option {
   letter-spacing: .2px;
 }
 
+/* Stesso trattamento tipografico dei blocchi di testo lungo già presenti
+   nell'app (trama del film in .detail-overview, descrizione in
+   .backup-hero__desc): 14px, colore secondario, interlinea più ampia —
+   invece del default "grezzo" di body ereditato finora. */
+#screen-report .taste-block p {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.65;
+}
+
 #screen-report .taste-block p b,
 #screen-report .rec-card__why b {
   color: var(--gold2);
