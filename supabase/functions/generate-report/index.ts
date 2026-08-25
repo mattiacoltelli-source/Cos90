@@ -17,6 +17,9 @@ import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
 
 const USER_ID = "default";
 const MIN_SEEN_FOR_REPORT = 10;
+const TMDB_API_KEY = "f8d5e378edf5128176f0d89f49310151"; // stessa chiave pubblica già usata in tmdb.js
+const RECS_REQUESTED = 12; // richiediamo qualche titolo in più: alcuni verranno scartati dal filtro anti-duplicati qui sotto
+const RECS_FINAL = 10;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -43,15 +46,29 @@ function average(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
+// Normalizza un titolo per il confronto (minuscolo, senza accenti/punteggiatura):
+// serve a scartare deterministicamente, in codice, qualunque raccomandazione
+// che coincida con un titolo già visto o in watchlist — non ci affidiamo solo
+// all'istruzione nel prompt, che il modello può comunque non rispettare.
+function normTitle(t: string): string {
+  return t
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 const ReportContentSchema = z.object({
   profile: z.array(z.string()).min(2).max(3),
   genres_note: z.string(),
   recommendations: z.array(z.object({
     title: z.string(),
     year: z.string(),
+    media_type: z.enum(["movie", "tv"]),
     director: z.string(),
-    why: z.string(),
-  })).length(10),
+    why: z.string().min(15),
+  })).length(RECS_REQUESTED),
 });
 
 Deno.serve(async (req) => {
@@ -176,7 +193,7 @@ In watchlist (NON consigliare questi): ${watchlistLine}
 Scrivi:
 1. "profile": 2-3 paragrafi che raccontano il profilo di gusti di questa persona, con numeri concreti presi dai dati sopra.
 2. "genres_note": 2-3 frasi su generi più visti vs. meglio votati.
-3. "recommendations": esattamente 10 titoli reali (film o serie), mai già visti o in watchlist, ciascuno con una riga di motivazione ("why") legata a un dato concreto sopra (un regista, un genere, una struttura narrativa ricorrente).`,
+3. "recommendations": esattamente ${RECS_REQUESTED} titoli reali (film o serie, indica "media_type" corretto), MAI titoli già presenti nell'elenco dei visti o della watchlist qui sopra (controlla con attenzione, anche eventuali sequel/prequel/remake con lo stesso titolo esatto vanno evitati se il titolo coincide) — ne verranno scartati alcuni per sicurezza, per questo te ne chiediamo ${RECS_REQUESTED} invece di ${RECS_FINAL}. Ogni titolo deve avere una riga di motivazione ("why", almeno una frase completa) legata a un dato concreto sopra (un regista, un genere, una struttura narrativa ricorrente) — non lasciarla mai vuota o generica.`,
       }],
     });
 
@@ -185,7 +202,32 @@ Scrivi:
       throw new Error("Claude non ha restituito un output valido.");
     }
 
-    // ── 4. Salvataggio ──────────────────────────────────────────────────────────
+    // ── 4. Filtro anti-duplicati (deterministico, non ci fidiamo solo del prompt) ──
+    const excluded = new Set([
+      ...seen.map((i: any) => normTitle(i.title || "")),
+      ...watchlist.map((i: any) => normTitle(i.title || "")),
+    ]);
+
+    const finalRecs = parsed.recommendations
+      .filter(r => !excluded.has(normTitle(r.title)))
+      .slice(0, RECS_FINAL);
+
+    // ── 5. Poster da TMDB (il modello non conosce i path delle locandine) ──────
+    const recsWithPosters = await Promise.all(finalRecs.map(async (r) => {
+      try {
+        const yearParam = r.media_type === "tv" ? "first_air_date_year" : "year";
+        const url = `https://api.themoviedb.org/3/search/${r.media_type}` +
+          `?api_key=${TMDB_API_KEY}&language=it-IT&query=${encodeURIComponent(r.title)}&${yearParam}=${encodeURIComponent(r.year)}`;
+        const res = await fetch(url);
+        if (!res.ok) return { ...r, poster_path: null };
+        const data = await res.json();
+        return { ...r, poster_path: data.results?.[0]?.poster_path ?? null };
+      } catch {
+        return { ...r, poster_path: null };
+      }
+    }));
+
+    // ── 6. Salvataggio ──────────────────────────────────────────────────────────
     const payload = {
       seen_count: seen.length,
       avg_vote: avgVote,
@@ -194,7 +236,7 @@ Scrivi:
       directors,
       profile: parsed.profile,
       genres_note: parsed.genres_note,
-      recommendations: parsed.recommendations,
+      recommendations: recsWithPosters,
     };
 
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/monthly_report`, {

@@ -457,33 +457,37 @@ export function renderReportContent(report) {
     `).join("")
     : `<p class="empty-hint">Nessun regista visto almeno 2 volte, per ora.</p>`;
 
-  const recsHtml = recommendations.map((r, i) => `
+  const recsHtml = recommendations.map((r, i) => {
+    const poster = posterUrl(r.poster_path || "");
+    const posterStyle = poster ? ` style="background-image:url('${escapeHtml(poster)}')"` : "";
+    return `
     <div class="rec-card">
-      <div class="rec-card__poster"><span class="rec-card__num">${String(i + 1).padStart(2, "0")}</span></div>
+      <div class="rec-card__poster"${posterStyle}>${poster ? "" : `<span class="rec-card__num">${String(i + 1).padStart(2, "0")}</span>`}</div>
       <div class="rec-card__title">${escapeHtml(r.title)}</div>
       <div class="rec-card__meta">${escapeHtml(r.year)} &middot; ${escapeHtml(r.director)}</div>
       <div class="rec-card__why">${escapeHtml(r.why)}</div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
   el.innerHTML = `
     <div class="taste-block">
-      <div class="taste-block__title">Il tuo profilo<span class="by">scritto da Claude</span></div>
+      <div class="taste-block__title">🎭 Il tuo profilo<span class="by">scritto da Claude</span></div>
       ${profileHtml}
     </div>
 
     <div class="taste-block">
-      <div class="taste-block__title">Generi</div>
+      <div class="taste-block__title">🎞️ Generi</div>
       <p>${escapeHtml(genres_note)}</p>
     </div>
 
     <div class="taste-block">
-      <div class="taste-block__title">Registi che ti fidelizzano</div>
+      <div class="taste-block__title">🎥 Registi che ti fidelizzano</div>
       ${directorsHtml}
     </div>
 
     <div class="section">
-      <div class="taste-block__title" style="margin-bottom:12px;">10 titoli per te<span class="by">scritto da Claude</span></div>
+      <div class="taste-block__title" style="margin-bottom:12px;">✨ 10 titoli per te<span class="by">scritto da Claude</span></div>
       <div class="rec-shelf">${recsHtml}</div>
     </div>
   `;

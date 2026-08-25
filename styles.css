@@ -837,12 +837,17 @@ select option {
 }
 
 .taste-block__title .by {
+  float: right;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--text3);
-  font-weight: 600;
-  font-size: 10.5px;
-  float: right;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 10px;
+  color: var(--blue);
+  background: var(--blue-dim);
+  border: 1px solid rgba(77,163,255,.22);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
 }
 
 .director-row {
@@ -889,8 +894,14 @@ select option {
   aspect-ratio: 2/3;
   border-radius: var(--radius-sm);
   margin-bottom: 9px;
-  background: linear-gradient(150deg, var(--surface3), #0e1520) center/cover no-repeat;
+  background-color: var(--surface3);
+  background-image: linear-gradient(150deg, var(--surface3), #0e1520);
+  background-size: cover;
+  background-position: center;
   border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .rec-card__num {
