@@ -267,17 +267,28 @@ export function renderGenreBars(entries) {
 
   const max = entries[0].value || 1;
 
-  container.innerHTML = entries.map(entry => `
+  container.innerHTML = entries.map(entry => {
+    const formattedAvg = entry.avgVote && Number.isFinite(entry.avgVote)
+      ? entry.avgVote.toFixed(1).replace(".", ",")
+      : null;
+
+    const countText = `${entry.value} ${entry.value === 1 ? "titolo" : "titoli"}`;
+    const avgHtml = formattedAvg
+      ? `<span class="bar-row__avg">· ★ ${formattedAvg}</span>`
+      : "";
+
+    return `
     <div class="bar-row">
       <div class="bar-row__label">
         <span class="bar-row__name">${escapeHtml(entry.label)}</span>
-        <span class="bar-row__count">${entry.value}</span>
+        <span class="bar-row__count">${countText} ${avgHtml}</span>
       </div>
       <div class="bar-track">
         <div class="bar__fill" data-width="${Math.max(8, (entry.value / max) * 100).toFixed(1)}"></div>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
   animateBarGroups();
 }

@@ -566,16 +566,28 @@ function renderStats() {
   }
 
   const genreCount = {};
+  const genreVotes = {};
   db.seen.forEach(item => {
+    const voteNum = parseUserVote(item.vote);
     (item.genre_names || []).forEach(g => {
       genreCount[g] = (genreCount[g] || 0) + 1;
+      if (Number.isFinite(voteNum)) {
+        if (!genreVotes[g]) genreVotes[g] = [];
+        genreVotes[g].push(voteNum);
+      }
     });
   });
 
   const topGenres = Object.entries(genreCount)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([label, value]) => ({ label, value }));
+    .map(([label, value]) => {
+      const votes = genreVotes[label] || [];
+      const avgVote = votes.length
+        ? votes.reduce((a, b) => a + b, 0) / votes.length
+        : null;
+      return { label, value, avgVote };
+    });
 
   renderGenreBars(topGenres);
   renderRanking();
