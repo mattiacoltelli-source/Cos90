@@ -795,10 +795,15 @@ select option {
 
 .report-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 6px;
+}
+
+.report-head .section__title {
+  font-size: 26px;
+  font-weight: 800;
 }
 
 .refresh-btn {
