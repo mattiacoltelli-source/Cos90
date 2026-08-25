@@ -771,7 +771,15 @@ select option {
   font-family: var(--font-display);
   font-size: 13px;
   font-weight: 700;
-  color: var(--gold);
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bar-row__avg {
+  color: var(--gold2);
+  font-weight: 800;
 }
 
 .bar-track {
