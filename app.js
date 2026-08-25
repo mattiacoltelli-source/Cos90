@@ -603,8 +603,13 @@ function renderStats() {
 let reportCache = null;
 
 async function renderReport() {
-  if (!reportCache) {
-    reportCache = await loadLatestReport();
+  const report = await loadLatestReport(updatedReport => {
+    reportCache = updatedReport;
+    renderReportMeta(reportCache);
+    renderReportContent(reportCache);
+  });
+  if (report) {
+    reportCache = report;
   }
   renderReportMeta(reportCache);
   renderReportContent(reportCache);
