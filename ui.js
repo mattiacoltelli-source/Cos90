@@ -471,7 +471,7 @@ export function renderReportContent(report) {
       <div class="director-row">
         <span class="director-row__name">${escapeHtml(d.name)}</span>
         <span class="director-row__n">${d.count} titoli</span>
-        <span class="director-row__avg">${Number(d.avg).toFixed(2)}</span>
+        <span class="director-row__avg">★ ${Number(d.avg).toFixed(2)}</span>
       </div>
     `).join("")
     : `<p class="empty-hint">Nessun regista visto almeno 2 volte, per ora.</p>`;
