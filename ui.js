@@ -501,7 +501,7 @@ export function renderReportContent(report) {
     </div>
 
     <div class="taste-block">
-      <div class="taste-block__title">Registi che ti fidelizzano</div>
+      <div class="taste-block__title">Registi che ti fidelizzano<span class="taste-block__hint">★ media voto</span></div>
       ${directorsHtml}
     </div>
 

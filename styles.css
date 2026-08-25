@@ -863,6 +863,17 @@ select option {
   border-radius: var(--radius-pill);
 }
 
+.taste-block__hint {
+  float: right;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text3);
+  opacity: 0.8;
+}
+
 /* Titoli di sezione del Report: più risalto rispetto al resto (badge/bottoni
    restano neutri) — scoped a #screen-report per non toccare le Statistiche,
    che riusano la stessa classe .taste-block__title. */
