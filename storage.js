@@ -5,6 +5,7 @@ const USER_ID = "default";
 const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
 const SUGGEST_HISTORY_MAX = 40;
 const DB_CACHE_KEY = "cineTrackerDBCache";
+const REPORT_CACHE_KEY = "cineTrackerReportCache";
 
 // ─── FIX 3: VERSIONING CACHE ─────────────────────────────────────────────────
 // Se in futuro cambi la struttura dei dati, incrementa CACHE_VERSION di 1.
@@ -283,27 +284,67 @@ async function _pushToSupabase(db) {
 // l'ultima riga e può richiedere una rigenerazione on-demand tramite la
 // stessa funzione, invocata con la chiave pubblica già usata per il resto.
 
-export async function loadLatestReport() {
+function saveLocalReportCache(report) {
   try {
-    const res = await supabase
-      .from("monthly_report")
-      .select("generated_at, payload")
-      .eq("user_id", USER_ID)
-      .order("generated_at", { ascending: false })
-      .limit(1);
-
-    if (!res || res.error || !res.data?.length) return null;
-    return res.data[0];
+    if (report) {
+      localStorage.setItem(REPORT_CACHE_KEY, JSON.stringify(report));
+    }
   } catch (e) {
-    console.warn("Lettura report fallita:", e);
+    console.warn("Cache locale report non salvata:", e);
+  }
+}
+
+function loadLocalReportCache() {
+  try {
+    const raw = localStorage.getItem(REPORT_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
     return null;
   }
+}
+
+export async function loadLatestReport(onUpdate) {
+  const localCache = loadLocalReportCache();
+
+  // Sincronizzazione da Supabase in background
+  const fetchTask = (async () => {
+    try {
+      const res = await supabase
+        .from("monthly_report")
+        .select("generated_at, payload")
+        .eq("user_id", USER_ID)
+        .order("generated_at", { ascending: false })
+        .limit(1);
+
+      if (!res || res.error || !res.data?.length) return null;
+      const remoteReport = res.data[0];
+
+      saveLocalReportCache(remoteReport);
+
+      if (onUpdate && JSON.stringify(remoteReport) !== JSON.stringify(localCache)) {
+        onUpdate(remoteReport);
+      }
+      return remoteReport;
+    } catch (e) {
+      console.warn("Lettura report remota fallita:", e);
+      return null;
+    }
+  })();
+
+  if (localCache) {
+    return localCache;
+  }
+
+  return await fetchTask;
 }
 
 export async function regenerateReport() {
   const { data, error } = await supabase.functions.invoke("generate-report");
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
+  if (data) {
+    saveLocalReportCache(data);
+  }
   return data;
 }
 
