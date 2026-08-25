@@ -1,9 +1,3 @@
-const API_KEY = "f8d5e378edf5128176f0d89f49310151";
-const BASE_URL = "https://api.themoviedb.org/3";
-const TONIGHT_AUTO_COOLDOWN_MS = 20000;
-const SUGGEST_HISTORY_KEY = "cineTrackerSuggestHistory";
-const SUGGEST_HISTORY_MAX = 40;
-
 const GENRE_MAP = {
   28:"Azione",
   12:"Avventura",
@@ -34,7 +28,7 @@ const GENRE_MAP = {
   10768:"War & Politics"
 };
 
-const GENRE_NAME_TO_ID = {
+export const GENRE_NAME_TO_ID = {
   "Azione": 28,
   "Avventura": 12,
   "Animazione": 16,
@@ -267,42 +261,4 @@ export function buildDateRange(startYear, endYear, type) {
 
 export function randomPage(max = 3) {
   return Math.floor(Math.random() * max) + 1;
-}
-
-export async function fetchDetail(type, id) {
-  const res = await fetch(`${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=it-IT&append_to_response=credits`);
-  if (!res.ok) throw new Error("Errore nel recupero dettagli");
-  const item = await res.json();
-  return normalizedItem({ ...item, media_type: type });
-}
-
-export async function fetchDiscoverLevel(urls, type, excludedKeys) {
-  const candidatesMap = new Map();
-
-  const responses = await Promise.all(
-    urls.map(async url => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) return [];
-        const data = await res.json();
-        return data.results || [];
-      } catch {
-        return [];
-      }
-    })
-  );
-
-  responses.flat().forEach(raw => {
-    const item = normalizedItem({ ...raw, media_type: type });
-    const key = uniqueKey(item);
-
-    if (excludedKeys.has(key)) return;
-    if (!item.poster_path) return;
-    if (!item.title || item.title === "Titolo sconosciuto") return;
-    if ((item.vote_count || 0) < 20) return;
-
-    candidatesMap.set(key, item);
-  });
-
-  return [...candidatesMap.values()];
 }

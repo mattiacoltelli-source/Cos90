@@ -1,18 +1,9 @@
 import {
-  normalizedItem, uniqueKey, buildDateRange, randomPage
+  normalizedItem, uniqueKey, buildDateRange, randomPage, GENRE_NAME_TO_ID
 } from "./cine-core.js";
 
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";
 const BASE_URL = "https://api.themoviedb.org/3";
-
-const GENRE_NAME_TO_ID = {
-  "Azione":28, "Avventura":12, "Animazione":16, "Commedia":35,
-  "Crime":80, "Documentario":99, "Drama":18, "Dramma":18,
-  "Famiglia":10751, "Fantasy":14, "Storia":36, "Horror":27,
-  "Musica":10402, "Mistero":9648, "Romance":10749, "Fantascienza":878,
-  "Thriller":53, "Guerra":10752, "Western":37,
-  "Azione & Avventura":10759, "Sci-Fi & Fantasy":10765
-};
 
 // ─── CACHE IN MEMORIA ────────────────────────────────────────────────────────
 // Evita fetch ripetute nella stessa sessione per ricerche, dettagli e discover.

@@ -2,7 +2,8 @@ import { supabase } from "./supabase.js";
 import {
   uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
   decadeOf, posterUrl, buildDateRange, randomPage,
-  escapeHtml, mediaLabel, rawNumberToFixed, mergeRemoteIntoLocal
+  escapeHtml, mediaLabel, rawNumberToFixed, mergeRemoteIntoLocal,
+  GENRE_NAME_TO_ID
 } from "./cine-core.js";
 import {
   loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory,
@@ -918,15 +919,6 @@ function getSelectedGenre() {
 // Questo è il fix al problema root: invece di sperare che il pool generico
 // contenga film di tutte le decadi, li chiediamo esplicitamente a TMDB.
 
-const GENRE_NAME_TO_ID_LOCAL = {
-  "Azione":28,"Avventura":12,"Animazione":16,"Commedia":35,
-  "Crime":80,"Documentario":99,"Drama":18,"Dramma":18,
-  "Famiglia":10751,"Fantasy":14,"Storia":36,"Horror":27,
-  "Musica":10402,"Mistero":9648,"Romance":10749,"Fantascienza":878,
-  "Thriller":53,"Guerra":10752,"Western":37,
-  "Azione & Avventura":10759,"Sci-Fi & Fantasy":10765
-};
-
 async function fetchCandidatesForDecade(type, yearStart, yearEnd, genreIds, excludedKeys) {
   const minVotes = type === "movie" ? "&vote_count.gte=80" : "&vote_count.gte=30";
   const dateParam = type === "movie"
@@ -1014,7 +1006,7 @@ async function recommendTonightFive(isAuto = false) {
 
   // Ricava gli ID dei generi preferiti dall'utente
   const genreIds = profile.topGenres
-    .map(g => GENRE_NAME_TO_ID_LOCAL[g])
+    .map(g => GENRE_NAME_TO_ID[g])
     .filter(Boolean);
 
   try {
