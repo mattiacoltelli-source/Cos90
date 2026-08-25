@@ -111,7 +111,7 @@ export const SCREENS = {};
 let _previousScreen = "home";
 
 export function initScreens() {
-  ["home","library","stats","tonight","backup","detail"].forEach(name => {
+  ["home","library","stats","tonight","backup","report","detail"].forEach(name => {
     SCREENS[name] = document.getElementById(`screen-${name}`);
   });
 }
@@ -399,6 +399,92 @@ export function renderClassicResult(pick, voto, commento) {
           <div class="tonight-card__reason">${escapeHtml(commento)}</div>
         </div>
       </div>
+    </div>
+  `;
+}
+
+// ─── REPORT ──────────────────────────────────────────────────────────────────
+
+export function formatReportDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+}
+
+// Il ciclo è ogni 6 mesi: la data del prossimo aggiornamento automatico è
+// solo indicativa (mostrata in UI), il cron reale vive lato Supabase.
+export function nextReportDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  d.setMonth(d.getMonth() + 6);
+  return d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+}
+
+export function renderReportMeta(report) {
+  const el = document.getElementById("reportMetaLine");
+  if (!el) return;
+
+  if (!report) {
+    el.textContent = "Nessun report ancora generato.";
+    return;
+  }
+
+  el.textContent = `Aggiornato il ${formatReportDate(report.generated_at)} · prossimo aggiornamento automatico l'${nextReportDate(report.generated_at)}`;
+}
+
+export function renderReportContent(report) {
+  const el = document.getElementById("reportBody");
+  if (!el) return;
+
+  if (!report) {
+    el.innerHTML = `<p class="empty-hint">Tocca "Aggiorna" per generare il tuo primo report.</p>`;
+    return;
+  }
+
+  const { profile = [], genres_note = "", directors = [], recommendations = [] } = report.payload || {};
+
+  const profileHtml = profile.map(p => `<p>${escapeHtml(p)}</p>`).join("");
+
+  const directorsHtml = directors.length
+    ? directors.map(d => `
+      <div class="director-row">
+        <span class="director-row__name">${escapeHtml(d.name)}</span>
+        <span class="director-row__n">${d.count} titoli</span>
+        <span class="director-row__avg">${Number(d.avg).toFixed(2)}</span>
+      </div>
+    `).join("")
+    : `<p class="empty-hint">Nessun regista visto almeno 2 volte, per ora.</p>`;
+
+  const recsHtml = recommendations.map((r, i) => `
+    <div class="rec-card">
+      <div class="rec-card__poster"><span class="rec-card__num">${String(i + 1).padStart(2, "0")}</span></div>
+      <div class="rec-card__title">${escapeHtml(r.title)}</div>
+      <div class="rec-card__meta">${escapeHtml(r.year)} &middot; ${escapeHtml(r.director)}</div>
+      <div class="rec-card__why">${escapeHtml(r.why)}</div>
+    </div>
+  `).join("");
+
+  el.innerHTML = `
+    <div class="taste-block">
+      <div class="taste-block__title">Il tuo profilo<span class="by">scritto da Claude</span></div>
+      ${profileHtml}
+    </div>
+
+    <div class="taste-block">
+      <div class="taste-block__title">Generi</div>
+      <p>${escapeHtml(genres_note)}</p>
+    </div>
+
+    <div class="taste-block">
+      <div class="taste-block__title">Registi che ti fidelizzano</div>
+      ${directorsHtml}
+    </div>
+
+    <div class="section">
+      <div class="taste-block__title" style="margin-bottom:12px;">10 titoli per te<span class="by">scritto da Claude</span></div>
+      <div class="rec-shelf">${recsHtml}</div>
     </div>
   `;
 }

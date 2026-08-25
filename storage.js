@@ -277,6 +277,36 @@ async function _pushToSupabase(db) {
   if (error) throw error;
 }
 
+// ─── REPORT (profilo + consigli generati da Claude ogni 6 mesi) ─────────────
+// Sola lettura dal client: la riga viene scritta solo dalla Edge Function
+// "generate-report" (chiave service_role, mai esposta qui). Il client legge
+// l'ultima riga e può richiedere una rigenerazione on-demand tramite la
+// stessa funzione, invocata con la chiave pubblica già usata per il resto.
+
+export async function loadLatestReport() {
+  try {
+    const res = await supabase
+      .from("monthly_report")
+      .select("generated_at, payload")
+      .eq("user_id", USER_ID)
+      .order("generated_at", { ascending: false })
+      .limit(1);
+
+    if (!res || res.error || !res.data?.length) return null;
+    return res.data[0];
+  } catch (e) {
+    console.warn("Lettura report fallita:", e);
+    return null;
+  }
+}
+
+export async function regenerateReport() {
+  const { data, error } = await supabase.functions.invoke("generate-report");
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
 // ─── SUGGEST HISTORY ─────────────────────────────────────────────────────────
 
 export function loadSuggestHistory() {

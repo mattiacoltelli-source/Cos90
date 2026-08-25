@@ -4,13 +4,17 @@ import {
   decadeOf, posterUrl, buildDateRange, randomPage,
   escapeHtml, mediaLabel, rawNumberToFixed, mergeRemoteIntoLocal
 } from "./cine-core.js";
-import { loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory } from "./storage.js";
+import {
+  loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory,
+  loadLatestReport, regenerateReport
+} from "./storage.js";
 import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
   renderShelf, renderSearchResults, renderLibraryList,
   renderGenreFilters, renderGenreBars, renderPodium, renderRankingList,
-  renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts
+  renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
+  renderReportMeta, renderReportContent
 } from "./ui.js";
 import {
   tmdbSearch, tmdbFetchDetail, tmdbFetchDiscoverLevel, buildFallbackQueries
@@ -575,6 +579,49 @@ function renderStats() {
 
   renderGenreBars(topGenres);
   renderRanking();
+}
+
+// ─── REPORT ────────────────────────────────────────────────────────────────
+// A differenza delle Statistiche (ricalcolate live dalla libreria ad ogni
+// apertura), il Report è un testo generato da Claude e salvato su Supabase:
+// qui lo leggiamo così com'è, la rigenerazione è on-demand (bottone) o
+// automatica ogni 6 mesi (cron lato Supabase, non in questo file).
+
+let reportCache = null;
+
+async function renderReport() {
+  if (!reportCache) {
+    reportCache = await loadLatestReport();
+  }
+  renderReportMeta(reportCache);
+  renderReportContent(reportCache);
+}
+
+async function handleReportRefresh() {
+  const btn = document.getElementById("reportRefreshBtn");
+  if (!btn || btn.disabled) return;
+
+  if (!navigator.onLine) {
+    showToast("Sei offline. Connettiti per aggiornare il report.", "error", "Report");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.classList.add("spinning");
+
+  try {
+    const report = await regenerateReport();
+    reportCache = report;
+    renderReportMeta(reportCache);
+    renderReportContent(reportCache);
+    showToast("Report aggiornato.", "success", "Report");
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || "Aggiornamento non riuscito. Riprova.", "error", "Report");
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove("spinning");
+  }
 }
 
 function renderAll() {
@@ -1378,6 +1425,7 @@ function bindEvents() {
   const classicBtn = document.getElementById("classicBtn");
   const rankingToggleMovies = document.getElementById("rankingToggleMovies");
   const rankingToggleSeries = document.getElementById("rankingToggleSeries");
+  const reportRefreshBtn = document.getElementById("reportRefreshBtn");
   const exportBtn = document.getElementById("exportBtn");
   const importBtn = document.getElementById("importBtn");
   const importFileInput = document.getElementById("importFileInput");
@@ -1396,6 +1444,7 @@ function bindEvents() {
 
       if (screen === "tonight") maybeAutoRecommend();
       if (screen === "stats") renderStats();
+      if (screen === "report") renderReport();
     });
   });
 
@@ -1434,6 +1483,7 @@ function bindEvents() {
   if (recommendBtn) recommendBtn.addEventListener("click", () => { haptic([8]); recommendTonightFive(false); });
   if (discoverBtn) discoverBtn.addEventListener("click", () => { haptic([8]); discoverByTaste(); });
   if (classicBtn) classicBtn.addEventListener("click", () => { haptic([8]); suggestClassic(); });
+  if (reportRefreshBtn) reportRefreshBtn.addEventListener("click", () => { haptic([8]); handleReportRefresh(); });
 
   if (rankingToggleMovies && rankingToggleSeries) {
     rankingToggleMovies.addEventListener("click", () => {
@@ -1637,7 +1687,10 @@ function bindEvents() {
 
     if (name === "tonight") maybeAutoRecommend();
     if (name === "stats") renderStats();
+    if (name === "report") renderReport();
   });
+
+  window.addEventListener("secret-backup-access", () => switchScreen("backup"));
 }
 
 async function bootApp() {
