@@ -274,7 +274,7 @@ export function renderGenreBars(entries) {
 
     const countText = `${entry.value} ${entry.value === 1 ? "titolo" : "titoli"}`;
     const avgHtml = formattedAvg
-      ? `<span class="bar-row__avg">· ★ ${formattedAvg}</span>`
+      ? `<span class="bar-row__avg">(★ ${formattedAvg})</span>`
       : "";
 
     return `
