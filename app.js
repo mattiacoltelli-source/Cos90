@@ -21,7 +21,6 @@ import {
   tmdbSearch, tmdbFetchDetail, tmdbFetchDiscoverLevel, buildFallbackQueries
 } from "./tmdb.js";
 
-const TONIGHT_COOLDOWN_MS = 20000;
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";
 const BASE_URL = "https://api.themoviedb.org/3";
 
@@ -85,7 +84,6 @@ const LIBRARY_PAGE_SIZE = 40;
 let libraryFilteredItems = [];
 let libraryRenderedCount = 0;
 let libraryLoadMoreObserver = null;
-let lastAutoRecommendAt = 0;
 let tonightReqCounter = 0;
 
 // ─── CONFERMA AZIONE PERICOLOSA (sostituisce confirm() nativo del browser,
@@ -985,7 +983,7 @@ function pickOutOfZoneTwo(ranked) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function recommendTonightFive(isAuto = false) {
+async function recommendTonightFive() {
   const el = document.getElementById("tonightSuggestion");
   if (!el) return;
 
@@ -993,13 +991,13 @@ async function recommendTonightFive(isAuto = false) {
 
   if (db.seen.length < 3) {
     el.innerHTML = `<p class="tonight__hint">Aggiungi almeno 3 titoli visti per i consigli personalizzati.</p>`;
-    if (!isAuto) showToast("Aggiungi almeno 3 titoli visti.", "info", "Consigli");
+    showToast("Aggiungi almeno 3 titoli visti.", "info", "Consigli");
     return;
   }
 
   if (!navigator.onLine) {
     el.innerHTML = `<p class="tonight__hint">Sei offline. Connettiti per ricevere consigli.</p>`;
-    if (!isAuto) showToast("Sei offline. Controlla la connessione.", "error", "Consigli");
+    showToast("Sei offline. Controlla la connessione.", "error", "Consigli");
     return;
   }
 
@@ -1168,8 +1166,7 @@ async function recommendTonightFive(isAuto = false) {
 
     el.innerHTML = renderTonightFive(enriched, null, "");
 
-    if (!isAuto) haptic([10]);
-    if (isAuto) lastAutoRecommendAt = Date.now();
+    haptic([10]);
 
   } catch (e) {
     console.error(e);
@@ -1177,11 +1174,6 @@ async function recommendTonightFive(isAuto = false) {
     el.innerHTML = `<p class="tonight__hint">Errore di ricerca. Controlla la connessione.</p>`;
     showToast("Errore nella ricerca dei consigli.", "error", "Consigli");
   }
-}
-
-async function maybeAutoRecommend() {
-  if (Date.now() - lastAutoRecommendAt < TONIGHT_COOLDOWN_MS) return;
-  await recommendTonightFive(true);
 }
 
 async function discoverByTaste() {
@@ -1451,7 +1443,6 @@ function bindEvents() {
       const screen = btn.dataset.screen;
       switchScreen(screen);
 
-      if (screen === "tonight") maybeAutoRecommend();
       if (screen === "stats") renderStats();
       if (screen === "report") renderReport();
     });
@@ -1489,7 +1480,7 @@ function bindEvents() {
   if (openSeenMovies) openSeenMovies.addEventListener("click", () => { haptic([8]); openLibrary("seen", "movie"); });
   if (openSeenSeries) openSeenSeries.addEventListener("click", () => { haptic([8]); openLibrary("seen", "series"); });
 
-  if (recommendBtn) recommendBtn.addEventListener("click", () => { haptic([8]); recommendTonightFive(false); });
+  if (recommendBtn) recommendBtn.addEventListener("click", () => { haptic([8]); recommendTonightFive(); });
   if (discoverBtn) discoverBtn.addEventListener("click", () => { haptic([8]); discoverByTaste(); });
   if (classicBtn) classicBtn.addEventListener("click", () => { haptic([8]); suggestClassic(); });
   if (reportRefreshBtn) reportRefreshBtn.addEventListener("click", () => { haptic([8]); handleReportRefresh(); });
@@ -1694,7 +1685,6 @@ function bindEvents() {
       btn.classList.toggle("active", btn.dataset.screen === name);
     });
 
-    if (name === "tonight") maybeAutoRecommend();
     if (name === "stats") renderStats();
     if (name === "report") renderReport();
   });
