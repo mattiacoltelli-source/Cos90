@@ -611,6 +611,21 @@ async function renderReport() {
   }
   renderReportMeta(reportCache);
   renderReportContent(reportCache);
+  maybeAutoRefreshReport();
+}
+
+// Nessun cron lato Supabase: il controllo "sono passati più di 6 mesi
+// dall'ultimo report?" avviene qui, ad ogni apertura della tab Report — se
+// sì, si rigenera da sola in background, senza bisogno che l'utente tocchi
+// il tasto "Aggiorna" (stesso meccanismo di CineFighi, adattato al ciclo
+// di 6 mesi già usato da questa app invece che 1 anno).
+function maybeAutoRefreshReport() {
+  if (!reportCache) return;
+  const last = new Date(reportCache.generated_at);
+  if (isNaN(last.getTime())) return;
+  const nextDue = new Date(last);
+  nextDue.setMonth(nextDue.getMonth() + 6);
+  if (new Date() >= nextDue) handleReportRefresh();
 }
 
 async function handleReportRefresh() {
