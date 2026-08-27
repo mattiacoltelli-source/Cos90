@@ -1,0 +1,53 @@
+name: Bump asset version
+
+# Automatizza il cache-busting degli asset statici (styles.css, i moduli JS
+# importati con "?v=N"): ad ogni push "vero" su main, sostituisce ogni "?v=..."
+# nei file .html/.js con l'hash breve del commit, così il browser (e la CDN di
+# GitHub Pages, cache-control: max-age=600) scaricano sempre la versione
+# nuova invece di servire per minuti la copia in cache — anche se ci si
+# dimentica di bumpare il numero a mano.
+#
+# Il commit automatico include "[skip ci]" nel messaggio ed è autore
+# "github-actions[bot]": entrambi sono controllati nella condizione del job
+# qui sotto, così il commit del bot non ri-triggera il workflow all'infinito.
+#
+# Se due push arrivano ravvicinati, il push del bot sul primo può fallire
+# (non è più un fast-forward) — non è un problema: il secondo push ha già
+# in corso il proprio bump, aggiornato, quindi il risultato finale resta
+# corretto anche se quel singolo run fallisce.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calcola l'hash breve del commit
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Aggiorna tutti i "?v=..." nei file html/js
+        run: |
+          grep -rlE '\?v=[A-Za-z0-9]+' --include='*.html' --include='*.js' . \
+            | xargs -r sed -i -E "s/\?v=[A-Za-z0-9]+/?v=${SHORT_SHA}/g"
+
+      - name: Commit e push, solo se qualcosa è cambiato
+        run: |
+          if git diff --quiet; then
+            echo "Versione già ${SHORT_SHA}, nessun commit necessario."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: bump asset version a ${SHORT_SHA} [skip ci]"
+          git push origin HEAD:main
