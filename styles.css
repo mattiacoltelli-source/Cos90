@@ -112,6 +112,16 @@ h1, h2, h3, h4 {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+.card-enter {
+  animation: cardEnter .32s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .topbar {
   display: flex;
   align-items: center;

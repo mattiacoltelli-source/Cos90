@@ -160,7 +160,7 @@ export function renderShelf(containerId, items) {
            onerror="this.style.display='none'">`
       : "";
     return `
-    <div class="shelf-card open-stored-detail" data-key="${uniqueKey(item)}">
+    <div class="shelf-card open-stored-detail card-enter" style="--i:${i}" data-key="${uniqueKey(item)}">
       <div class="shelf-card__poster">
         ${img}
         <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
@@ -207,8 +207,8 @@ export function renderSearchResults(items, db) {
 }
 
 export function renderLibraryList(items, mode) {
-  return items.map(item => `
-    <div class="list-item">
+  return items.map((item, i) => `
+    <div class="list-item card-enter" style="--i:${Math.min(i, 10)}">
       <div class="list-item__thumb" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
 
       <div class="list-item__body">
