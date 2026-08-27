@@ -37,6 +37,8 @@ export function haptic(pattern = 10) {
   }
 }
 
+let animateValueCounter = 0;
+
 export function animateValue(el, target, duration = 600) {
   const end = Number(target) || 0;
 
@@ -58,10 +60,21 @@ export function animateValue(el, target, duration = 600) {
     return;
   }
 
+  // Chiamata due volte di fila sullo stesso elemento prima che
+  // l'animazione precedente (600ms) sia finita, senza cancellarla: i due
+  // loop rAF giravano in parallelo, e quello partito per primo poteva
+  // comunque arrivare per ultimo e "vincere", lasciando a video il target
+  // vecchio invece di quello nuovo. animId etichetta ogni chiamata: un
+  // tick() il cui id non è più quello corrente per l'elemento si ferma da
+  // solo, silenziosamente.
+  const animId = ++animateValueCounter;
+  el._animId = animId;
+
   const start = current;
   const startTime = performance.now();
 
   function tick(now) {
+    if (el._animId !== animId) return;
     const p = Math.min((now - startTime) / duration, 1);
     const e = 1 - Math.pow(1 - p, 3);
     const v = Math.round(start + (end - start) * e);
