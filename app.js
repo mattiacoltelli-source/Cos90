@@ -1458,6 +1458,7 @@ function bindEvents() {
       const screen = btn.dataset.screen;
       switchScreen(screen);
 
+      if (screen === "home") renderHomeShelves();
       if (screen === "stats") renderStats();
       if (screen === "report") renderReport();
     });
