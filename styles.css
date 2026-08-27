@@ -113,8 +113,8 @@ h1, h2, h3, h4 {
 }
 
 .card-enter {
-  animation: cardEnter .32s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 30ms);
+  animation: cardEnter .5s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
 }
 
 @keyframes cardEnter {
