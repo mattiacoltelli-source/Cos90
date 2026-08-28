@@ -18,7 +18,7 @@ import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
 const USER_ID = "default";
 const MIN_SEEN_FOR_REPORT = 10;
 const TMDB_API_KEY = "f8d5e378edf5128176f0d89f49310151"; // stessa chiave pubblica già usata in tmdb.js
-const RECS_REQUESTED = 12; // richiediamo qualche titolo in più: alcuni verranno scartati dal filtro anti-duplicati qui sotto
+const RECS_REQUESTED = 14; // richiediamo qualche titolo in più: alcuni verranno scartati dal filtro anti-duplicati, altri potrebbero non avere un poster su TMDB
 const RECS_FINAL = 10;
 
 const CORS_HEADERS = {
@@ -60,15 +60,20 @@ function normTitle(t: string): string {
 }
 
 const ReportContentSchema = z.object({
-  profile: z.array(z.string()).min(2).max(3),
+  // min(150) scarta i paragrafi-frammento ("286 titoli, media 6.75.") che il
+  // modello a volte produce invece di un vero paragrafo discorsivo.
+  profile: z.array(z.string().min(150)).min(2).max(3),
   genres_note: z.string(),
+  // min anziché length esatta: ci servono solo RECS_FINAL titoli buoni alla
+  // fine (dopo dedup e filtro poster), non serve invalidare tutta la
+  // generazione se il modello ne propone qualcuno in meno di RECS_REQUESTED.
   recommendations: z.array(z.object({
     title: z.string(),
     year: z.string(),
     media_type: z.enum(["movie", "tv"]),
     director: z.string(),
     why: z.string().min(15),
-  })).length(RECS_REQUESTED),
+  })).min(RECS_FINAL),
 });
 
 Deno.serve(async (req) => {
@@ -191,11 +196,11 @@ ${seenLines}
 In watchlist (NON consigliare questi): ${watchlistLine}
 
 Scrivi:
-1. "profile": 2-3 paragrafi che raccontano il profilo di gusti di questa persona, con numeri concreti presi dai dati sopra.
-2. "genres_note": 2-3 frasi su generi più visti vs. meglio votati.
-3. "recommendations": esattamente ${RECS_REQUESTED} titoli reali (film o serie, indica "media_type" corretto), MAI titoli già presenti nell'elenco dei visti o della watchlist qui sopra (controlla con attenzione, anche eventuali sequel/prequel/remake con lo stesso titolo esatto vanno evitati se il titolo coincide) — ne verranno scartati alcuni per sicurezza, per questo te ne chiediamo ${RECS_REQUESTED} invece di ${RECS_FINAL}. Ogni titolo deve avere una riga di motivazione ("why", almeno una frase completa) legata a un dato concreto sopra (un regista, un genere, una struttura narrativa ricorrente) — non lasciarla mai vuota o generica.
+1. "profile": 2-3 paragrafi VERI — ognuno un blocco discorsivo di almeno 4-5 frasi collegate tra loro, mai una lista di frasi telegrafiche spezzate a capo (NON accettabile: "286 titoli visti, media 6.75. Thriller e Horror dominano."; corretto: "Con 286 titoli visti e una media di 6.75, sei un fruitore molto attivo che alterna generi di intrattenimento a roba più ricercata: non ti accontenti del blockbuster medio, ma nemmeno disdegni gli horror più trash quando servono per staccare la spina.") — con numeri concreti presi dai dati sopra.
+2. "genres_note": 2-3 frasi discorsive (stesso principio: frasi vere, non frammenti) su generi più visti vs. meglio votati.
+3. "recommendations": esattamente ${RECS_REQUESTED} titoli reali (film o serie, indica "media_type" corretto), MAI titoli già presenti nell'elenco dei visti o della watchlist qui sopra (controlla con attenzione, anche eventuali sequel/prequel/remake con lo stesso titolo esatto vanno evitati se il titolo coincide) — ne verranno scartati alcuni per sicurezza, per questo te ne chiediamo ${RECS_REQUESTED} invece di ${RECS_FINAL}. Preferisci titoli conosciuti e reperibili (non oscurità estrema): verrà cercato il loro poster su TMDB e chi non lo ha rischia di essere scartato. Ogni titolo deve avere una riga di motivazione ("why", almeno una frase completa) legata a un dato concreto sopra (un regista, un genere, una struttura narrativa ricorrente) — non lasciarla mai vuota o generica.
 
-Formattazione: in "profile", "genres_note" e in ogni "why", evidenzia con **doppi asterischi** solo i 2-3 dati o nomi davvero rilevanti per frase (un numero, un genere, un regista) — non l'intera frase, non ogni numero. Es: "con **286 titoli** visti sei un divoratore di **Thriller**". Niente altra formattazione markdown.`,
+Formattazione: in "profile" e "genres_note", evidenzia con **doppi asterischi** al massimo 2-3 dati o nomi davvero rilevanti PER PARAGRAFO (non per frase — un paragrafo di 4-5 frasi ha diritto a 2-3 grassetti in totale, non uno a frase), e in ogni "why" al massimo 1-2. Un numero, un genere, un regista — non l'intera frase, non ogni numero o genere citato. Es: "con **286 titoli** visti sei un divoratore di **Thriller**". Niente altra formattazione markdown.`,
       }],
     };
 
@@ -205,7 +210,7 @@ Formattazione: in "profile", "genres_note" e in ogni "why", evidenzia con **dopp
     // resiliente sia l'aggiornamento automatico ogni 6 mesi (che altrimenti
     // fallirebbe in silenzio, senza nessuno che se ne accorga) sia il tasto
     // "Aggiorna" in app.
-    const MAX_ATTEMPTS = 2;
+    const MAX_ATTEMPTS = 3;
     let parsed;
     let lastError;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -231,12 +236,15 @@ Formattazione: in "profile", "genres_note" e in ogni "why", evidenzia con **dopp
       ...watchlist.map((i: any) => normTitle(i.title || "")),
     ]);
 
-    const finalRecs = parsed.recommendations
-      .filter(r => !excluded.has(normTitle(r.title)))
-      .slice(0, RECS_FINAL);
+    const deduped = parsed.recommendations.filter(r => !excluded.has(normTitle(r.title)));
 
     // ── 5. Poster da TMDB (il modello non conosce i path delle locandine) ──────
-    const recsWithPosters = await Promise.all(finalRecs.map(async (r) => {
+    // Cerchiamo il poster su TUTTI i candidati deduplicati (non solo i primi
+    // RECS_FINAL): dopo, in fase di taglio, diamo priorità a chi il poster ce
+    // l'ha davvero, così finché il modello ha proposto abbastanza titoli
+    // reperibili su TMDB tra i candidati extra, l'utente non vede mai una
+    // card vuota nella shelf finale.
+    const dedupedWithPosters = await Promise.all(deduped.map(async (r) => {
       try {
         const yearParam = r.media_type === "tv" ? "first_air_date_year" : "year";
         const url = `https://api.themoviedb.org/3/search/${r.media_type}` +
@@ -249,6 +257,10 @@ Formattazione: in "profile", "genres_note" e in ogni "why", evidenzia con **dopp
         return { ...r, poster_path: null };
       }
     }));
+
+    const recsWithPosters = dedupedWithPosters
+      .sort((a, b) => (a.poster_path ? 0 : 1) - (b.poster_path ? 0 : 1))
+      .slice(0, RECS_FINAL);
 
     // ── 6. Salvataggio ──────────────────────────────────────────────────────────
     const payload = {
