@@ -171,7 +171,10 @@ Deno.serve(async (req) => {
     const watchlistLine = watchlist.map((i: any) => `${i.title} (${i.year})`).join(", ") || "vuota";
 
     // ── 3. Claude: solo profilo, nota generi e raccomandazioni ────────────────
-    const client = new Anthropic({ apiKey: ANTHROPIC_KEY });
+    // Timeout esplicito per chiamata: senza, una singola generazione lenta
+    // può restare appesa a lungo e bloccare l'intera funzione (e con lei il
+    // tasto "Aggiorna" in app, che non ha un suo timeout lato client).
+    const client = new Anthropic({ apiKey: ANTHROPIC_KEY, timeout: 45_000 });
 
     const requestParams = {
       model: "claude-sonnet-5",
@@ -209,8 +212,10 @@ Formattazione: in "profile" e "genres_note", evidenzia con **doppi asterischi** 
     // prima. Un retry qui, invece che lasciar fallire subito, rende
     // resiliente sia l'aggiornamento automatico ogni 6 mesi (che altrimenti
     // fallirebbe in silenzio, senza nessuno che se ne accorga) sia il tasto
-    // "Aggiorna" in app.
-    const MAX_ATTEMPTS = 3;
+    // "Aggiorna" in app. Tenuto a 2 (non di più): con un timeout di 45s per
+    // tentativo, il caso peggiore resta sotto i 2 minuti invece di allungarsi
+    // a dismisura.
+    const MAX_ATTEMPTS = 2;
     let parsed;
     let lastError;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

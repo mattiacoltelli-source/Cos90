@@ -640,8 +640,16 @@ async function handleReportRefresh() {
   btn.disabled = true;
   btn.classList.add("spinning");
 
+  // Rete di sicurezza: se la Edge Function resta appesa oltre il ragionevole
+  // (rete lenta, generazione lunga), il pulsante deve comunque sbloccarsi
+  // invece di girare all'infinito, anche se la richiesta di rete sottostante
+  // non si è mai chiusa.
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("L'aggiornamento sta impiegando troppo tempo. Riprova tra qualche minuto.")), 100_000)
+  );
+
   try {
-    const report = await regenerateReport();
+    const report = await Promise.race([regenerateReport(), timeout]);
     reportCache = report;
     renderReportMeta(reportCache);
     renderReportContent(reportCache);
