@@ -986,23 +986,6 @@ select option {
   color: var(--text2);
 }
 
-.see-all-inline {
-  flex: none;
-  width: 90px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--blue);
-  background: var(--surface2);
-  border: 1px dashed var(--border2);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-}
-
 .ranking-toggle {
   display: flex;
   gap: 8px;
