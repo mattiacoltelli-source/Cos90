@@ -614,14 +614,15 @@ async function renderReport() {
   maybeAutoRefreshReport();
 }
 
-// Nessun cron lato Supabase (verificato: pg_cron non è installato su questo
-// progetto): il controllo "sono passati più di 6 mesi dall'ultimo report?"
-// avviene SOLO qui, ad ogni apertura della tab Report — se sì, si rigenera
-// da sola in background, senza bisogno che l'utente tocchi il tasto
-// "Aggiorna" (stesso meccanismo di CineFighi, adattato al ciclo di 6 mesi
-// già usato da questa app invece che 1 anno). Implicazione: se la tab
-// Report non viene MAI aperta per oltre 6 mesi, il report resta stale a
-// tempo indeterminato — non c'è nessun trigger indipendente lato server.
+// Controllo di comodo lato client: se la tab Report viene aperta e sono
+// passati più di 6 mesi, rigenera subito invece di aspettare il prossimo
+// giro del cron (vedi sotto), così l'utente non vede mai un report vecchio
+// se càpita di aprire la tab proprio a ridosso della scadenza. Non è però
+// l'unico trigger: da migrazione "report_autorefresh_cron" esiste un vero
+// cron lato Supabase (pg_cron, job "monthly-report-autorefresh-check", gira
+// il 1° di ogni mese e rigenera da solo se sono passati >= 6 mesi
+// dall'ultimo report) — quindi il report si aggiorna comunque anche se
+// l'app non viene mai aperta.
 function maybeAutoRefreshReport() {
   if (!reportCache) return;
   const last = new Date(reportCache.generated_at);
