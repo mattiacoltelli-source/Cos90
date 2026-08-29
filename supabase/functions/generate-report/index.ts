@@ -64,6 +64,26 @@ function normTitle(t: string): string {
     .trim();
 }
 
+// Di rado il modello lascia trapelare in "why" un'autocorrezione a metà
+// invece di applicarla ai campi (es. "Aspetta, va escluso se presente —
+// sostituito: ..." mentre "title" resta quello vecchio) — un pensiero ad
+// alta voce, non una motivazione vera. Non ci fidiamo solo del prompt:
+// scartiamo deterministicamente qualunque "why" che assomigli a questo,
+// stesso principio del filtro anti-duplicati sotto.
+const LEAKED_REASONING_PATTERNS = [
+  /\baspetta[,.:]/i,
+  /\bva escluso\b/i,
+  /\bva sostituit[oa]\b/i,
+  /\bsostituit[oa]\s*(da|:|con)/i,
+  /\bcorrezione\s*:/i,
+  /\bin realtà (dovrei|dovremmo|va)\b/i,
+  /\bnota\s*:\s*(va|questo|escludi)/i,
+];
+
+function hasLeakedReasoning(why: string): boolean {
+  return LEAKED_REASONING_PATTERNS.some(re => re.test(why));
+}
+
 const ReportContentSchema = z.object({
   // min(150) scarta i paragrafi-frammento ("286 titoli, media 6.75.") che il
   // modello a volte produce invece di un vero paragrafo discorsivo.
@@ -241,7 +261,14 @@ Formattazione: in "profile" e "genres_note", evidenzia con **doppi asterischi** 
       ...watchlist.map((i: any) => normTitle(i.title || "")),
     ]);
 
-    const deduped = parsed.recommendations.filter(r => !excluded.has(normTitle(r.title)));
+    const deduped = parsed.recommendations.filter(r => {
+      if (excluded.has(normTitle(r.title))) return false;
+      if (hasLeakedReasoning(r.why)) {
+        console.warn(`generate-report: scartata raccomandazione con ragionamento trapelato in "why": ${r.title}`);
+        return false;
+      }
+      return true;
+    });
 
     // ── 5. Poster da TMDB (il modello non conosce i path delle locandine) ──────
     // Cerchiamo il poster su TUTTI i candidati deduplicati (non solo i primi
