@@ -1,10 +1,11 @@
 // Edge Function "generate-report"
 //
 // Chiamata: on-demand dal tasto "Aggiorna" nella tab Report, e in automatico
-// ogni 6 mesi da un cron lato Supabase (vedi istruzioni di deploy). Gira
-// isolata dal resto dell'app: nessun import dal bundle client, solo REST
-// verso Supabase (con la service_role key, mai esposta al client) e una
-// chiamata a Claude.
+// ogni 6 mesi tramite un controllo lato client (app.js::maybeAutoRefreshReport,
+// eseguito solo quando si apre la tab Report) — NON un cron lato Supabase:
+// verificato, pg_cron non è installato su questo progetto. Gira isolata dal
+// resto dell'app: nessun import dal bundle client, solo REST verso Supabase
+// (con la service_role key, mai esposta al client) e una chiamata a Claude.
 //
 // Le statistiche (medie, conteggi, registi con più titoli) sono calcolate
 // qui in codice, NON dal modello — a Claude chiediamo solo il profilo

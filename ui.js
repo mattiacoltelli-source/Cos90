@@ -437,7 +437,10 @@ export function formatReportDate(iso) {
 }
 
 // Il ciclo è ogni 6 mesi: la data del prossimo aggiornamento automatico è
-// solo indicativa (mostrata in UI), il cron reale vive lato Supabase.
+// solo indicativa (mostrata in UI). Nessun cron lato Supabase — verificato,
+// pg_cron non è installato su questo progetto — l'unico trigger reale è il
+// controllo lato client in app.js::maybeAutoRefreshReport(), eseguito solo
+// quando si apre la tab Report (vedi commento lì per l'implicazione).
 export function nextReportDate(iso) {
   if (!iso) return "";
   const d = new Date(iso);
