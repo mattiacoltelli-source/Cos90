@@ -1,7 +1,7 @@
 import {
   escapeHtml, mediaLabel, mediaBadgeClass, decadeOf,
   formatReleaseDate, rawNumberToFixed, posterUrl, uniqueKey, normalizedItem
-} from "./cine-core.js?v=e29a30e";
+} from "./cine-core.js?v=0321fc5";
 
 export function showToast(message, type = "info", title = "") {
   const wrap = document.getElementById("toastWrap");
