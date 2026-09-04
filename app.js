@@ -1,14 +1,14 @@
-import { supabase } from "./supabase.js?v=0321fc5";
+import { supabase } from "./supabase.js?v=6cd321d";
 import {
   uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
   decadeOf, posterUrl, buildDateRange, randomPage,
   escapeHtml, mediaLabel, rawNumberToFixed, mergeRemoteIntoLocal,
   GENRE_NAME_TO_ID
-} from "./cine-core.js?v=0321fc5";
+} from "./cine-core.js?v=6cd321d";
 import {
   loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory,
   loadLatestReport, regenerateReport
-} from "./storage.js?v=0321fc5";
+} from "./storage.js?v=6cd321d";
 import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
@@ -16,10 +16,10 @@ import {
   renderGenreFilters, renderGenreBars, renderPodium, renderRankingList,
   renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
   renderReportMeta, renderReportContent
-} from "./ui.js?v=0321fc5";
+} from "./ui.js?v=6cd321d";
 import {
   tmdbSearch, tmdbFetchDetail, tmdbFetchDiscoverLevel, buildFallbackQueries
-} from "./tmdb.js?v=0321fc5";
+} from "./tmdb.js?v=6cd321d";
 
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";
 const BASE_URL = "https://api.themoviedb.org/3";
