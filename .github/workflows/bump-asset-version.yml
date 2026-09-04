@@ -7,6 +7,14 @@ name: Bump asset version
 # nuova invece di servire per minuti la copia in cache — anche se ci si
 # dimentica di bumpare il numero a mano.
 #
+# Aggiorna anche SW_VERSION in sw.js: è il segnale che fa comparire il
+# banner "Aggiorna" a chi ha già l'app aperta — senza, sw.js resta
+# byte-identico release dopo release e il service worker non si accorge
+# mai di nulla di nuovo (bug reale, scoperto e corretto qui: SW_VERSION
+# era rimasto fermo a "5" fin dall'inizio, nessun aggiornamento è mai
+# arrivato a nessuno). Stesso pattern già in produzione su CineFighi
+# (bump-version.yml).
+#
 # Il commit automatico include "[skip ci]" nel messaggio ed è autore
 # "github-actions[bot]": entrambi sono controllati nella condizione del job
 # qui sotto, così il commit del bot non ri-triggera il workflow all'infinito.
@@ -39,6 +47,9 @@ jobs:
         run: |
           grep -rlE '\?v=[A-Za-z0-9]+' --include='*.html' --include='*.js' . \
             | xargs -r sed -i -E "s/\?v=[A-Za-z0-9]+/?v=${SHORT_SHA}/g"
+
+      - name: Aggiorna SW_VERSION in sw.js
+        run: sed -i "s/const SW_VERSION = \".*\";/const SW_VERSION = \"${SHORT_SHA}\";/" sw.js
 
       - name: Commit e push, solo se qualcosa è cambiato
         run: |
