@@ -286,9 +286,37 @@ select option {
   gap: 10px;
 }
 
-.search-row input {
+.search-input-wrap {
+  position: relative;
   flex: 1;
+}
+
+.search-input-wrap input {
   border-radius: var(--radius-md);
+  padding-right: 40px;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface3);
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.search-clear-btn:active {
+  transform: translateY(-50%) scale(.92);
 }
 
 .search-row .btn {

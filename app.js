@@ -1361,6 +1361,23 @@ function bindEvents() {
     });
   }
 
+  // "X" per svuotare la ricerca in un tap, invece di cancellare a mano e
+  // ripremere Cerca: appare solo quando c'è testo, e riusa la stessa logica
+  // di reset già usata da doSearch() per una query vuota.
+  const searchClearBtn = document.getElementById("searchClearBtn");
+  if (searchInput && searchClearBtn) {
+    const syncClearBtn = () => searchClearBtn.classList.toggle("hidden", !searchInput.value);
+    searchInput.addEventListener("input", syncClearBtn);
+    searchClearBtn.addEventListener("click", () => {
+      haptic([8]);
+      searchInput.value = "";
+      syncClearBtn();
+      doSearch();
+      searchInput.focus();
+    });
+    syncClearBtn();
+  }
+
   document.querySelectorAll(".tab[data-type]").forEach(tab => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab[data-type]").forEach(t => t.classList.remove("active"));
