@@ -1377,8 +1377,13 @@ function bindEvents() {
   // ripremere Cerca: appare solo quando c'è testo, e riusa la stessa logica
   // di reset già usata da doSearch() per una query vuota.
   const searchClearBtn = document.getElementById("searchClearBtn");
+  const searchInputWrap = document.querySelector(".search-input-wrap");
   if (searchInput && searchClearBtn) {
-    const syncClearBtn = () => searchClearBtn.classList.toggle("hidden", !searchInput.value);
+    const syncClearBtn = () => {
+      const hasValue = !!searchInput.value;
+      searchClearBtn.classList.toggle("hidden", !hasValue);
+      searchInputWrap?.classList.toggle("has-value", hasValue);
+    };
     searchInput.addEventListener("input", syncClearBtn);
     searchClearBtn.addEventListener("click", () => {
       haptic([8]);

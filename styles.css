@@ -293,6 +293,12 @@ select option {
 
 .search-input-wrap input {
   border-radius: var(--radius-md);
+  transition: padding-right var(--t-fast);
+}
+/* Il posto per la X si apre solo quando c'è testo (quindi il bottone è
+   davvero visibile) — tenerlo riservato sempre tronca inutilmente il
+   placeholder, che è lungo ("Cerca film, serie o anime..."). */
+.search-input-wrap.has-value input {
   padding-right: 40px;
 }
 
