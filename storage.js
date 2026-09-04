@@ -91,13 +91,39 @@ export async function loadDB() {
 
   if (cache) {
     reliableBaseline = true; // la cache deriva da un sync riuscito in passato
-    syncFromSupabase(); // solo in background, non aspettiamo
+
+    // FIX RACE CONDITION: prima questa sync di riconciliazione partiva
+    // isolata (fire-and-forget), senza alcuna protezione. Se l'utente
+    // modificava qualcosa subito dopo l'apertura MENTRE questa sync era
+    // ancora in volo, poteva risolversi dopo che saveDB() aveva già scritto
+    // lo stato nuovo in cache — sovrascrivendola con lo stato remoto letto
+    // PRIMA di quel salvataggio. Il salvataggio spariva così dalla cache e,
+    // al riavvio successivo, veniva trattato come "orfano" e cancellato da
+    // Supabase al primo altro salvataggio (perdita dati vera).
+    // localWriteSeq/lastSavedDb (vedi saveDB sotto) rilevano se un
+    // salvataggio è arrivato mentre questa sync era in corso: se sì, la
+    // cache viene ripristinata allo stato più recente subito dopo,
+    // annullando la sovrascrittura sbagliata invece di lasciarla stare.
+    const seqAtStart = localWriteSeq;
+    pushChain = pushChain.then(async () => {
+      await syncFromSupabase();
+      if (localWriteSeq !== seqAtStart && lastSavedDb) {
+        saveLocalCache(lastSavedDb);
+      }
+    });
     return cache;
   }
 
   // Prima apertura assoluta (o cache invalidata per versioning): aspettiamo Supabase
   return await syncFromSupabase();
 }
+
+// Contatore incrementato ad ogni salvataggio reale (saveDB) e ultimo stato
+// scritto: usati da loadDB sopra per accorgersi se un salvataggio dell'utente
+// è arrivato mentre la sync di riconciliazione in sola lettura era già in
+// volo, e in quel caso ripristinare lo stato più recente nella cache.
+let localWriteSeq = 0;
+let lastSavedDb = null;
 
 async function syncFromSupabase() {
   try {
@@ -149,6 +175,8 @@ export async function saveDB(db) {
   // localStorage pieno, salvare qui fallisce in silenzio e senza questo
   // valore di ritorno l'app mostrava comunque un toast di successo.
   const savedLocally = saveLocalCache(db);
+  localWriteSeq++;
+  lastSavedDb = db;
 
   // 2. Push su Supabase in background con retry automatico, in coda.
   // NB: non si fa await di pushChain qui apposta — saveDB deve restare
