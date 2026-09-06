@@ -1600,16 +1600,25 @@ select option {
   margin-top: 14px;
 }
 
-.detail-actions-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* Voto/commento resta sempre un'azione a sé, prominente indipendentemente
+   dallo stato (come in CineFighi): "Segna come visto"/"Rimuovi" invece
+   cambiano priorità in base allo stato — vedi .detail-status-actions*
+   sotto, sincronizzate da app.js in base a inSeen()/inWatch(). */
+.detail-status-actions {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
+/* Titolo già visto: "Segna come visto" non serve più (già fatto) — niente
+   pulsante pieno, solo due link discreti affiancati ("Segna come non
+   visto" per l'errore raro, "Rimuovi"). */
+.detail-status-actions--seen {
+  flex-direction: row;
+  justify-content: center;
+  gap: 20px;
+}
+.detail-status-actions--seen .btn-link-danger { width: auto; }
 
-/* "Segna come visto" è l'azione che si usa più spesso, "Rimuovi" è
-   distruttiva e rara — niente più stesso peso fra i 4 pulsanti: primario
-   pieno, "Watchlist"/"Salva voto" come coppia secondaria, "Rimuovi" come
-   link discreto invece di un altro riquadro colorato. */
 .btn-link-danger {
   background: none;
   border: none;
@@ -1622,6 +1631,20 @@ select option {
   color: var(--red);
   text-decoration: underline;
   text-decoration-color: rgba(255,95,95,.35);
+  text-underline-offset: 3px;
+}
+.btn-link-quiet {
+  background: none;
+  border: none;
+  width: auto;
+  padding: 6px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text3);
+  text-decoration: underline;
+  text-decoration-color: rgba(101,116,133,.35);
   text-underline-offset: 3px;
 }
 

@@ -783,8 +783,34 @@ function openDetail(item) {
     if (detailVoteInput) detailVoteInput.value = src.vote || "";
     if (detailCommentInput) detailCommentInput.value = src.comment || "";
 
-    if (detailSeenBtn) detailSeenBtn.textContent = inSeen(src) ? "✓ Già tra i visti" : "Segna come visto";
-    if (detailWatchBtn) detailWatchBtn.textContent = inWatch(src) ? "★ Già in watchlist" : "Aggiungi a watchlist";
+    // Stessa logica di priorità di CineFighi: "Segna come visto" è il
+    // pulsante pieno finché il titolo non è ancora visto (in watchlist o
+    // nuovo); una volta visto non serve più — al suo posto due link
+    // discreti affiancati ("Segna come non visto"/"Rimuovi"), niente più
+    // pulsante pieno per un'azione che si usa una volta sola.
+    const seen = inSeen(src);
+    const watchOnly = !seen && inWatch(src);
+    const detailRemoveBtn = document.getElementById("detailRemoveBtn");
+    const detailStatusActions = document.getElementById("detailStatusActions");
+
+    if (detailSeenBtn) {
+      detailSeenBtn.textContent = "Segna come visto";
+      detailSeenBtn.classList.toggle("hidden", seen);
+    }
+    if (detailWatchBtn) {
+      detailWatchBtn.textContent = seen ? "Segna come non visto" : "Aggiungi a watchlist";
+      detailWatchBtn.classList.toggle("hidden", watchOnly);
+      detailWatchBtn.classList.toggle("btn", !seen);
+      detailWatchBtn.classList.toggle("btn--secondary", !seen);
+      detailWatchBtn.classList.toggle("btn--full", !seen);
+      detailWatchBtn.classList.toggle("btn-link-quiet", seen);
+    }
+    if (detailRemoveBtn) {
+      detailRemoveBtn.textContent = watchOnly ? "Rimuovi dalla mia watchlist" : "Rimuovi";
+    }
+    if (detailStatusActions) {
+      detailStatusActions.classList.toggle("detail-status-actions--seen", seen);
+    }
 
     switchScreen("detail");
   } catch (e) {
@@ -1500,7 +1526,22 @@ function bindEvents() {
       const check = validateVote(voteInput.value);
       if (!check.ok) return;
 
-      if (!inSeen(currentDetail) && !inWatch(currentDetail)) {
+      if (inSeen(currentDetail)) {
+        // Su un titolo già visto questo pulsante diventa "Segna come non
+        // visto" (vedi openDetail): stessa logica di CineFighi, sposta da
+        // "visti" a "watchlist" invece di aggiungere un duplicato.
+        const key = uniqueKey(currentDetail);
+        db.seen = db.seen.filter(x => uniqueKey(x) !== key);
+        db.watchlist.unshift({
+          ...currentDetail,
+          vote: check.value,
+          comment: commentInput.value.trim()
+        });
+        const savedLocally = await saveDB(db);
+        renderAll();
+        saveResultToast(savedLocally, `"${currentDetail.title}" spostato in watchlist.`, "success", "Aggiornato");
+        haptic([10]);
+      } else if (!inWatch(currentDetail)) {
         db.watchlist.unshift({
           ...currentDetail,
           vote: check.value,
