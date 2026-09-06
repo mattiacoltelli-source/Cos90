@@ -1606,6 +1606,25 @@ select option {
   gap: 8px;
 }
 
+/* "Segna come visto" è l'azione che si usa più spesso, "Rimuovi" è
+   distruttiva e rara — niente più stesso peso fra i 4 pulsanti: primario
+   pieno, "Watchlist"/"Salva voto" come coppia secondaria, "Rimuovi" come
+   link discreto invece di un altro riquadro colorato. */
+.btn-link-danger {
+  background: none;
+  border: none;
+  width: 100%;
+  padding: 6px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--red);
+  text-decoration: underline;
+  text-decoration-color: rgba(255,95,95,.35);
+  text-underline-offset: 3px;
+}
+
 .backup-hero {
   background: var(--surface);
   border: 1px solid var(--border);
