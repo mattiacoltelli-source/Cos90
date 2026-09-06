@@ -1676,7 +1676,22 @@ function bindEvents() {
 async function bootApp() {
   try {
     try {
-      db = await loadDB();
+      db = await loadDB(fresh => {
+        // La riconciliazione in background ha trovato una libreria diversa
+        // da quella mostrata finora in questa sessione (vedi commento in
+        // loadDB, storage.js): la applichiamo subito invece di lasciare che
+        // la sessione resti ferma sul dato vecchio fino al prossimo riavvio.
+        // A differenza del merge di queueRealtimeSync (che deve proteggere
+        // un salvataggio locale ancora "in volo" durante un evento
+        // realtime), qui `fresh` arriva SOLO quando loadDB ha già escluso
+        // un salvataggio concorrente — è quindi sicuro sostituire per
+        // intero: un merge puramente additivo non correggerebbe il caso che
+        // ha causato il bug (un titolo spostato o rimosso il cui push non
+        // aveva fatto in tempo a completarsi prima di una chiusura forzata).
+        db.seen = fresh.seen;
+        db.watchlist = fresh.watchlist;
+        try { renderAll(); } catch (e) { console.warn(e); }
+      });
     } catch (e) {
       console.warn("loadDB error", e);
       db = null;

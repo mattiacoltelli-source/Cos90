@@ -86,7 +86,17 @@ export function hasReliableBaseline() {
 // Ritorna subito la cache locale (istantaneo), poi
 // sincronizza da Supabase in background aggiornando la cache.
 
-export async function loadDB() {
+// onReconciled: se la sync in background trova una libreria diversa da
+// quella appena ritornata dalla cache (e non c'è stato nel frattempo un
+// salvataggio locale più recente da proteggere, vedi sotto), viene chiamato
+// con lo stato fresco. Prima non esisteva: la riconciliazione correggeva
+// solo la cache su disco, mai la sessione già in esecuzione — un
+// disallineamento locale/remoto (es. un push interrotto da una chiusura
+// forzata dell'app a metà) restava invisibile per l'intera sessione e si
+// vedeva solo al riavvio successivo, che nel frattempo poteva già essere
+// di nuovo superato da un altro giro di riconciliazione: risultato, schede
+// diverse tra un'apertura e l'altra anche a distanza di un riavvio vero.
+export async function loadDB(onReconciled) {
   const cache = loadLocalCache();
 
   if (cache) {
@@ -106,9 +116,11 @@ export async function loadDB() {
     // annullando la sovrascrittura sbagliata invece di lasciarla stare.
     const seqAtStart = localWriteSeq;
     pushChain = pushChain.then(async () => {
-      await syncFromSupabase();
+      const fresh = await syncFromSupabase();
       if (localWriteSeq !== seqAtStart && lastSavedDb) {
         saveLocalCache(lastSavedDb);
+      } else if (fresh && onReconciled && JSON.stringify(fresh) !== JSON.stringify(cache)) {
+        onReconciled(fresh);
       }
     });
     return cache;
