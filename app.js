@@ -818,10 +818,15 @@ function openDetail(item) {
     const debugLine = document.getElementById("detailDebugLine");
     if (debugLine) {
       const v = (import.meta.url.split("?v=")[1] || "?").slice(0, 7);
+      const seenBtnEl = document.getElementById("detailSeenBtn");
+      const btnState = seenBtnEl
+        ? `found hasHidden:${seenBtnEl.classList.contains("hidden")} classes:[${seenBtnEl.className}] display:${getComputedStyle(seenBtnEl).display}`
+        : "NON TROVATO NEL DOM";
       debugLine.textContent =
         `v:${v} stored:${!!stored} seen:${seen} watchOnly:${watchOnly} ` +
         `id:${src.id} type:${src.media_type} key:${uniqueKey(src)} ` +
-        `seenLen:${db.seen.length} watchLen:${db.watchlist.length} t:${new Date().toLocaleTimeString("it-IT")}`;
+        `seenLen:${db.seen.length} watchLen:${db.watchlist.length} t:${new Date().toLocaleTimeString("it-IT")} ` +
+        `| detailSeenBtn:${btnState}`;
     }
 
     switchScreen("detail");
