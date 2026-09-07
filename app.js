@@ -812,6 +812,18 @@ function openDetail(item) {
       detailStatusActions.classList.toggle("detail-status-actions--seen", seen);
     }
 
+    // DEBUG TEMPORANEO — da rimuovere una volta capito il bug dei pulsanti
+    // incoerenti tra un'apertura e l'altra. Mostra i valori reali calcolati
+    // in questo preciso render, per confrontarli con quello che si vede.
+    const debugLine = document.getElementById("detailDebugLine");
+    if (debugLine) {
+      const v = (import.meta.url.split("?v=")[1] || "?").slice(0, 7);
+      debugLine.textContent =
+        `v:${v} stored:${!!stored} seen:${seen} watchOnly:${watchOnly} ` +
+        `id:${src.id} type:${src.media_type} key:${uniqueKey(src)} ` +
+        `seenLen:${db.seen.length} watchLen:${db.watchlist.length} t:${new Date().toLocaleTimeString("it-IT")}`;
+    }
+
     switchScreen("detail");
   } catch (e) {
     console.error("Errore openDetail:", e);
