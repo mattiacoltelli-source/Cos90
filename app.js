@@ -788,8 +788,15 @@ function openDetail(item) {
     // nuovo); una volta visto non serve più — al suo posto due link
     // discreti affiancati ("Segna come non visto"/"Rimuovi"), niente più
     // pulsante pieno per un'azione che si usa una volta sola.
-    const seen = inSeen(src);
-    const watchOnly = !seen && inWatch(src);
+    // !! obbligatorio: inSeen()/inWatch() ritornano l'item trovato o
+    // `undefined` (da .find()), non un vero booleano. classList.toggle(cls,
+    // undefined) NON significa "togli la classe" — per l'argomento
+    // opzionale WebIDL, `undefined` equivale a "argomento omesso", quindi
+    // il browser passa alla modalità a un argomento (inverte lo stato)
+    // invece di impostarlo. Con un `undefined` di mezzo, ogni apertura
+    // invertiva "hidden" rispetto alla volta prima invece di fissarlo.
+    const seen = !!inSeen(src);
+    const watchOnly = !seen && !!inWatch(src);
     const detailRemoveBtn = document.getElementById("detailRemoveBtn");
     const detailStatusActions = document.getElementById("detailStatusActions");
 
