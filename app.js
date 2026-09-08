@@ -1,14 +1,14 @@
-import { supabase } from "./supabase.js?v=e0eaab4";
+import { supabase } from "./supabase.js?v=977911c";
 import {
   uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
   decadeOf, posterUrl, buildDateRange, randomPage,
   escapeHtml, mediaLabel, rawNumberToFixed, mergeRemoteIntoLocal,
   GENRE_NAME_TO_ID
-} from "./cine-core.js?v=e0eaab4";
+} from "./cine-core.js?v=977911c";
 import {
   loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory,
   loadLatestReport, regenerateReport
-} from "./storage.js?v=e0eaab4";
+} from "./storage.js?v=977911c";
 import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
@@ -16,10 +16,10 @@ import {
   renderGenreFilters, renderGenreBars, renderPodium, renderRankingList,
   renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
   renderReportMeta, renderReportContent
-} from "./ui.js?v=e0eaab4";
+} from "./ui.js?v=977911c";
 import {
   tmdbSearch, tmdbFetchDetail, tmdbFetchDiscoverLevel, buildFallbackQueries
-} from "./tmdb.js?v=e0eaab4";
+} from "./tmdb.js?v=977911c";
 
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";
 const BASE_URL = "https://api.themoviedb.org/3";
@@ -789,17 +789,13 @@ function openDetail(item) {
     // nuovo); una volta visto non serve più — al suo posto due link
     // discreti affiancati ("Segna come non visto"/"Rimuovi"), niente più
     // pulsante pieno per un'azione che si usa una volta sola.
-    // inSeen()/inWatch() ritornano il risultato di Array.find() — un oggetto
-    // o `undefined`, non un booleano vero. classList.toggle(classe, forza)
-    // tratta `undefined` come "argomento omesso" (JS non lo distingue da
-    // "non passato"), quindi con `forza` undefined il metodo torna al
-    // comportamento a un argomento solo (inverte lo stato attuale) invece di
-    // impostarlo — bug reale introdotto in e0eaab4 (mai una `!==` come in
-    // CineFighi, sempre find() diretto): un titolo mai visto poteva vedersi
-    // nascondere "Segna come visto" o "Aggiungi a watchlist" a seconda di
-    // quale scheda si era aperta prima nella stessa sessione, non del suo
-    // stato reale. Coercizione esplicita qui, una volta sola, così ogni
-    // classList.toggle() sotto riceve sempre un booleano vero.
+    // !! obbligatorio: inSeen()/inWatch() ritornano l'item trovato o
+    // `undefined` (da .find()), non un vero booleano. classList.toggle(cls,
+    // undefined) NON significa "togli la classe" — per l'argomento
+    // opzionale WebIDL, `undefined` equivale a "argomento omesso", quindi
+    // il browser passa alla modalità a un argomento (inverte lo stato)
+    // invece di impostarlo. Con un `undefined` di mezzo, ogni apertura
+    // invertiva "hidden" rispetto alla volta prima invece di fissarlo.
     const seen = !!inSeen(src);
     const watchOnly = !seen && !!inWatch(src);
     const detailRemoveBtn = document.getElementById("detailRemoveBtn");
@@ -832,6 +828,23 @@ function openDetail(item) {
     }
     if (detailStatusActions) {
       detailStatusActions.classList.toggle("detail-status-actions--seen", seen);
+    }
+
+    // DEBUG TEMPORANEO — da rimuovere una volta capito il bug dei pulsanti
+    // incoerenti tra un'apertura e l'altra. Mostra i valori reali calcolati
+    // in questo preciso render, per confrontarli con quello che si vede.
+    const debugLine = document.getElementById("detailDebugLine");
+    if (debugLine) {
+      const v = (import.meta.url.split("?v=")[1] || "?").slice(0, 7);
+      const seenBtnEl = document.getElementById("detailSeenBtn");
+      const btnState = seenBtnEl
+        ? `found hasHidden:${seenBtnEl.classList.contains("hidden")} classes:[${seenBtnEl.className}] display:${getComputedStyle(seenBtnEl).display}`
+        : "NON TROVATO NEL DOM";
+      debugLine.textContent =
+        `v:${v} stored:${!!stored} seen:${seen} watchOnly:${watchOnly} ` +
+        `id:${src.id} type:${src.media_type} key:${uniqueKey(src)} ` +
+        `seenLen:${db.seen.length} watchLen:${db.watchlist.length} t:${new Date().toLocaleTimeString("it-IT")} ` +
+        `| detailSeenBtn:${btnState}`;
     }
 
     switchScreen("detail");
@@ -1698,7 +1711,22 @@ function bindEvents() {
 async function bootApp() {
   try {
     try {
-      db = await loadDB();
+      db = await loadDB(fresh => {
+        // La riconciliazione in background ha trovato una libreria diversa
+        // da quella mostrata finora in questa sessione (vedi commento in
+        // loadDB, storage.js): la applichiamo subito invece di lasciare che
+        // la sessione resti ferma sul dato vecchio fino al prossimo riavvio.
+        // A differenza del merge di queueRealtimeSync (che deve proteggere
+        // un salvataggio locale ancora "in volo" durante un evento
+        // realtime), qui `fresh` arriva SOLO quando loadDB ha già escluso
+        // un salvataggio concorrente — è quindi sicuro sostituire per
+        // intero: un merge puramente additivo non correggerebbe il caso che
+        // ha causato il bug (un titolo spostato o rimosso il cui push non
+        // aveva fatto in tempo a completarsi prima di una chiusura forzata).
+        db.seen = fresh.seen;
+        db.watchlist = fresh.watchlist;
+        try { renderAll(); } catch (e) { console.warn(e); }
+      });
     } catch (e) {
       console.warn("loadDB error", e);
       db = null;
