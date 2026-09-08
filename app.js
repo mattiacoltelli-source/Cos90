@@ -750,6 +750,7 @@ function openDetail(item) {
     const detailCommentInput = document.getElementById("detailCommentInput");
     const detailSeenBtn = document.getElementById("detailSeenBtn");
     const detailWatchBtn = document.getElementById("detailWatchBtn");
+    const detailSaveNoteBtn = document.getElementById("detailSaveNoteBtn");
 
     const poster = posterUrl(src.poster_path || "");
     const backdrop = src.backdrop_path ? backdropUrl(src.backdrop_path) : poster;
@@ -788,14 +789,35 @@ function openDetail(item) {
     // nuovo); una volta visto non serve più — al suo posto due link
     // discreti affiancati ("Segna come non visto"/"Rimuovi"), niente più
     // pulsante pieno per un'azione che si usa una volta sola.
-    const seen = inSeen(src);
-    const watchOnly = !seen && inWatch(src);
+    // inSeen()/inWatch() ritornano il risultato di Array.find() — un oggetto
+    // o `undefined`, non un booleano vero. classList.toggle(classe, forza)
+    // tratta `undefined` come "argomento omesso" (JS non lo distingue da
+    // "non passato"), quindi con `forza` undefined il metodo torna al
+    // comportamento a un argomento solo (inverte lo stato attuale) invece di
+    // impostarlo — bug reale introdotto in e0eaab4 (mai una `!==` come in
+    // CineFighi, sempre find() diretto): un titolo mai visto poteva vedersi
+    // nascondere "Segna come visto" o "Aggiungi a watchlist" a seconda di
+    // quale scheda si era aperta prima nella stessa sessione, non del suo
+    // stato reale. Coercizione esplicita qui, una volta sola, così ogni
+    // classList.toggle() sotto riceve sempre un booleano vero.
+    const seen = !!inSeen(src);
+    const watchOnly = !seen && !!inWatch(src);
     const detailRemoveBtn = document.getElementById("detailRemoveBtn");
     const detailStatusActions = document.getElementById("detailStatusActions");
 
     if (detailSeenBtn) {
       detailSeenBtn.textContent = "Segna come visto";
       detailSeenBtn.classList.toggle("hidden", seen);
+    }
+    // "Salva voto/commento" e "Segna come visto" facevano quasi la stessa
+    // cosa finché il titolo non è ancora visto (la sola differenza — restare
+    // in watchlist invece di spostarsi ai visti — non si vedeva
+    // dall'interfaccia): doSaveDetailNotes() salva comunque voto/commento
+    // senza spostare nulla, ma qui basta un solo pulsante pieno finché non è
+    // ancora visto ("Segna come visto" copre anche il voto vuoto). Una volta
+    // visto, resta l'unico modo per aggiornare voto/commento.
+    if (detailSaveNoteBtn) {
+      detailSaveNoteBtn.classList.toggle("hidden", !seen);
     }
     if (detailWatchBtn) {
       detailWatchBtn.textContent = seen ? "Segna come non visto" : "Aggiungi a watchlist";
