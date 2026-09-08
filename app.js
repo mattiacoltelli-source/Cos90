@@ -750,6 +750,7 @@ function openDetail(item) {
     const detailCommentInput = document.getElementById("detailCommentInput");
     const detailSeenBtn = document.getElementById("detailSeenBtn");
     const detailWatchBtn = document.getElementById("detailWatchBtn");
+    const detailSaveNoteBtn = document.getElementById("detailSaveNoteBtn");
 
     const poster = posterUrl(src.poster_path || "");
     const backdrop = src.backdrop_path ? backdropUrl(src.backdrop_path) : poster;
@@ -804,6 +805,16 @@ function openDetail(item) {
       detailSeenBtn.textContent = "Segna come visto";
       detailSeenBtn.classList.toggle("hidden", seen);
     }
+    // "Salva voto/commento" e "Segna come visto" facevano quasi la stessa
+    // cosa finché il titolo non è ancora visto (la sola differenza — restare
+    // in watchlist invece di spostarsi ai visti — non si vedeva
+    // dall'interfaccia): doSaveDetailNotes() salva comunque voto/commento
+    // senza spostare nulla, ma qui basta un solo pulsante pieno finché non è
+    // ancora visto ("Segna come visto" copre anche il voto vuoto). Una volta
+    // visto, resta l'unico modo per aggiornare voto/commento.
+    if (detailSaveNoteBtn) {
+      detailSaveNoteBtn.classList.toggle("hidden", !seen);
+    }
     if (detailWatchBtn) {
       detailWatchBtn.textContent = seen ? "Segna come non visto" : "Aggiungi a watchlist";
       detailWatchBtn.classList.toggle("hidden", watchOnly);
@@ -817,23 +828,6 @@ function openDetail(item) {
     }
     if (detailStatusActions) {
       detailStatusActions.classList.toggle("detail-status-actions--seen", seen);
-    }
-
-    // DEBUG TEMPORANEO — da rimuovere una volta capito il bug dei pulsanti
-    // incoerenti tra un'apertura e l'altra. Mostra i valori reali calcolati
-    // in questo preciso render, per confrontarli con quello che si vede.
-    const debugLine = document.getElementById("detailDebugLine");
-    if (debugLine) {
-      const v = (import.meta.url.split("?v=")[1] || "?").slice(0, 7);
-      const seenBtnEl = document.getElementById("detailSeenBtn");
-      const btnState = seenBtnEl
-        ? `found hasHidden:${seenBtnEl.classList.contains("hidden")} classes:[${seenBtnEl.className}] display:${getComputedStyle(seenBtnEl).display}`
-        : "NON TROVATO NEL DOM";
-      debugLine.textContent =
-        `v:${v} stored:${!!stored} seen:${seen} watchOnly:${watchOnly} ` +
-        `id:${src.id} type:${src.media_type} key:${uniqueKey(src)} ` +
-        `seenLen:${db.seen.length} watchLen:${db.watchlist.length} t:${new Date().toLocaleTimeString("it-IT")} ` +
-        `| detailSeenBtn:${btnState}`;
     }
 
     switchScreen("detail");
