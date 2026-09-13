@@ -113,6 +113,16 @@ export function extractDirector(item) {
   return "";
 }
 
+// Primi N attori per ordine di credito (credits.cast è già ordinato da TMDb
+// dal ruolo principale in giù) — usati per il bonus "attori preferiti" in
+// predictQualityScore. Se item.cast è già presente (titolo già normalizzato
+// in precedenza) lo riusa invece di ricalcolarlo dai credits grezzi.
+export function extractCast(item, limit = 10) {
+  if (Array.isArray(item.cast)) return item.cast;
+  const cast = item.credits?.cast || [];
+  return cast.slice(0, limit).map(person => person.name).filter(Boolean);
+}
+
 export function sanitizeVoteInput(raw) {
   if (raw === null || raw === undefined) return "";
   let value = String(raw).trim();
@@ -186,10 +196,25 @@ export function parseUserVote(raw) {
 // alto), poi aggiunge quanto premi in media, rispetto a quella tendenza, i
 // generi e il regista di questo titolo specifico. Generi/registi senza
 // abbastanza storico (sotto la soglia già applicata in taste-profile.js) non
-// contano né in positivo né in negativo, restano neutri.
+// contano né in positivo né in negativo, restano neutri. In più, un bonus
+// fisso (ACTOR_BONUS) se nel cast c'è almeno uno dei tuoi attori preferiti
+// (FAVORITE_ACTORS in taste-profile.js, una lista che aggiorni a mano quando
+// vuoi — non derivata dai voti come genere/regista, è una tua preferenza
+// dichiarata). Il bonus non si somma più volte per più attori preferiti
+// nello stesso titolo, per non far scappare il punteggio.
 // Pura funzione, nessuna chiamata di rete: profile è TASTE_PROFILE importato
 // da taste-profile.js, o null se non disponibile (in quel caso niente badge).
-export function predictQualityScore(item, profile) {
+const ACTOR_BONUS = 0.6;
+
+export function matchedFavoriteActors(item, favoriteActors = []) {
+  const cast = extractCast(item);
+  if (!cast.length || !favoriteActors.length) return [];
+  return favoriteActors.filter(actor =>
+    cast.some(name => name.toLowerCase().includes(actor.toLowerCase()))
+  );
+}
+
+export function predictQualityScore(item, profile, favoriteActors = []) {
   if (!profile) return null;
   const year = Number(item.year);
   if (!Number.isFinite(year)) return null;
@@ -206,8 +231,9 @@ export function predictQualityScore(item, profile) {
     : 0;
 
   const directorComponent = profile.directorAvg[item.director] ?? 0;
+  const actorComponent = matchedFavoriteActors(item, favoriteActors).length ? ACTOR_BONUS : 0;
 
-  return Math.max(1, Math.min(10, baseline + genreComponent + directorComponent));
+  return Math.max(1, Math.min(10, baseline + genreComponent + directorComponent + actorComponent));
 }
 
 export function normalizedItem(item) {
@@ -226,6 +252,7 @@ export function normalizedItem(item) {
     popularity: item.popularity || 0,
     genre_names: normalizeGenres(item),
     director: extractDirector(item),
+    cast: extractCast(item),
     savedAt: item.savedAt || new Date().toISOString(),
     release_date: item.release_date || "",
     first_air_date: item.first_air_date || ""
