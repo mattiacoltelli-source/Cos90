@@ -42,7 +42,7 @@ export async function tmdbFetchDetail(type, id) {
   if (cached) return cached;
 
   const res = await fetch(
-    `${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=it-IT&append_to_response=credits`
+    `${BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=it-IT&append_to_response=credits,keywords`
   );
   if (!res.ok) throw new Error("Errore dettaglio TMDb");
 
