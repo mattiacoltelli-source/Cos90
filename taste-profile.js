@@ -86,5 +86,5 @@ export const TASTE_PROFILE = {
 export const FAVORITE_ACTORS = [
   "DiCaprio", "Gyllenhaal", "Bale", "McConaughey", "Hardy", "Pitt", "Farrell",
   "Damon", "Murphy", "Fassbender", "Pattinson", "Hartnett", "Skarsgård",
-  "Ferguson", "Sweeney", "Taylor-Joy", "de Armas"
+  "Ferguson", "Sweeney", "Taylor-Joy", "de Armas", "Keanu Reeves", "Waltz"
 ];
