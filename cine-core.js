@@ -123,6 +123,17 @@ export function extractCast(item, limit = 10) {
   return cast.slice(0, limit).map(person => person.name).filter(Boolean);
 }
 
+// "Sottogeneri"/vibe (es. "psychological thriller", "survival horror") per il
+// componente keyword di predictQualityScore. TMDb ha due forme diverse per
+// la stessa cosa: i film mettono l'elenco in keywords.keywords, le serie in
+// keywords.results — nessun errore, è così che risponde davvero l'API.
+export function extractKeywords(item) {
+  if (Array.isArray(item.keywords) && item.keywords.every(k => typeof k === "string")) return item.keywords;
+  const block = item.keywords || {};
+  const list = block.keywords || block.results || [];
+  return list.map(k => k.name).filter(Boolean);
+}
+
 export function sanitizeVoteInput(raw) {
   if (raw === null || raw === undefined) return "";
   let value = String(raw).trim();
@@ -193,15 +204,23 @@ export function parseUserVote(raw) {
 // Stima quanto un titolo potrebbe piacerti usando SOLO il tuo storico reale
 // di voti (vedi taste-profile.js): parte dalla tendenza generale voto/anno
 // (yearTrend — nei tuoi dati i film più vecchi hanno mediamente un voto più
-// alto), poi aggiunge quanto premi in media, rispetto a quella tendenza, i
-// generi e il regista di questo titolo specifico. Generi/registi senza
-// abbastanza storico (sotto la soglia già applicata in taste-profile.js) non
-// contano né in positivo né in negativo, restano neutri. In più, un bonus
-// fisso (ACTOR_BONUS) se nel cast c'è almeno uno dei tuoi attori preferiti
-// (FAVORITE_ACTORS in taste-profile.js, una lista che aggiorni a mano quando
-// vuoi — non derivata dai voti come genere/regista, è una tua preferenza
-// dichiarata). Il bonus non si somma più volte per più attori preferiti
-// nello stesso titolo, per non far scappare il punteggio.
+// alto), poi somma cinque componenti:
+// - genreAvg: quanto premi in media, rispetto a quella tendenza, i generi
+//   del titolo (qualità pura).
+// - genreVolumeBonus: quanto guardi spesso quei generi, anche se non li voti
+//   altissimo — un genere "comfort" (es. Horror: lo guardi molto, media
+//   modesta) conta comunque qualcosa, non solo la qualità pura.
+// - directorAvg: quanto premi in media quel regista specifico.
+// - keywordAvg / keywordVolumeBonus: stessa logica di generi+volume ma sui
+//   "sottogeneri"/vibe di TMDb (es. "psychological thriller", "survival
+//   horror", "nonlinear timeline") — più specifici del genere, catturano
+//   gusti come "mi piacciono i mind-bender" che un genere da solo non vede.
+// - ACTOR_BONUS: bonus fisso se nel cast c'è un tuo attore preferito
+//   (FAVORITE_ACTORS, una lista dichiarata da te, non derivata dai voti).
+// Generi/registi/keyword senza abbastanza storico (soglie già applicate in
+// taste-profile.js) non contano né in positivo né in negativo — restano
+// neutri, non vengono inventati. ACTOR_BONUS non si somma più volte per più
+// attori preferiti nello stesso titolo, per non far scappare il punteggio.
 // Pura funzione, nessuna chiamata di rete: profile è TASTE_PROFILE importato
 // da taste-profile.js, o null se non disponibile (in quel caso niente badge).
 const ACTOR_BONUS = 0.6;
@@ -214,6 +233,16 @@ export function matchedFavoriteActors(item, favoriteActors = []) {
   );
 }
 
+// Media di due dizionari {chiave: valore} sulle chiavi di `keys` che
+// compaiono in entrambi — stessa forma per generi e keyword, evita di
+// duplicare la stessa somma/media due volte nella funzione principale.
+function averageKnown(keys, avgDict, volumeDict) {
+  const known = keys.filter(k => avgDict[k] !== undefined);
+  if (!known.length) return 0;
+  const total = known.reduce((a, k) => a + avgDict[k] + (volumeDict[k] ?? 0), 0);
+  return total / known.length;
+}
+
 export function predictQualityScore(item, profile, favoriteActors = []) {
   if (!profile) return null;
   const year = Number(item.year);
@@ -222,18 +251,12 @@ export function predictQualityScore(item, profile, favoriteActors = []) {
   const { slope, intercept } = profile.yearTrend;
   const baseline = slope * year + intercept;
 
-  const genres = item.genre_names || [];
-  const knownGenreResiduals = genres
-    .map(g => profile.genreAvg[g])
-    .filter(v => v !== undefined);
-  const genreComponent = knownGenreResiduals.length
-    ? knownGenreResiduals.reduce((a, b) => a + b, 0) / knownGenreResiduals.length
-    : 0;
-
+  const genreComponent = averageKnown(item.genre_names || [], profile.genreAvg, profile.genreVolumeBonus || {});
+  const keywordComponent = averageKnown(extractKeywords(item), profile.keywordAvg || {}, profile.keywordVolumeBonus || {});
   const directorComponent = profile.directorAvg[item.director] ?? 0;
   const actorComponent = matchedFavoriteActors(item, favoriteActors).length ? ACTOR_BONUS : 0;
 
-  return Math.max(1, Math.min(10, baseline + genreComponent + directorComponent + actorComponent));
+  return Math.max(1, Math.min(10, baseline + genreComponent + keywordComponent + directorComponent + actorComponent));
 }
 
 export function normalizedItem(item) {
@@ -253,6 +276,7 @@ export function normalizedItem(item) {
     genre_names: normalizeGenres(item),
     director: extractDirector(item),
     cast: extractCast(item),
+    keywords: extractKeywords(item),
     savedAt: item.savedAt || new Date().toISOString(),
     release_date: item.release_date || "",
     first_air_date: item.first_air_date || ""
