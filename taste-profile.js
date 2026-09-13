@@ -727,5 +727,5 @@ export const TASTE_PROFILE = {
 // trova "Ana de Armas". Se nel cast di un titolo compare almeno uno di
 // questi nomi, predictQualityScore aggiunge un bonus fisso (ACTOR_BONUS).
 export const FAVORITE_ACTORS = [
-  "DiCaprio", "Gyllenhaal", "Bale", "McConaughey", "Hardy", "Pitt", "Farrell", "Damon", "Murphy", "Fassbender", "Pattinson", "Hartnett", "Skarsgård", "Ferguson", "Sweeney", "Taylor-Joy", "de Armas", "Keanu Reeves", "Waltz"
+  "DiCaprio", "Gyllenhaal", "Bale", "McConaughey", "Hardy", "Pitt", "Farrell", "Damon", "Murphy", "Fassbender", "Pattinson", "Hartnett", "Skarsgård", "Ferguson", "Sweeney", "Taylor-Joy", "de Armas", "Keanu Reeves", "Waltz", "Idris Elba"
 ];
