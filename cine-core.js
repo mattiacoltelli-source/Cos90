@@ -179,6 +179,37 @@ export function parseUserVote(raw) {
   return Number.isFinite(num) ? num : NaN;
 }
 
+// ─── QUALITÀ PREVISTA (badge nel Dettaglio, solo per titoli non ancora visti) ──
+// Stima quanto un titolo potrebbe piacerti usando SOLO il tuo storico reale
+// di voti (vedi taste-profile.js): parte dalla tendenza generale voto/anno
+// (yearTrend — nei tuoi dati i film più vecchi hanno mediamente un voto più
+// alto), poi aggiunge quanto premi in media, rispetto a quella tendenza, i
+// generi e il regista di questo titolo specifico. Generi/registi senza
+// abbastanza storico (sotto la soglia già applicata in taste-profile.js) non
+// contano né in positivo né in negativo, restano neutri.
+// Pura funzione, nessuna chiamata di rete: profile è TASTE_PROFILE importato
+// da taste-profile.js, o null se non disponibile (in quel caso niente badge).
+export function predictQualityScore(item, profile) {
+  if (!profile) return null;
+  const year = Number(item.year);
+  if (!Number.isFinite(year)) return null;
+
+  const { slope, intercept } = profile.yearTrend;
+  const baseline = slope * year + intercept;
+
+  const genres = item.genre_names || [];
+  const knownGenreResiduals = genres
+    .map(g => profile.genreAvg[g])
+    .filter(v => v !== undefined);
+  const genreComponent = knownGenreResiduals.length
+    ? knownGenreResiduals.reduce((a, b) => a + b, 0) / knownGenreResiduals.length
+    : 0;
+
+  const directorComponent = profile.directorAvg[item.director] ?? 0;
+
+  return Math.max(1, Math.min(10, baseline + genreComponent + directorComponent));
+}
+
 export function normalizedItem(item) {
   return {
     id: item.id,
