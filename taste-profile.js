@@ -75,3 +75,16 @@ export const TASTE_PROFILE = {
     "Baltasar Kormákur": -0.274
   }
 };
+
+// FAVORITE_ACTORS: a differenza di genreAvg/directorAvg, NON è calcolata dai
+// voti — è una preferenza che dichiari tu. Aggiungine/togline quando vuoi:
+// basta il cognome o un nome distintivo, il confronto in
+// matchedFavoriteActors (cine-core.js) è case-insensitive e cerca per
+// sottostringa nel nome completo — "Bale" trova "Christian Bale", "de Armas"
+// trova "Ana de Armas". Se nel cast di un titolo compare almeno uno di
+// questi nomi, predictQualityScore aggiunge un bonus fisso (ACTOR_BONUS).
+export const FAVORITE_ACTORS = [
+  "DiCaprio", "Gyllenhaal", "Bale", "McConaughey", "Hardy", "Pitt", "Farrell",
+  "Damon", "Murphy", "Fassbender", "Pattinson", "Hartnett", "Skarsgård",
+  "Ferguson", "Sweeney", "Taylor-Joy", "de Armas"
+];

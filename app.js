@@ -3,9 +3,9 @@ import {
   uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
   decadeOf, posterUrl, buildDateRange, randomPage,
   escapeHtml, mediaLabel, rawNumberToFixed, mergeRemoteIntoLocal,
-  GENRE_NAME_TO_ID, predictQualityScore
+  GENRE_NAME_TO_ID, predictQualityScore, matchedFavoriteActors
 } from "./cine-core.js?v=47a401d";
-import { TASTE_PROFILE } from "./taste-profile.js?v=47a401d";
+import { TASTE_PROFILE, FAVORITE_ACTORS } from "./taste-profile.js?v=47a401d";
 import {
   loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory,
   loadLatestReport, regenerateReport
@@ -766,8 +766,9 @@ function openDetail(item) {
 
     if (detailFacts) {
       try {
-        const predictedQuality = predictQualityScore(src, TASTE_PROFILE);
-        detailFacts.innerHTML = renderDetailFacts(src, inSeen, inWatch, predictedQuality);
+        const predictedQuality = predictQualityScore(src, TASTE_PROFILE, FAVORITE_ACTORS);
+        const matchedActors = matchedFavoriteActors(src, FAVORITE_ACTORS);
+        detailFacts.innerHTML = renderDetailFacts(src, inSeen, inWatch, predictedQuality, matchedActors);
       } catch (err) {
         console.error("Errore facts detail:", err);
         detailFacts.innerHTML = `
