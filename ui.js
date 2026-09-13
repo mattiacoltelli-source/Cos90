@@ -527,14 +527,21 @@ export function renderReportContent(report) {
   `;
 }
 
-export function renderDetailFacts(source, inSeenFn, inWatchFn) {
+// predictedQuality: numero (1-10) o null — passato da app.js già calcolato
+// con predictQualityScore (cine-core.js), mostrato solo per titoli non
+// ancora visti (per un titolo già visto conta il TUO voto vero, non una
+// previsione — mostrarle insieme confonderebbe le due cose).
+export function renderDetailFacts(source, inSeenFn, inWatchFn, predictedQuality = null) {
   const facts = [
     `${mediaLabel(source)}`,
     source.year,
     source.genre_names?.length ? source.genre_names.join(", ") : null,
     source.director && source.media_type === "movie" ? `Regia: ${source.director}` : null,
     source.release_date && source.media_type === "movie" ? `Uscita: ${formatReleaseDate(source.release_date)}` : null,
-    inSeenFn(source) ? "✓ Visto" : inWatchFn(source) ? "★ In watchlist" : "Non salvato"
+    inSeenFn(source) ? "✓ Visto" : inWatchFn(source) ? "★ In watchlist" : "Non salvato",
+    !inSeenFn(source) && predictedQuality != null
+      ? `🔮 Qualità prevista: ${predictedQuality.toFixed(1).replace(".", ",")}`
+      : null
   ].filter(Boolean);
 
   return facts.map(f => `<span class="detail-fact">${escapeHtml(f)}</span>`).join("");
