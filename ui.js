@@ -222,14 +222,17 @@ export function renderSearchResults(items, db) {
 export function renderLibraryList(items, mode) {
   return items.map(item => `
     <div class="list-item">
-      <div class="list-item__thumb" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
+      <div class="list-item__thumb" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
+        <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
+      </div>
 
       <div class="list-item__body">
         <div class="list-item__title">${escapeHtml(item.title)}</div>
         <div class="list-item__meta">${escapeHtml(item.year)} · ${mediaLabel(item)}</div>
 
         <div class="chip-row">
-          ${item.genre_names?.[0] ? `<span class="chip">${escapeHtml(item.genre_names[0])}</span>` : ""}
+          <span class="chip chip--status ${mode === "watch" ? "" : "chip--seen"}">${mode === "watch" ? "♡ In watchlist" : "✓ Visto"}</span>
+          ${item.genre_names?.length ? item.genre_names.map(g => `<span class="chip">${escapeHtml(g)}</span>`).join("") : ""}
           ${item.director && item.media_type === "movie" ? `<span class="chip">🎬 ${escapeHtml(item.director)}</span>` : ""}
           ${item.vote ? `<span class="chip chip--vote">★ ${escapeHtml(item.vote)}</span>` : ""}
         </div>

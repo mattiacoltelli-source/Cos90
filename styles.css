@@ -511,6 +511,20 @@ select option {
   background: var(--gold-dim);
 }
 
+.chip--status {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--gold2);
+  border: 1px solid rgba(245,196,81,.4);
+  background: var(--gold-dim);
+}
+
+.chip--status.chip--seen {
+  color: var(--green);
+  border-color: rgba(62,201,122,.35);
+  background: var(--green-dim);
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -615,7 +629,7 @@ select option {
 
 .list-item {
   display: grid;
-  grid-template-columns: 72px 1fr;
+  grid-template-columns: 96px 1fr;
   gap: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -635,11 +649,13 @@ select option {
 .list-item:active { transform: scale(.99); }
 
 .list-item__thumb {
-  width: 72px;
-  height: 108px;
-  border-radius: var(--radius-sm);
+  position: relative;
+  width: 96px;
+  aspect-ratio: 2/3;
+  border-radius: var(--radius-md);
   background: var(--surface2) center/cover no-repeat;
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   flex-shrink: 0;
 }
 
@@ -1988,6 +2004,8 @@ select option {
     justify-self: start;
     margin-top: 4px;
   }
+  .list-item { grid-template-columns: 80px 1fr; gap: 10px; padding: 10px; }
+  .list-item__thumb { width: 80px; }
   .nav__btn {
     min-height: 76px;
     padding: 10px 6px;
