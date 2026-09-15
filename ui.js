@@ -308,9 +308,15 @@ export function renderGenreBars(entries) {
   animateBarGroups();
 }
 
+// Posizioni in % del riquadro, con la bolla larga il 36% (vedi .genre-bubble).
+// Le distanze non sono casuali: le quattro coppie vicine (1ª-3ª, 3ª-4ª, 3ª-5ª,
+// 2ª-4ª) si sovrappongono tutte di circa il 9% del diametro — abbastanza da
+// leggersi come un grappolo voluto, non tanto da nascondere un numero — e le
+// altre stanno staccate di almeno il 17%. La via di mezzo è quella da evitare:
+// due bolle che si sfiorano per pochi pixel sembrano un errore di allineamento.
 const GENRE_BUBBLE_LAYOUT = [
-  { left: 6, top: 4 }, { left: 56, top: 2 }, { left: 26, top: 30 },
-  { left: 68, top: 34 }, { left: 8, top: 60 },
+  { left: 7, top: 5 }, { left: 58, top: 3 }, { left: 27, top: 30 },
+  { left: 59, top: 34 }, { left: 9, top: 56 },
 ];
 
 export function renderGenreBubbles(entries) {
@@ -340,7 +346,7 @@ export function renderGenreBubbles(entries) {
     const boundary = 92 - t * 80;
     const low = Math.max(0, boundary - 27), high = Math.min(100, boundary + 27);
     const fillGradient = `linear-gradient(to top, ${BLUE} 0%, ${BLUE} ${low.toFixed(1)}%, ${CREAM} ${boundary.toFixed(1)}%, ${GOLD} ${high.toFixed(1)}%, ${GOLD} 100%)`;
-    const pos = GENRE_BUBBLE_LAYOUT[i] || { left: (i * 20) % 80, top: (i * 25) % 80 };
+    const pos = GENRE_BUBBLE_LAYOUT[i] || { left: (i * 20) % 60, top: (i * 25) % 60 };
     const fillDelay = i * 90;
     const voteText = hasAvg ? `★ ${g.avgVote.toFixed(1).replace(".", ",")}` : "";
 
@@ -348,8 +354,6 @@ export function renderGenreBubbles(entries) {
     el.className = "genre-bubble";
     el.style.left = pos.left + "%";
     el.style.top = pos.top + "%";
-    el.style.width = "118px";
-    el.style.height = "118px";
 
     el.innerHTML = `
       <div class="genre-bubble-inner">
