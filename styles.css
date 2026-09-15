@@ -393,6 +393,10 @@ select option {
   opacity: .85;
 }
 
+.shelf-card--static {
+  animation: none;
+}
+
 .shelf-card.tapped {
   transform: translateY(-6px) scale(1.06);
 }

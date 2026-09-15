@@ -388,6 +388,17 @@ function toggleHidden(id, shouldHide) {
   el.classList.toggle("hidden", shouldHide);
 }
 
+// Diventa true dopo il primo disegno della Home: da quel momento in poi
+// renderHomeShelves() può essere richiamata in silenzio in ogni momento
+// (sync Supabase in background, eventi realtime da un altro dispositivo,
+// qualunque azione altrove che tocca db.seen/db.watchlist — vedi le
+// chiamate a renderAll() sparse in app.js) anche mentre l'utente è già
+// sulla Home e sta scorrendo. Rifare la cascata d'ingresso in quel momento
+// sostituisce di colpo le card già visibili con altre che ripartono da
+// opacity 0/traslate, percepito come uno scatto. Dopo il primo giro,
+// niente più animazione: il contenuto si aggiorna e basta.
+let homeShelvesPainted = false;
+
 function renderHomeShelves() {
   const watchPrev = db.watchlist.slice(0, 8);
   const seenMovies = db.seen.filter(x => x.media_type === "movie").slice(0, 8);
@@ -401,9 +412,10 @@ function renderHomeShelves() {
   // per un utente nuovo di raggiungere la schermata Libreria (che gestisce
   // già bene lo stato vuoto da sola, vedi doRenderLibrary).
 
-  renderShelf("watchShelf", watchPrev);
-  renderShelf("seenMovieShelf", seenMovies);
-  renderShelf("seenSeriesShelf", seenSeries);
+  renderShelf("watchShelf", watchPrev, homeShelvesPainted);
+  renderShelf("seenMovieShelf", seenMovies, homeShelvesPainted);
+  renderShelf("seenSeriesShelf", seenSeries, homeShelvesPainted);
+  homeShelvesPainted = true;
 }
 
 function getAvailableGenres() {
