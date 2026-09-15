@@ -1,4 +1,4 @@
-import { createClient } from "./supabase-sdk.js?v=6129fbc";
+import { createClient } from "./supabase-sdk.js?v=badbe25";
 
 // FIX 5: SDK Supabase vendorizzato in locale (supabase-sdk.js, build pinned
 // di @supabase/supabase-js@2.45.4) invece di caricato da esm.sh ad ogni avvio.
