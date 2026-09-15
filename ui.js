@@ -137,7 +137,7 @@ export function getPreviousScreen() {
   return _previousScreen;
 }
 
-export function renderShelf(containerId, items, skipEntrance = false) {
+export function renderShelf(containerId, items) {
   const el = document.getElementById(containerId);
   if (!el) return;
 
@@ -147,20 +147,12 @@ export function renderShelf(containerId, items, skipEntrance = false) {
     // caricamento eager e priorità alta perché una di queste è tipicamente
     // il Largest Contentful Paint della home. Le altre restano lazy.
     const img = src
-      ? `<img class="shelf-card__poster-img${skipEntrance ? " loaded" : ""}" src="${escapeHtml(src)}" alt=""
+      ? `<img class="shelf-card__poster-img" src="${escapeHtml(src)}" alt=""
            loading="${i < 3 ? "eager" : "lazy"}" fetchpriority="${i < 3 ? "high" : "auto"}" decoding="async"
-           onload="this.classList.add('loaded')" onerror="this.style.display='none'">`
+           onerror="this.style.display='none'">`
       : "";
-    // skipEntrance: renderHomeShelves() richiama questa funzione anche per
-    // aggiornamenti silenziosi arrivati mentre l'utente è già sulla Home
-    // (sync Supabase in background, eventi realtime — vedi il commento su
-    // homeShelvesPainted in app.js). In quel caso niente cascata d'ingresso:
-    // le card compaiono già ferme, senza ripartire da capo sotto gli occhi
-    // di chi sta scorrendo.
-    const cardClass = skipEntrance ? "shelf-card shelf-card--static" : "shelf-card";
-    const delayAttr = skipEntrance ? "" : ` style="animation-delay:${Math.min(i, 10) * 90}ms"`;
     return `
-    <div class="${cardClass} open-stored-detail" data-key="${uniqueKey(item)}"${delayAttr}>
+    <div class="shelf-card open-stored-detail" data-key="${uniqueKey(item)}">
       <div class="shelf-card__poster">
         ${img}
         <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
