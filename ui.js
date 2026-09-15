@@ -152,7 +152,7 @@ export function renderShelf(containerId, items) {
            onerror="this.style.display='none'">`
       : "";
     return `
-    <div class="shelf-card open-stored-detail" data-key="${uniqueKey(item)}">
+    <div class="shelf-card open-stored-detail" data-key="${uniqueKey(item)}" style="animation-delay:${Math.min(i, 10) * 90}ms">
       <div class="shelf-card__poster">
         ${img}
         <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>

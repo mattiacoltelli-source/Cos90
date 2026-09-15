@@ -375,17 +375,34 @@ select option {
 
 .shelf::-webkit-scrollbar { height: 0; }
 
+@keyframes posterEnter{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+
 .shelf-card {
   flex: 0 0 138px;
   width: 138px;
   cursor: pointer;
   scroll-snap-align: start;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  animation: posterEnter .5s cubic-bezier(.22,1,.36,1) both;
   transition: transform var(--t-mid) var(--ease), opacity var(--t-mid);
 }
 
 .shelf-card:active {
   transform: scale(.95) translateY(1px);
   opacity: .85;
+}
+
+.shelf-card.tapped {
+  transform: translateY(-6px) scale(1.06);
+}
+
+.shelf-card.tapped .shelf-card__poster {
+  box-shadow: 0 18px 34px rgba(0,0,0,.55) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shelf-card { animation: none; }
 }
 
 .shelf-card__poster {

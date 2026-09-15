@@ -1566,6 +1566,14 @@ function bindEvents() {
       haptic([8]);
     }
 
+    const shelfCard = e.target.closest(".shelf-card");
+    if (shelfCard) {
+      document.querySelectorAll(".shelf-card.tapped").forEach(el => {
+        if (el !== shelfCard) el.classList.remove("tapped");
+      });
+      shelfCard.classList.toggle("tapped");
+    }
+
     try {
       if (genreBtn) {
         currentLibraryGenre = genreBtn.dataset.genreFilter;
