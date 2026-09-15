@@ -810,8 +810,7 @@ select option {
 .genre-bubble-legend b.fill{color:#eef2f7;font-weight:600;}
 .genre-bubble-legend b.gold{color:#fdd878;font-weight:600;}
 @keyframes genreBubbleFillRise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-@keyframes genreBubbleFloat{0%{transform:translate(0,0)}50%{transform:translate(var(--fx),var(--fy))}100%{transform:translate(0,0)}}
-@media (prefers-reduced-motion: reduce){ .genre-bubble{animation:none !important;} }
+@media (prefers-reduced-motion: reduce){ .genre-bubble-fill{animation:none !important;} }
 
 /* ---------------- Report ---------------- */
 

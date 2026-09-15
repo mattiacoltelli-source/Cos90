@@ -279,11 +279,6 @@ export function renderGenreBubbles(entries) {
     const low = Math.max(0, boundary - 27), high = Math.min(100, boundary + 27);
     const fillGradient = `linear-gradient(to top, ${BLUE} 0%, ${BLUE} ${low.toFixed(1)}%, ${CREAM} ${boundary.toFixed(1)}%, ${GOLD} ${high.toFixed(1)}%, ${GOLD} 100%)`;
     const pos = GENRE_BUBBLE_LAYOUT[i] || { left: (i * 20) % 80, top: (i * 25) % 80 };
-    const seed = i * 31 + 7;
-    const fx = (6 + (seed % 6)) * (i % 2 === 0 ? 1 : -1);
-    const fy = (5 + ((seed * 2) % 5)) * (i % 3 === 0 ? -1 : 1);
-    const floatDur = 13 + (i % 4) * 2.3;
-    const floatDelay = i * 260;
     const fillDelay = i * 90;
     const voteText = hasAvg ? `★ ${g.avgVote.toFixed(1).replace(".", ",")}` : "";
 
@@ -293,9 +288,6 @@ export function renderGenreBubbles(entries) {
     el.style.top = pos.top + "%";
     el.style.width = "118px";
     el.style.height = "118px";
-    el.style.setProperty("--fx", fx + "px");
-    el.style.setProperty("--fy", fy + "px");
-    el.style.animation = `genreBubbleFloat ${floatDur}s ease-in-out ${floatDelay}ms infinite`;
 
     el.innerHTML = `
       <div class="genre-bubble-inner">
