@@ -1229,7 +1229,19 @@ select option {
   gap: 8px;
 }
 
+/* La classifica disegna in un colpo solo tutte le righe (fino a 500): senza
+   questo, aprire Statistiche con qualche centinaio di titoli votati costa al
+   browser il layout di ogni riga e il download di ogni poster, comprese le
+   centinaia fuori schermo. Con content-visibility quel lavoro parte quando la
+   riga si avvicina al viewport. La parola chiave `auto` in
+   contain-intrinsic-size fa memorizzare al browser l'altezza vera dopo il
+   primo render, così la scrollbar non salta; il valore di fallback serve solo
+   finché una riga non è mai stata disegnata. È l'altezza del CONTENUTO, quindi
+   i 10+10 di padding e i 2 di bordo NON vanno inclusi: 72px qui = 94px di riga
+   vera, tanti quanti il poster. */
 .rank-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
   display: grid;
   grid-template-columns: 36px 50px 1fr auto;
   gap: 10px;
@@ -2055,7 +2067,9 @@ select option {
   .detail-top { grid-template-columns: 84px 1fr; }
   .detail-poster { width: 84px; height: 126px; }
   .detail-title { font-size: 20px; }
-  .rank-row { grid-template-columns: 30px 44px 1fr; }
+  /* Qui il voto va a capo sotto il poster, quindi la riga è più alta:
+     116px di contenuto = 138px di riga vera. */
+  .rank-row { grid-template-columns: 30px 44px 1fr; contain-intrinsic-size: auto 116px; }
   .rank-row__vote {
     grid-column: 2 / 4;
     justify-self: start;
