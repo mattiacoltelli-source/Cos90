@@ -629,16 +629,6 @@ function renderGenreView(topGenres) {
 // Allinea bottoni e legenda alla vista attiva. La legenda sta fuori dal
 // container perché il container viene riscritto da capo a ogni render.
 function syncGenreViewUI(hasData) {
-  [["top100ExpandBtn", "top100List", "rankingPanelMovies"],
-   ["top100SeriesExpandBtn", "top100SeriesList", "rankingPanelSeries"]].forEach(([btnId, listId, panelId]) => {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      haptic([8]);
-      toggleRankingList(document.getElementById(listId), document.getElementById(panelId));
-    });
-  });
-
   document.querySelectorAll("#genreViewToggle .genre-view-btn").forEach(btn => {
     const on = btn.dataset.genreView === genreView;
     btn.classList.toggle("active", on);
@@ -1496,6 +1486,23 @@ function bindEvents() {
       toggleHidden("rankingPanelMovies", true);
     });
   }
+
+  // Legato una sola volta qui (come il toggle Barre/Bolle sopra), non dentro
+  // syncGenreViewUI: quella è chiamata da renderStats(), invocata da
+  // renderAll() a ogni refresh dati (12 punti diversi in questo file, più il
+  // boot iniziale) — legare il listener lì lo riaggiungeva ad ogni render
+  // senza mai rimuovere il precedente, così bastava aprire la tab
+  // Statistiche una volta perché "Mostra tutti" finisse doppio-legato: un
+  // click espandeva e richiudeva nello stesso istante, sempre a somma zero.
+  [["top100ExpandBtn", "top100List", "rankingPanelMovies"],
+   ["top100SeriesExpandBtn", "top100SeriesList", "rankingPanelSeries"]].forEach(([btnId, listId, panelId]) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      haptic([8]);
+      toggleRankingList(document.getElementById(listId), document.getElementById(panelId));
+    });
+  });
 
   if (exportBtn) exportBtn.addEventListener("click", () => { haptic([8]); exportBackup(); });
   if (importBtn && importFileInput) {
