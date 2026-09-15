@@ -62,7 +62,10 @@ body {
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
-  padding: 0 0 100px;
+  /* Spazio per la barra fissa in fondo. Deve seguire la safe area come la
+     barra stessa: con un valore fisso, su un telefono con la barra gesti il
+     contenuto finisce sotto ai tasti. */
+  padding: 0 0 calc(80px + env(safe-area-inset-bottom));
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
@@ -1811,7 +1814,7 @@ select option {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  padding: 7px 16px calc(7px + env(safe-area-inset-bottom));
   background: linear-gradient(to top, rgba(5,8,14,.97) 60%, rgba(5,8,14,.7));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -1832,11 +1835,11 @@ select option {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 82px;
+  gap: 4px;
+  min-height: 58px;
   text-align: center;
-  padding: 10px 8px;
-  border-radius: 24px;
+  padding: 7px 8px;
+  border-radius: 18px;
   background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
   border: 1px solid rgba(255,255,255,.08);
   color: #aebbd0;
@@ -1856,8 +1859,8 @@ select option {
 }
 
 .nav__btn svg {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   stroke: currentColor;
   opacity: .98;
 }
@@ -1886,7 +1889,7 @@ select option {
   position: fixed;
   left: 16px;
   right: 16px;
-  bottom: 90px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -2117,13 +2120,13 @@ select option {
   .list-item { grid-template-columns: 80px 1fr; gap: 10px; padding: 10px; }
   .list-item__thumb { width: 80px; }
   .nav__btn {
-    min-height: 76px;
-    padding: 10px 6px;
-    border-radius: 22px;
+    min-height: 54px;
+    padding: 6px 4px;
+    border-radius: 16px;
   }
   .nav__btn svg {
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
   }
 }
 
