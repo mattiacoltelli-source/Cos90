@@ -524,14 +524,9 @@ export function renderReportContent(report) {
   `;
 }
 
-// predictedQuality: numero (1-10) o null — passato da app.js già calcolato
-// con predictQualityScore (cine-core.js), mostrato solo per titoli non
-// ancora visti (per un titolo già visto conta il TUO voto vero, non una
-// previsione — mostrarle insieme confonderebbe le due cose).
 // matchedActors: array di nomi da FAVORITE_ACTORS trovati nel cast (vedi
-// matchedFavoriteActors) — mostrato accanto per rendere visibile PERCHÉ il
-// punteggio è più alto, non un numero che sale senza spiegazione.
-export function renderDetailFacts(source, inSeenFn, inWatchFn, predictedQuality = null, matchedActors = []) {
+// matchedFavoriteActors), mostrato solo per titoli non ancora visti.
+export function renderDetailFacts(source, inSeenFn, inWatchFn, matchedActors = []) {
   const facts = [
     `${mediaLabel(source)}`,
     source.year,
@@ -539,9 +534,6 @@ export function renderDetailFacts(source, inSeenFn, inWatchFn, predictedQuality 
     source.director && source.media_type === "movie" ? `Regia: ${source.director}` : null,
     source.release_date && source.media_type === "movie" ? `Uscita: ${formatReleaseDate(source.release_date)}` : null,
     inSeenFn(source) ? "✓ Visto" : inWatchFn(source) ? "★ In watchlist" : "Non salvato",
-    !inSeenFn(source) && predictedQuality != null
-      ? `🔮 Qualità prevista: ${predictedQuality.toFixed(1).replace(".", ",")}`
-      : null,
     !inSeenFn(source) && matchedActors.length
       ? `⭐ ${matchedActors.join(", ")}`
       : null
