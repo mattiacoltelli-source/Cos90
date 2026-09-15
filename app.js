@@ -889,58 +889,6 @@ async function doAddWatch(type, id) {
   openDetail(item);
 }
 
-async function doMoveToSeen(key) {
-  const item = db.watchlist.find(x => uniqueKey(x) === key);
-  if (!item) return;
-
-  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
-
-  if (!db.seen.find(x => uniqueKey(x) === key)) {
-    item.savedAt = new Date().toISOString();
-    db.seen.unshift(item);
-  }
-
-  const savedLocally = await saveDB(db);
-  renderAll();
-
-  saveResultToast(savedLocally, `"${item.title}" spostato tra i visti.`, "success", "Aggiornato");
-  haptic([12, 20, 12]);
-}
-
-async function doRemoveSeen(key) {
-  const item = db.seen.find(x => uniqueKey(x) === key);
-  db.seen = db.seen.filter(x => uniqueKey(x) !== key);
-
-  const savedLocally = await saveDB(db);
-  renderAll();
-
-  if (currentDetail && uniqueKey(currentDetail) === key) {
-    switchScreen("home");
-  }
-
-  if (item) {
-    saveResultToast(savedLocally, `"${item.title}" rimosso dai visti.`, "info", "Rimosso");
-    haptic([14]);
-  }
-}
-
-async function doRemoveWatch(key) {
-  const item = db.watchlist.find(x => uniqueKey(x) === key);
-  db.watchlist = db.watchlist.filter(x => uniqueKey(x) !== key);
-
-  const savedLocally = await saveDB(db);
-  renderAll();
-
-  if (currentDetail && uniqueKey(currentDetail) === key) {
-    switchScreen("home");
-  }
-
-  if (item) {
-    saveResultToast(savedLocally, `"${item.title}" rimosso dalla watchlist.`, "info", "Rimosso");
-    haptic([14]);
-  }
-}
-
 async function doSaveDetailNotes() {
   if (!currentDetail) return;
 
@@ -1612,9 +1560,6 @@ function bindEvents() {
     const seenBtn = e.target.closest(".action-seen");
     const watchBtn = e.target.closest(".action-watch");
     const detailsBtn = e.target.closest(".action-details");
-    const removeSeenBtn = e.target.closest(".remove-seen");
-    const removeWatchBtn = e.target.closest(".remove-watch");
-    const moveWatchBtn = e.target.closest(".move-watch-seen");
     const storedBtn = e.target.closest(".open-stored-detail");
     const genreBtn = e.target.closest("[data-genre-filter]");
 
@@ -1641,21 +1586,6 @@ function bindEvents() {
 
       if (detailsBtn) {
         await doShowDetails(detailsBtn.dataset.type, detailsBtn.dataset.id);
-        return;
-      }
-
-      if (removeSeenBtn) {
-        await doRemoveSeen(removeSeenBtn.dataset.key);
-        return;
-      }
-
-      if (removeWatchBtn) {
-        await doRemoveWatch(removeWatchBtn.dataset.key);
-        return;
-      }
-
-      if (moveWatchBtn) {
-        await doMoveToSeen(moveWatchBtn.dataset.key);
         return;
       }
 

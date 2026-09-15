@@ -221,7 +221,7 @@ export function renderSearchResults(items, db) {
 
 export function renderLibraryList(items, mode) {
   return items.map(item => `
-    <div class="list-item">
+    <div class="list-item open-stored-detail" data-key="${uniqueKey(item)}">
       <div class="list-item__thumb" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
         <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
       </div>
@@ -238,12 +238,6 @@ export function renderLibraryList(items, mode) {
         </div>
 
         ${item.comment ? `<div class="list-item__comment">"${escapeHtml(item.comment).slice(0,60)}${item.comment.length > 60 ? "…" : ""}"</div>` : ""}
-
-        <div class="list-item__actions">
-          ${mode === "watch" ? `<button class="btn btn--ok btn--sm move-watch-seen" data-key="${uniqueKey(item)}">✓ Visto</button>` : ""}
-          <button class="btn btn--ghost btn--sm open-stored-detail" data-key="${uniqueKey(item)}">Scheda</button>
-          <button class="btn btn--danger btn--sm ${mode === "watch" ? "remove-watch" : "remove-seen"}" data-key="${uniqueKey(item)}">✕</button>
-        </div>
       </div>
     </div>
   `).join("");

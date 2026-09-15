@@ -635,6 +635,7 @@ select option {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 12px;
+  cursor: pointer;
   transition:
     border-color var(--t-mid),
     transform var(--t-mid) var(--ease),
@@ -678,13 +679,6 @@ select option {
   font-style: italic;
   margin-top: 6px;
   line-height: 1.4;
-}
-
-.list-item__actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 10px;
 }
 
 .filter-bar {
