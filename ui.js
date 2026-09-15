@@ -99,27 +99,6 @@ export function animateStats(seen, watch, movies, series) {
   animateValue(document.getElementById("statSeries"), series);
 }
 
-export function animateBarGroups() {
-  const bars = document.querySelectorAll("#screen-stats .bar__fill[data-width]");
-  if (!bars.length) return;
-
-  bars.forEach(bar => {
-    bar.style.width = "0%";
-  });
-
-  // Forza un reflow sincrono tra lo stato a 0% e quello finale: con il solo
-  // doppio requestAnimationFrame il browser a volte unisce le due modifiche
-  // nello stesso frame e salta la transizione (è quello che succedeva
-  // rientrando una seconda volta nella tab Statistiche).
-  void bars[0].offsetWidth;
-
-  bars.forEach((bar, i) => {
-    setTimeout(() => {
-      bar.style.width = `${bar.dataset.width}%`;
-    }, i * 70);
-  });
-}
-
 export const SCREENS = {};
 let _previousScreen = "home";
 
@@ -267,7 +246,12 @@ export function renderGenreFilters(genres, activeGenre) {
   `;
 }
 
-export function renderGenreBars(entries) {
+const GENRE_BUBBLE_LAYOUT = [
+  { left: 6, top: 4 }, { left: 56, top: 2 }, { left: 26, top: 30 },
+  { left: 68, top: 34 }, { left: 8, top: 60 },
+];
+
+export function renderGenreBubbles(entries) {
   const container = document.getElementById("genreBars");
 
   if (!entries.length) {
@@ -275,32 +259,77 @@ export function renderGenreBars(entries) {
     return;
   }
 
-  const max = entries[0].value || 1;
+  const GOLD = "#fdd878", BLUE = "#4da3ff", CREAM = "hsl(43,22%,84%)";
+  const maxCount = Math.max(...entries.map(d => d.value)) || 1;
+  const ratedAvgs = entries.map(d => d.avgVote).filter(v => Number.isFinite(v));
+  const minAvg = ratedAvgs.length ? Math.min(...ratedAvgs) : 0;
+  const maxAvg = ratedAvgs.length ? Math.max(...ratedAvgs) : 1;
+  const avgRange = (maxAvg - minAvg) || 1;
 
-  container.innerHTML = entries.map(entry => {
-    const formattedAvg = entry.avgVote && Number.isFinite(entry.avgVote)
-      ? entry.avgVote.toFixed(1).replace(".", ",")
-      : null;
+  container.innerHTML = `<div class="genre-bubble-legend"><b class="fill">Riempimento</b> = quanto lo guardi &nbsp;·&nbsp; <b class="gold">Oro</b> = quanto ti piace</div>`;
 
-    const countText = `${entry.value} ${entry.value === 1 ? "titolo" : "titoli"}`;
-    const avgHtml = formattedAvg
-      ? `<span class="bar-row__avg">★ ${formattedAvg}</span>`
-      : "";
+  const wrap = document.createElement("div");
+  wrap.className = "genre-bubbles-wrap";
 
-    return `
-    <div class="bar-row">
-      <div class="bar-row__label">
-        <span class="bar-row__name">${escapeHtml(entry.label)}</span>
-        <span class="bar-row__count">${countText} ${avgHtml}</span>
-      </div>
-      <div class="bar-track">
-        <div class="bar__fill" data-width="${Math.max(8, (entry.value / max) * 100).toFixed(1)}"></div>
-      </div>
-    </div>
-  `;
-  }).join("");
+  entries.forEach((g, i) => {
+    const hasAvg = Number.isFinite(g.avgVote);
+    const t = hasAvg ? (g.avgVote - minAvg) / avgRange : 0.5;
+    const fillPct = Math.round((g.value / maxCount) * 85) + 10;
+    const boundary = 92 - t * 80;
+    const low = Math.max(0, boundary - 27), high = Math.min(100, boundary + 27);
+    const fillGradient = `linear-gradient(to top, ${BLUE} 0%, ${BLUE} ${low.toFixed(1)}%, ${CREAM} ${boundary.toFixed(1)}%, ${GOLD} ${high.toFixed(1)}%, ${GOLD} 100%)`;
+    const pos = GENRE_BUBBLE_LAYOUT[i] || { left: (i * 20) % 80, top: (i * 25) % 80 };
+    const seed = i * 31 + 7;
+    const fx = (6 + (seed % 6)) * (i % 2 === 0 ? 1 : -1);
+    const fy = (5 + ((seed * 2) % 5)) * (i % 3 === 0 ? -1 : 1);
+    const floatDur = 13 + (i % 4) * 2.3;
+    const floatDelay = i * 260;
+    const fillDelay = i * 90;
+    const voteText = hasAvg ? `★ ${g.avgVote.toFixed(1).replace(".", ",")}` : "";
 
-  animateBarGroups();
+    const el = document.createElement("div");
+    el.className = "genre-bubble";
+    el.style.left = pos.left + "%";
+    el.style.top = pos.top + "%";
+    el.style.width = "118px";
+    el.style.height = "118px";
+    el.style.setProperty("--fx", fx + "px");
+    el.style.setProperty("--fy", fy + "px");
+    el.style.animation = `genreBubbleFloat ${floatDur}s ease-in-out ${floatDelay}ms infinite`;
+
+    el.innerHTML = `
+      <div class="genre-bubble-inner">
+        <div class="genre-bubble-fill" style="height:${fillPct}%;animation-delay:${fillDelay}ms;">
+          <div class="genre-bubble-fill-inner" style="background:${fillGradient};"></div>
+        </div>
+        <div class="genre-bubble-sheen"></div>
+        <div class="genre-bubble-text">
+          <div class="name">${escapeHtml(g.label.toUpperCase())}</div>
+          <div class="count">${g.value}</div>
+          <div class="label">titoli</div>
+          ${voteText ? `<div class="vote" style="display:none;">${voteText}</div>` : ""}
+        </div>
+      </div>`;
+
+    if (voteText) {
+      el.addEventListener("click", () => {
+        const isActive = el.classList.contains("active");
+        wrap.querySelectorAll(".genre-bubble.active").forEach(b => {
+          b.classList.remove("active");
+          const v = b.querySelector(".vote");
+          if (v) v.style.display = "none";
+        });
+        if (!isActive) {
+          el.classList.add("active");
+          el.querySelector(".vote").style.display = "";
+        }
+      });
+    }
+
+    wrap.appendChild(el);
+  });
+
+  container.appendChild(wrap);
 }
 
 const MEDALS = [

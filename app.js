@@ -14,7 +14,7 @@ import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
   renderShelf, renderSearchResults, renderLibraryList,
-  renderGenreFilters, renderGenreBars, renderPodium, renderRankingList,
+  renderGenreFilters, renderGenreBubbles, renderPodium, renderRankingList,
   renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
   renderReportMeta, renderReportContent
 } from "./ui.js?v=c01c0c5";
@@ -572,7 +572,7 @@ function renderStats() {
   animateStats(seen, watch, movies, series);
 
   if (db.seen.length < 3) {
-    renderGenreBars([]);
+    renderGenreBubbles([]);
     resetRanking();
     return;
   }
@@ -601,7 +601,7 @@ function renderStats() {
       return { label, value, avgVote };
     });
 
-  renderGenreBars(topGenres);
+  renderGenreBubbles(topGenres);
   renderRanking();
 }
 
