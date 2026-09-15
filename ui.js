@@ -409,15 +409,18 @@ export function renderPodium(podiumEl, items, typeLabel) {
   `).join("");
 }
 
-export function renderRankingList(listEl, items, offset, typeLabel) {
-  if (!items.length) {
-    listEl.innerHTML = `<p class="empty-hint">Aggiungi altri voti per completare la classifica.</p>`;
-    return;
-  }
+// Quante righe restano visibili sotto al podio prima di "Mostra tutti".
+const RANKING_LIST_INITIAL = 4;
 
-  listEl.innerHTML = items.map((item, i) => `
+// Film e serie sono due classifiche distinte, ognuna con il suo bottone e il
+// suo stato aperto/chiuso: lo stato sta sull'elemento della lista invece che
+// in due variabili di modulo, così aggiungerne una terza non richiede altro.
+const _rankingLists = new WeakMap();
+
+function rankRowHtml(item, pos, typeLabel) {
+  return `
     <div class="rank-row open-stored-detail" data-key="${uniqueKey(item)}">
-      <div class="rank-row__pos">${i + offset}</div>
+      <div class="rank-row__pos">${pos}</div>
       <div class="rank-row__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
       <div class="rank-row__info">
         <div class="rank-row__title">${escapeHtml(item.title)}</div>
@@ -425,7 +428,58 @@ export function renderRankingList(listEl, items, offset, typeLabel) {
       </div>
       <div class="rank-row__vote">★ ${escapeHtml(item.vote)}</div>
     </div>
-  `).join("");
+  `;
+}
+
+function drawRankingRows(listEl, st) {
+  const shown = st.expanded ? st.items : st.items.slice(0, RANKING_LIST_INITIAL);
+  listEl.innerHTML = shown.map((item, i) => rankRowHtml(item, i + st.offset, st.typeLabel)).join("");
+
+  const btn = st.btn;
+  if (!btn) return;
+
+  const hiddenCount = st.items.length - RANKING_LIST_INITIAL;
+  if (hiddenCount <= 0) {
+    btn.classList.add("hidden");
+    return;
+  }
+
+  btn.classList.remove("hidden");
+  btn.classList.toggle("is-up", st.expanded);
+  btn.querySelector(".rank-expand-btn__label").textContent = st.expanded ? "Mostra meno" : "Mostra tutti";
+  const countEl = btn.querySelector(".rank-expand-btn__count");
+  countEl.textContent = `· ${hiddenCount}`;
+  countEl.classList.toggle("hidden", st.expanded);
+}
+
+export function renderRankingList(listEl, items, offset, typeLabel, expandBtn = null) {
+  if (!items.length) {
+    listEl.innerHTML = `<p class="empty-hint">Aggiungi altri voti per completare la classifica.</p>`;
+    if (expandBtn) expandBtn.classList.add("hidden");
+    _rankingLists.delete(listEl);
+    return;
+  }
+
+  // Ogni render riparte da chiusa: renderStats gira a ogni apertura di
+  // Statistiche, e ritrovarsi la lista già aperta da una visita precedente
+  // sarebbe una sorpresa.
+  const st = { items, offset, typeLabel, expanded: false, btn: expandBtn };
+  _rankingLists.set(listEl, st);
+  drawRankingRows(listEl, st);
+}
+
+// Richiamando con la lista già in cima si evita di restare a metà di una
+// classifica che si è appena accorciata sotto i piedi.
+export function toggleRankingList(listEl, scrollBackEl = null) {
+  const st = _rankingLists.get(listEl);
+  if (!st) return;
+
+  st.expanded = !st.expanded;
+  drawRankingRows(listEl, st);
+
+  if (!st.expanded && scrollBackEl) {
+    scrollBackEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 // Stessa card "poster grande" usata per i risultati di ricerca (poster-card),

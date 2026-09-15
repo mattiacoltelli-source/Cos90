@@ -15,6 +15,7 @@ import {
   initScreens, switchScreen, getPreviousScreen, SCREENS,
   renderShelf, renderSearchResults, renderLibraryList,
   renderGenreFilters, renderGenreBars, renderGenreBubbles, renderPodium, renderRankingList,
+  toggleRankingList,
   renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
   renderReportMeta, renderReportContent
 } from "./ui.js?v=8464134";
@@ -546,6 +547,11 @@ function resetRanking() {
     const el = document.getElementById(id);
     if (el) el.textContent = "0";
   });
+
+  ["top100ExpandBtn", "top100SeriesExpandBtn"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add("hidden");
+  });
 }
 
 function renderRanking() {
@@ -559,9 +565,15 @@ function renderRanking() {
   if (badgeSeries) badgeSeries.textContent = String(series.length);
 
   renderPodium(document.getElementById("top100Podium"), movies.slice(0, 3), "Film");
-  renderRankingList(document.getElementById("top100List"), movies.slice(3), 4, "Film");
+  renderRankingList(
+    document.getElementById("top100List"), movies.slice(3), 4, "Film",
+    document.getElementById("top100ExpandBtn")
+  );
   renderPodium(document.getElementById("top100SeriesPodium"), series.slice(0, 3), "Serie TV");
-  renderRankingList(document.getElementById("top100SeriesList"), series.slice(3), 4, "Serie TV");
+  renderRankingList(
+    document.getElementById("top100SeriesList"), series.slice(3), 4, "Serie TV",
+    document.getElementById("top100SeriesExpandBtn")
+  );
 }
 
 function renderStats() {
@@ -617,6 +629,16 @@ function renderGenreView(topGenres) {
 // Allinea bottoni e legenda alla vista attiva. La legenda sta fuori dal
 // container perché il container viene riscritto da capo a ogni render.
 function syncGenreViewUI(hasData) {
+  [["top100ExpandBtn", "top100List", "rankingPanelMovies"],
+   ["top100SeriesExpandBtn", "top100SeriesList", "rankingPanelSeries"]].forEach(([btnId, listId, panelId]) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      haptic([8]);
+      toggleRankingList(document.getElementById(listId), document.getElementById(panelId));
+    });
+  });
+
   document.querySelectorAll("#genreViewToggle .genre-view-btn").forEach(btn => {
     const on = btn.dataset.genreView === genreView;
     btn.classList.toggle("active", on);

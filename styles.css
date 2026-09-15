@@ -1229,6 +1229,41 @@ select option {
   gap: 8px;
 }
 
+/* "Mostra tutti": sotto al podio restano poche righe, il resto si apre a
+   richiesta. Senza, la classifica di un archivio grande rende la pagina
+   lunga decine di schermate. */
+.rank-expand-btn {
+  width: 100%;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-mid), border-color var(--t-mid), transform var(--t-fast);
+}
+
+.rank-expand-btn:hover { background: var(--surface3); border-color: rgba(77,163,255,.28); }
+.rank-expand-btn:active { transform: scale(.98); }
+
+.rank-expand-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  transition: transform var(--t-mid);
+}
+
+.rank-expand-btn.is-up svg { transform: rotate(180deg); }
+.rank-expand-btn__count { color: var(--text3); font-weight: 600; }
+
 /* La classifica disegna in un colpo solo tutte le righe (fino a 500): senza
    questo, aprire Statistiche con qualche centinaio di titoli votati costa al
    browser il layout di ogni riga e il download di ogni poster, comprese le
