@@ -424,6 +424,12 @@ select option {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+
+.shelf-card__poster-img.loaded {
+  opacity: 1;
 }
 
 /* Placeholder statico mostrato nell'HTML prima che loadDB()/renderHomeShelves()

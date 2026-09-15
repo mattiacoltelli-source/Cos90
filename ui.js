@@ -149,7 +149,7 @@ export function renderShelf(containerId, items) {
     const img = src
       ? `<img class="shelf-card__poster-img" src="${escapeHtml(src)}" alt=""
            loading="${i < 3 ? "eager" : "lazy"}" fetchpriority="${i < 3 ? "high" : "auto"}" decoding="async"
-           onerror="this.style.display='none'">`
+           onload="this.classList.add('loaded')" onerror="this.style.display='none'">`
       : "";
     return `
     <div class="shelf-card open-stored-detail" data-key="${uniqueKey(item)}" style="animation-delay:${Math.min(i, 10) * 90}ms">
