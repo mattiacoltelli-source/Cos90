@@ -12,6 +12,22 @@ const REPORT_CACHE_KEY = "cineTrackerReportCache";
 // La cache vecchia verrà ignorata automaticamente e ricaricata da Supabase.
 const CACHE_VERSION = 1;
 
+// ─── VISTA DEI GENERI NELLE STATISTICHE (solo su questo dispositivo) ─────────
+// Bolle (il default, com'era) oppure barre. È una preferenza puramente
+// visiva sugli stessi dati, quindi vive in localStorage come le altre
+// preferenze locali qui sopra e non tocca Supabase.
+const GENRE_VIEW_KEY = "cineTrackerGenreView";
+
+export function getGenreView() {
+  try {
+    return localStorage.getItem(GENRE_VIEW_KEY) === "bars" ? "bars" : "bubbles";
+  } catch { return "bubbles"; }
+}
+
+export function setGenreView(view) {
+  try { localStorage.setItem(GENRE_VIEW_KEY, view === "bars" ? "bars" : "bubbles"); } catch {}
+}
+
 // ─── CACHE LOCALE ────────────────────────────────────────────────────────────
 
 function saveLocalCache(db) {

@@ -193,7 +193,14 @@
 
       <div class="section">
         <div class="taste-block">
-          <div class="taste-block__title">Generi preferiti<span class="taste-block__hint">★ media voto</span></div>
+          <div class="taste-block__header">
+            <div class="taste-block__title">Generi preferiti</div>
+            <div class="genre-view-toggle" id="genreViewToggle" role="group" aria-label="Vista generi">
+              <button type="button" class="genre-view-btn" data-genre-view="bars" aria-pressed="false">Barre</button>
+              <button type="button" class="genre-view-btn active" data-genre-view="bubbles" aria-pressed="true">Bolle</button>
+            </div>
+          </div>
+          <div class="genre-bubble-legend" id="genreLegend"></div>
           <div id="genreBars">
             <p class="empty-hint">Salva almeno 3 titoli visti.</p>
           </div>

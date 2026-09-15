@@ -99,6 +99,29 @@ export function animateStats(seen, watch, movies, series) {
   animateValue(document.getElementById("statSeries"), series);
 }
 
+// Riporta le barre a 0% e le rilancia scaglionate a ogni render: la
+// transizione CSS da sola non riparte se la larghezza finale è la stessa.
+export function animateBarGroups() {
+  const bars = document.querySelectorAll("#screen-stats .bar__fill[data-width]");
+  if (!bars.length) return;
+
+  bars.forEach(bar => {
+    bar.style.width = "0%";
+  });
+
+  // Forza un reflow sincrono tra lo stato a 0% e quello finale: con il solo
+  // doppio requestAnimationFrame il browser a volte unisce le due modifiche
+  // nello stesso frame e salta la transizione (è quello che succedeva
+  // rientrando una seconda volta nella tab Statistiche).
+  void bars[0].offsetWidth;
+
+  bars.forEach((bar, i) => {
+    setTimeout(() => {
+      bar.style.width = `${bar.dataset.width}%`;
+    }, i * 70);
+  });
+}
+
 export const SCREENS = {};
 let _previousScreen = "home";
 
@@ -246,6 +269,45 @@ export function renderGenreFilters(genres, activeGenre) {
   `;
 }
 
+// Vista "Barre": la lettura riga per riga degli stessi dati delle bolle —
+// lunghezza = quanti titoli, ★ accanto = media voto. Resta la vista più
+// precisa da leggere; le bolle sono quella più d'impatto.
+export function renderGenreBars(entries) {
+  const container = document.getElementById("genreBars");
+
+  if (!entries.length) {
+    container.innerHTML = `<p class="empty-hint">Salva almeno 3 titoli visti.</p>`;
+    return;
+  }
+
+  const max = entries[0].value || 1;
+
+  container.innerHTML = entries.map(entry => {
+    const formattedAvg = entry.avgVote && Number.isFinite(entry.avgVote)
+      ? entry.avgVote.toFixed(1).replace(".", ",")
+      : null;
+
+    const countText = `${entry.value} ${entry.value === 1 ? "titolo" : "titoli"}`;
+    const avgHtml = formattedAvg
+      ? `<span class="bar-row__avg">★ ${formattedAvg}</span>`
+      : "";
+
+    return `
+    <div class="bar-row">
+      <div class="bar-row__label">
+        <span class="bar-row__name">${escapeHtml(entry.label)}</span>
+        <span class="bar-row__count">${countText} ${avgHtml}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar__fill" data-width="${Math.max(8, (entry.value / max) * 100).toFixed(1)}"></div>
+      </div>
+    </div>
+  `;
+  }).join("");
+
+  animateBarGroups();
+}
+
 const GENRE_BUBBLE_LAYOUT = [
   { left: 6, top: 4 }, { left: 56, top: 2 }, { left: 26, top: 30 },
   { left: 68, top: 34 }, { left: 8, top: 60 },
@@ -266,7 +328,7 @@ export function renderGenreBubbles(entries) {
   const maxAvg = ratedAvgs.length ? Math.max(...ratedAvgs) : 1;
   const avgRange = (maxAvg - minAvg) || 1;
 
-  container.innerHTML = `<div class="genre-bubble-legend"><b class="fill">Riempimento</b> = quanto lo guardi &nbsp;·&nbsp; <b class="gold">Oro</b> = quanto ti piace</div>`;
+  container.innerHTML = "";
 
   const wrap = document.createElement("div");
   wrap.className = "genre-bubbles-wrap";

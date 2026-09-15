@@ -8,13 +8,13 @@ import {
 import { FAVORITE_ACTORS } from "./taste-profile.js?v=d0a254f";
 import {
   loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory,
-  loadLatestReport, regenerateReport
+  loadLatestReport, regenerateReport, getGenreView, setGenreView
 } from "./storage.js?v=d0a254f";
 import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
   renderShelf, renderSearchResults, renderLibraryList,
-  renderGenreFilters, renderGenreBubbles, renderPodium, renderRankingList,
+  renderGenreFilters, renderGenreBars, renderGenreBubbles, renderPodium, renderRankingList,
   renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
   renderReportMeta, renderReportContent
 } from "./ui.js?v=d0a254f";
@@ -87,6 +87,7 @@ let currentDetail = null;
 let currentLibraryMode = "watch";
 let currentLibraryFilter = "all";
 let currentLibraryGenre = "all";
+let genreView = getGenreView(); // bubbles | bars — come guardare i Generi preferiti, scelta locale
 
 // "Vedi tutto" (doRenderLibrary) carica i risultati a blocchi invece di
 // disegnarli tutti in un colpo solo: con un archivio grande, renderizzare
@@ -571,8 +572,10 @@ function renderStats() {
 
   animateStats(seen, watch, movies, series);
 
+  syncGenreViewUI(db.seen.length >= 3);
+
   if (db.seen.length < 3) {
-    renderGenreBubbles([]);
+    renderGenreView([]);
     resetRanking();
     return;
   }
@@ -601,8 +604,34 @@ function renderStats() {
       return { label, value, avgVote };
     });
 
-  renderGenreBubbles(topGenres);
+  renderGenreView(topGenres);
   renderRanking();
+}
+
+// Le due viste dei Generi preferiti disegnano gli stessi `topGenres`: le
+// barre si leggono riga per riga, le bolle si leggono a colpo d'occhio.
+function renderGenreView(topGenres) {
+  (genreView === "bars" ? renderGenreBars : renderGenreBubbles)(topGenres);
+}
+
+// Allinea bottoni e legenda alla vista attiva. La legenda sta fuori dal
+// container perché il container viene riscritto da capo a ogni render.
+function syncGenreViewUI(hasData) {
+  document.querySelectorAll("#genreViewToggle .genre-view-btn").forEach(btn => {
+    const on = btn.dataset.genreView === genreView;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", String(on));
+  });
+
+  // Senza dati resta solo l'invito a salvare titoli: una legenda che spiega
+  // un grafico che non c'è sarebbe rumore.
+  const legend = document.getElementById("genreLegend");
+  if (legend) {
+    legend.hidden = !hasData;
+    legend.innerHTML = genreView === "bars"
+      ? `★ media voto`
+      : `<b class="fill">Riempimento</b> = quanto lo guardi &nbsp;·&nbsp; <b class="gold">Oro</b> = quanto ti piace`;
+  }
 }
 
 // ─── REPORT ────────────────────────────────────────────────────────────────
@@ -1418,6 +1447,15 @@ function bindEvents() {
   if (discoverBtn) discoverBtn.addEventListener("click", () => { haptic([8]); discoverByTaste(); });
   if (classicBtn) classicBtn.addEventListener("click", () => { haptic([8]); suggestClassic(); });
   if (reportRefreshBtn) reportRefreshBtn.addEventListener("click", () => { haptic([8]); handleReportRefresh(); });
+
+  document.querySelectorAll("#genreViewToggle .genre-view-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic([8]);
+      genreView = btn.dataset.genreView;
+      setGenreView(genreView);
+      renderStats();
+    });
+  });
 
   if (rankingToggleMovies && rankingToggleSeries) {
     rankingToggleMovies.addEventListener("click", () => {

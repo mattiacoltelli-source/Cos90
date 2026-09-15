@@ -794,6 +794,99 @@ select option {
   font-size: 12px;
 }
 
+/* Intestazione con il toggle Barre/Bolle: il titolo perde il margine, lo
+   tiene la legenda qui sotto. */
+.taste-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.taste-block__header .taste-block__title { margin-bottom: 0; }
+
+/* Stesso linguaggio del .ranking-toggle Film/Serie, in scala ridotta: qui la
+   scelta è solo come guardare gli stessi dati, non quali dati mostrare. */
+.genre-view-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  flex: none;
+}
+
+.genre-view-btn {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text3);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--t-mid), color var(--t-mid);
+}
+
+.genre-view-btn.active {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+/* ─── Vista "Barre" dei generi ─── */
+
+.bar-row { margin-bottom: 14px; }
+.bar-row:last-child { margin-bottom: 0; }
+
+.bar-row__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.bar-row__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bar-row__count {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bar-row__avg {
+  color: var(--gold2);
+  font-weight: 800;
+}
+
+.bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--surface3);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.bar__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--blue), #7dbdff);
+  transition: width 900ms cubic-bezier(.22,1,.36,1);
+  will-change: width;
+}
+
 .genre-bubbles-wrap{position:relative;width:100%;aspect-ratio:1/1.05;margin-top:6px;}
 .genre-bubble{position:absolute;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent;}
 .genre-bubble-inner{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;background:#0e1520;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 20px rgba(0,0,0,.4);transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease;outline:none;-webkit-tap-highlight-color:transparent;}
