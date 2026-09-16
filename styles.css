@@ -384,7 +384,16 @@ select option {
   cursor: pointer;
   scroll-snap-align: start;
   transition: transform var(--t-mid) var(--ease), opacity var(--t-mid);
+  animation: shelfCardIn .28s var(--ease) both;
 }
+
+/* Ingresso leggero quando la shelf si popola: solo transform, mai opacity —
+   la prima card è spesso il Largest Contentful Paint della home (vedi
+   commento in renderShelf), e partire da opacity:0 sposterebbe in avanti il
+   momento in cui il browser la considera "dipinta". Uno scivolamento di
+   pochi px invece non tocca quella misura, e con animation-delay scaglionato
+   per card (vedi ui.js) dà comunque la sensazione che la shelf "arrivi". */
+@keyframes shelfCardIn { from { transform: translateY(10px); } to { transform: translateY(0); } }
 
 .shelf-card:active {
   transform: scale(.95) translateY(1px);
@@ -930,7 +939,7 @@ select option {
 .genre-bubble-legend b.fill{color:#eef2f7;font-weight:600;}
 .genre-bubble-legend b.gold{color:#fdd878;font-weight:600;}
 @keyframes genreBubbleFillRise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-@media (prefers-reduced-motion: reduce){ .genre-bubble-fill,.genre-bubble-breathe{animation:none !important;} }
+@media (prefers-reduced-motion: reduce){ .genre-bubble-fill,.genre-bubble-breathe,.shelf-card{animation:none !important;} }
 
 /* ---------------- Report ---------------- */
 
