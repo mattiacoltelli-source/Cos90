@@ -348,6 +348,43 @@ export function renderGenreBubbles(entries) {
   const wrap = document.createElement("div");
   wrap.className = "genre-bubbles-wrap";
 
+  // Mozzo centrale (il ciak dell'app) collegato alle bolle da linee statiche,
+  // nel vuoto naturale che il grappolo lascia in mezzo — nessuna bolla si è
+  // dovuta spostare per fargli posto. Mozzo e linee sono dietro alle bolle
+  // (z-index più basso): dove le bolle non coprono, restano visibili.
+  //
+  // Il mozzo pulsa e le bolle "respirano" (vedi sotto), ma SOLO con
+  // transform:scale — mai box-shadow o stroke-dashoffset animati, che
+  // misurati costano ~50 volte di più in tempo di stile/paint per un
+  // risultato equivalente. Qui l'animazione resta sotto la soglia di
+  // rumore (pochi ms su 5s), come la deriva del grappolo.
+  const HUB = { left: 50, top: 44, size: 18 };
+  const links = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  links.setAttribute("viewBox", "0 0 100 100");
+  links.setAttribute("preserveAspectRatio", "none");
+  links.setAttribute("class", "genre-links");
+  entries.forEach((g, i) => {
+    const pos = GENRE_BUBBLE_LAYOUT[i] || { left: (i * 20) % 60, top: (i * 25) % 60 };
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", HUB.left); line.setAttribute("y1", HUB.top);
+    line.setAttribute("x2", pos.left + 18); line.setAttribute("y2", pos.top + 18);
+    links.appendChild(line);
+  });
+  wrap.appendChild(links);
+
+  const hub = document.createElement("div");
+  hub.className = "genre-hub";
+  hub.style.left = (HUB.left - HUB.size / 2) + "%";
+  hub.style.top = (HUB.top - HUB.size / 2) + "%";
+  hub.style.width = HUB.size + "%";
+  hub.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 10h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9Z"/>
+      <path d="M3 10l1.5-5.5L20 8l-1 3"/>
+      <path d="M7.5 5.2l2 3.6M12 4.3l2 3.9M16.5 3.4l2 4.3" stroke-width="1.3"/>
+    </svg>`;
+  wrap.appendChild(hub);
+
   entries.forEach((g, i) => {
     const hasAvg = Number.isFinite(g.avgVote);
     const t = hasAvg ? (g.avgVote - minAvg) / avgRange : 0.5;
@@ -364,17 +401,20 @@ export function renderGenreBubbles(entries) {
     el.style.left = pos.left + "%";
     el.style.top = pos.top + "%";
 
+    const breatheDelay = i * 350;
     el.innerHTML = `
-      <div class="genre-bubble-inner">
-        <div class="genre-bubble-fill" style="height:${fillPct}%;animation-delay:${fillDelay}ms;">
-          <div class="genre-bubble-fill-inner" style="background:${fillGradient};"></div>
-        </div>
-        <div class="genre-bubble-sheen"></div>
-        <div class="genre-bubble-text">
-          <div class="name">${escapeHtml(g.label.toUpperCase())}</div>
-          <div class="count">${g.value}</div>
-          <div class="label">titoli</div>
-          ${voteText ? `<div class="vote" style="display:none;">${voteText}</div>` : ""}
+      <div class="genre-bubble-breathe" style="animation-delay:${breatheDelay}ms;">
+        <div class="genre-bubble-inner">
+          <div class="genre-bubble-fill" style="height:${fillPct}%;animation-delay:${fillDelay}ms;">
+            <div class="genre-bubble-fill-inner" style="background:${fillGradient};"></div>
+          </div>
+          <div class="genre-bubble-sheen"></div>
+          <div class="genre-bubble-text">
+            <div class="name">${escapeHtml(g.label.toUpperCase())}</div>
+            <div class="count">${g.value}</div>
+            <div class="label">titoli</div>
+            ${voteText ? `<div class="vote" style="display:none;">${voteText}</div>` : ""}
+          </div>
         </div>
       </div>`;
 

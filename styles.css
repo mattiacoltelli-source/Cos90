@@ -906,11 +906,36 @@ select option {
 .genre-bubble-text .count{font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(17px,18.6cqi,22px);color:#fff;line-height:1.05;text-shadow:0 1px 3px rgba(0,0,0,.55);margin-top:2px;}
 .genre-bubble-text .label{font-size:clamp(8px,7.6cqi,9px);color:#fff;opacity:.85;text-shadow:0 1px 3px rgba(0,0,0,.55);}
 .genre-bubble-text .vote{margin-top:4px;font-family:'Outfit',sans-serif;font-weight:700;font-size:clamp(9px,9.2cqi,11px);color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55);}
+
+/* Respiro di ogni bolla: SOLO transform:scale, mai box-shadow o
+   stroke-dashoffset animati — misurato: quelli costano ~50x di più in
+   tempo di stile/paint per un effetto equivalente (vedi commento in
+   ui.js). Wrapper separato da .genre-bubble-inner apposta: l'inner ha
+   già un transform per lo stato .active (tocco per il voto), stare su
+   elementi diversi evita che le due animazioni si contendano la stessa
+   proprietà. */
+.genre-bubble-breathe{width:100%;height:100%;animation:genreBubbleBreathe 4.8s ease-in-out infinite;}
+@keyframes genreBubbleBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+
+/* Linee statiche dal mozzo a ogni bolla: dietro a tutto (z-index 0), nessuna
+   animazione — un disegno fisso costa zero, a differenza di farle "scorrere". */
+.genre-links{position:absolute;inset:0;width:100%;height:100%;z-index:0;}
+.genre-links line{stroke:#fdd878;stroke-width:1.3;stroke-opacity:.35;}
+
+/* Mozzo centrale (il ciak dell'app): nel vuoto naturale in mezzo al
+   grappolo, senza spostare nessuna bolla. z-index 1: sopra alle linee,
+   sotto alle bolle — dove le bolle non coprono resta visibile. */
+.genre-hub{position:absolute;aspect-ratio:1;border-radius:50%;z-index:1;
+  background:radial-gradient(circle at 35% 30%,#1a2535,#0e1520 70%);border:1.5px solid rgba(253,216,120,.5);
+  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 16px rgba(253,216,120,.10);
+  animation:genreHubPulse 4.2s ease-in-out infinite;}
+.genre-hub svg{width:44%;height:44%;color:#fdd878;opacity:.9;}
+@keyframes genreHubPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 .genre-bubble-legend{font-size:11px;color:#a8b8cc;line-height:1.5;margin-bottom:8px;}
 .genre-bubble-legend b.fill{color:#eef2f7;font-weight:600;}
 .genre-bubble-legend b.gold{color:#fdd878;font-weight:600;}
 @keyframes genreBubbleFillRise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-@media (prefers-reduced-motion: reduce){ .genre-bubble-fill{animation:none !important;} }
+@media (prefers-reduced-motion: reduce){ .genre-bubble-fill,.genre-bubble-breathe,.genre-hub{animation:none !important;} }
 
 /* ---------------- Report ---------------- */
 
