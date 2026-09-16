@@ -71,15 +71,38 @@ body {
   overflow-x: hidden;
 }
 
+/* Sfondo atmosferico: 4 aloni morbidi invece di 2 netti, per dare
+   profondità senza animare nulla — statico, costa un solo paint al
+   caricamento. Flusso diagonale oro/azzurro (oro in alto e in basso a
+   sinistra, azzurro in alto a destra e in basso a destra) invece di due
+   macchie isolate, così si legge come luce ambiente e non come due cerchi
+   messi lì. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 70% 40% at 50% -5%, rgba(245,196,81,.07), transparent),
-    radial-gradient(ellipse 60% 50% at 100% 80%, rgba(77,163,255,.05), transparent);
+    radial-gradient(ellipse 70% 40% at 50% -5%, rgba(245,196,81,.07), transparent 60%),
+    radial-gradient(ellipse 55% 42% at 105% 12%, rgba(77,163,255,.05), transparent 65%),
+    radial-gradient(ellipse 60% 50% at 100% 82%, rgba(77,163,255,.06), transparent 65%),
+    radial-gradient(ellipse 62% 45% at -8% 96%, rgba(245,196,81,.04), transparent 65%);
   pointer-events: none;
   z-index: 0;
+}
+
+/* Grana leggerissima sopra gli aloni: rompe l'effetto "gradiente CSS
+   piatto" tipico delle interfacce generate, senza muovere nulla — un
+   filtro SVG calcolato una volta sola, mai ricalcolato. mix-blend-mode
+   overlay la fonde con lo sfondo sotto invece di sovrapporla a vista. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
 h1, h2, h3, h4 {
@@ -384,16 +407,7 @@ select option {
   cursor: pointer;
   scroll-snap-align: start;
   transition: transform var(--t-mid) var(--ease), opacity var(--t-mid);
-  animation: shelfCardIn .4s var(--ease) both;
 }
-
-/* Ingresso leggero quando la shelf si popola: solo transform, mai opacity —
-   la prima card è spesso il Largest Contentful Paint della home (vedi
-   commento in renderShelf), e partire da opacity:0 sposterebbe in avanti il
-   momento in cui il browser la considera "dipinta". Uno scivolamento di
-   pochi px invece non tocca quella misura, e con animation-delay scaglionato
-   per card (vedi ui.js) dà comunque la sensazione che la shelf "arrivi". */
-@keyframes shelfCardIn { from { transform: translateY(10px); } to { transform: translateY(0); } }
 
 .shelf-card:active {
   transform: scale(.95) translateY(1px);
@@ -939,7 +953,7 @@ select option {
 .genre-bubble-legend b.fill{color:#eef2f7;font-weight:600;}
 .genre-bubble-legend b.gold{color:#fdd878;font-weight:600;}
 @keyframes genreBubbleFillRise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-@media (prefers-reduced-motion: reduce){ .genre-bubble-fill,.genre-bubble-breathe,.shelf-card{animation:none !important;} }
+@media (prefers-reduced-motion: reduce){ .genre-bubble-fill,.genre-bubble-breathe{animation:none !important;} }
 
 /* ---------------- Report ---------------- */
 
