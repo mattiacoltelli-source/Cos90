@@ -890,7 +890,25 @@ select option {
   will-change: width;
 }
 
-.genre-bubbles-wrap{position:relative;width:100%;aspect-ratio:1/1.05;margin-top:6px;}
+/* Deriva lentissima dell'INTERO grappolo, non delle singole bolle. Muovendo il
+   riquadro, le distanze fra le bolle restano identiche al pixel: le
+   sovrapposizioni tarate (9-11px) e i distacchi (16-18px) non cambiano mai.
+   Facendo fluttuare ogni bolla per conto suo servirebbe un'ampiezza massima di
+   ±1.8px per non far entrare le coppie nella quasi-tangenza, cioè un movimento
+   impercettibile. È un'animazione di sola `transform` su un elemento solo: vive
+   sul compositor, non tocca layout né paint e non passa dal main thread, quindi
+   non pesa sul cambio di schermata — al contrario della vecchia fluttuazione
+   per-bolla rimossa in d0a254f, che fu tolta incolpandola di una lentezza che
+   in realtà veniva dal layout della classifica. */
+.genre-bubbles-wrap{position:relative;width:100%;aspect-ratio:1/1.05;margin-top:6px;
+  animation:genreBubbleDrift 28s linear infinite;}
+@keyframes genreBubbleDrift{
+  0%{transform:translate(0,-4px)}      12.5%{transform:translate(2.8px,-2.8px)}
+  25%{transform:translate(4px,0)}      37.5%{transform:translate(2.8px,2.8px)}
+  50%{transform:translate(0,4px)}      62.5%{transform:translate(-2.8px,2.8px)}
+  75%{transform:translate(-4px,0)}     87.5%{transform:translate(-2.8px,-2.8px)}
+  100%{transform:translate(0,-4px)}
+}
 /* Diametro in % del riquadro, non in px: le posizioni di GENRE_BUBBLE_LAYOUT
    sono in %, quindi solo così le sovrapposizioni restano quelle volute su ogni
    larghezza di schermo. Con i 118px fissi di prima le bolle si accavallavano
@@ -910,7 +928,7 @@ select option {
 .genre-bubble-legend b.fill{color:#eef2f7;font-weight:600;}
 .genre-bubble-legend b.gold{color:#fdd878;font-weight:600;}
 @keyframes genreBubbleFillRise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-@media (prefers-reduced-motion: reduce){ .genre-bubble-fill{animation:none !important;} }
+@media (prefers-reduced-motion: reduce){ .genre-bubble-fill,.genre-bubbles-wrap{animation:none !important;} }
 
 /* ---------------- Report ---------------- */
 
