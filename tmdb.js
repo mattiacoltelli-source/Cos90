@@ -1,6 +1,6 @@
 import {
   normalizedItem, uniqueKey, buildDateRange, randomPage, GENRE_NAME_TO_ID
-} from "./cine-core.js?v=70fe7aa";
+} from "./cine-core.js?v=39cc237";
 
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";
 const BASE_URL = "https://api.themoviedb.org/3";
