@@ -328,12 +328,13 @@ const GENRE_BUBBLE_LAYOUT = [
   { left: 62, top: 39 }, { left: 30, top: 64 },
 ];
 
-// Respiro: un unico impulso morbido (scale + bagliore), stesso per tutte,
-// sfasato di poco (280ms) da una bolla alla successiva — non tutte insieme
-// a blocco unico, ma nemmeno una sequenza a scatti: la differenza di fase è
-// piccola rispetto al periodo lento (4,2s), così si legge come un lievissimo
-// scintillio che percorre il gruppo, non come un "turno" di ognuna.
-const GENRE_PULSE_STAGGER_MS = 280;
+// Respiro: un unico impulso morbido (solo scale, niente bagliore), stesso
+// per tutte, sfasato abbastanza (550ms) da una bolla alla successiva che
+// non si leggano mai come un blocco unico che pulsa insieme — con 5 bolle
+// lo sfasamento totale copre più di metà del periodo (4,2s), quindi quando
+// una è al picco un'altra è già in discesa: bolle indipendenti, non un
+// "turno" scandito né un blocco sincronizzato.
+const GENRE_PULSE_STAGGER_MS = 550;
 
 export function renderGenreBubbles(entries) {
   const container = document.getElementById("genreBars");
@@ -374,7 +375,6 @@ export function renderGenreBubbles(entries) {
     const pulseDelay = i * GENRE_PULSE_STAGGER_MS;
     el.innerHTML = `
       <div class="genre-bubble-breathe" style="animation-delay:-${pulseDelay}ms;">
-        <div class="genre-bubble-glow" style="animation-delay:-${pulseDelay}ms;"></div>
         <div class="genre-bubble-inner">
           <div class="genre-bubble-fill" style="height:${fillPct}%;animation-delay:${fillDelay}ms;">
             <div class="genre-bubble-fill-inner" style="background:${fillGradient};"></div>
