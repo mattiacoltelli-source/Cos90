@@ -308,25 +308,22 @@ export function renderGenreBars(entries) {
   animateBarGroups();
 }
 
-// Posizioni in % del riquadro, con la bolla larga il 36% (vedi .genre-bubble).
+// Posizioni in % del riquadro, con la bolla larga il 31% (vedi .genre-bubble).
 //
-// Due regole tengono insieme la disposizione:
-//
-// 1. Le bolle che si sfiorano si sovrappongono di circa il 10% del diametro.
-//    La via di mezzo è il caso peggiore: due cerchi distanti pochi pixel
-//    sembrano un errore di allineamento, non una scelta.
-// 2. Si sovrappongono solo in DIAGONALE, mai affiancate alla stessa altezza.
-//    Due bolle una di fianco all'altra si intersecano in una lente verticale
-//    alta, in mezzo alla composizione e proprio fra le due etichette; in
-//    diagonale la lente è piccola e defilata in un angolo. Per questo la 3ª e
-//    la 4ª bolla, che stanno alla stessa altezza, restano staccate.
-//
-// La 5ª chiude in basso al centro invece che a sinistra: senza, le altre
-// quattro si leggono come due colonne separate con un vuoto in mezzo.
+// Disposizione a raggiera: le 5 bolle stanno su un cerchio intorno al mozzo
+// centrale, agli angoli di un pentagono regolare (72° l'una dall'altra).
+// Un solo criterio, applicato ovunque: NESSUNA sovrapposizione, da nessuna
+// parte — né fra bolle vicine né fra bolla e mozzo. Il raggio del cerchio è
+// scelto apposta perché il distacco fra mozzo e bolla (5% del riquadro) e
+// quello fra due bolle adiacenti (7,2%) restino ben visibili anche al picco
+// del respiro/pulsazione (vedi .genre-bubble-breathe e .genre-hub più sotto).
+// Corrisponde in ordine alle posizioni prima/dopo il mozzo nel giro:
+// alto-sinistra, alto-destra, medio-sinistra, medio-destra, basso-centro.
 const GENRE_BUBBLE_LAYOUT = [
-  { left: 4, top: 8 }, { left: 58, top: 8 }, { left: 20, top: 35 },
-  { left: 62, top: 39 }, { left: 30, top: 64 },
+  { left: 15.4, top: 5.2 }, { left: 53.6, top: 5.2 }, { left: 3.6, top: 41.5 },
+  { left: 65.4, top: 41.5 }, { left: 34.5, top: 64 },
 ];
+const GENRE_BUBBLE_HALF = 15.5; // metà larghezza bolla (31% / 2), per agganciare le linee al centro
 
 export function renderGenreBubbles(entries) {
   const container = document.getElementById("genreBars");
@@ -348,17 +345,17 @@ export function renderGenreBubbles(entries) {
   const wrap = document.createElement("div");
   wrap.className = "genre-bubbles-wrap";
 
-  // Mozzo centrale (il ciak dell'app) collegato alle bolle da linee statiche,
-  // nel vuoto naturale che il grappolo lascia in mezzo — nessuna bolla si è
-  // dovuta spostare per fargli posto. Mozzo e linee sono dietro alle bolle
-  // (z-index più basso): dove le bolle non coprono, restano visibili.
+  // Mozzo centrale (il ciak dell'app), al centro esatto del pentagono di
+  // bolle, collegato a ognuna da una linea statica. Mozzo e linee sono
+  // dietro alle bolle (z-index più basso): dove le bolle non coprono,
+  // restano visibili.
   //
   // Il mozzo pulsa e le bolle "respirano" (vedi sotto), ma SOLO con
   // transform:scale — mai box-shadow o stroke-dashoffset animati, che
   // misurati costano ~50 volte di più in tempo di stile/paint per un
   // risultato equivalente. Qui l'animazione resta sotto la soglia di
   // rumore (pochi ms su 5s), come la deriva del grappolo.
-  const HUB = { left: 50, top: 44, size: 18 };
+  const HUB = { left: 50, top: 47, size: 24 };
   const links = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   links.setAttribute("viewBox", "0 0 100 100");
   links.setAttribute("preserveAspectRatio", "none");
@@ -367,7 +364,7 @@ export function renderGenreBubbles(entries) {
     const pos = GENRE_BUBBLE_LAYOUT[i] || { left: (i * 20) % 60, top: (i * 25) % 60 };
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
     line.setAttribute("x1", HUB.left); line.setAttribute("y1", HUB.top);
-    line.setAttribute("x2", pos.left + 18); line.setAttribute("y2", pos.top + 18);
+    line.setAttribute("x2", pos.left + GENRE_BUBBLE_HALF); line.setAttribute("y2", pos.top + GENRE_BUBBLE_HALF);
     links.appendChild(line);
   });
   wrap.appendChild(links);
