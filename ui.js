@@ -308,39 +308,47 @@ export function renderGenreBars(entries) {
   animateBarGroups();
 }
 
-// Posizioni in % del riquadro, con la bolla larga il 36% (vedi .genre-bubble).
+// Posizioni in % del riquadro, con la bolla larga il 30% (vedi .genre-bubble).
 //
-// Due regole tengono insieme la disposizione:
+// 6 bolle, griglia a nido d'ape su 3 righe da 2 (la riga di mezzo sfalsata
+// di mezzo passo): stesso identico criterio di prima, solo esteso a una
+// colonna in più.
 //
-// 1. Le bolle che si sfiorano si sovrappongono di circa il 10% del diametro.
-//    La via di mezzo è il caso peggiore: due cerchi distanti pochi pixel
-//    sembrano un errore di allineamento, non una scelta.
-// 2. Si sovrappongono solo in DIAGONALE, mai affiancate alla stessa altezza.
-//    Due bolle una di fianco all'altra si intersecano in una lente verticale
-//    alta, in mezzo alla composizione e proprio fra le due etichette; in
-//    diagonale la lente è piccola e defilata in un angolo. Per questo la 3ª e
-//    la 4ª bolla, che stanno alla stessa altezza, restano staccate.
+// 1. In diagonale (una bolla e le due della riga sopra/sotto più vicine) si
+//    sovrappongono sempre esattamente del 10% del diametro — mai un valore
+//    a caso, la via di mezzo fra due cerchi che si toccano è il caso
+//    peggiore: sembra un errore di allineamento, non una scelta.
+// 2. Sulla stessa riga (stessa altezza) non si sovrappongono MAI: restano
+//    staccate di un 15% del diametro. Non un numero a caso nemmeno questo:
+//    con la pulsazione a scale(1.085) il raggio di ogni bolla cresce
+//    dell'8,5% del diametro al picco, quindi nel caso limite in cui le due
+//    bolle affiancate pulsano al massimo ESATTAMENTE insieme (periodi
+//    leggermente diversi fra loro — vedi GENRE_PULSE_PERIODS_S — quindi
+//    ogni combinazione di fase, prima o poi, capita) il gap si consuma
+//    dell'8,5%: un 15% di partenza lascia comunque un margine reale di
+//    sicurezza (~6,5%), mai zero.
 //
-// La 5ª chiude in basso al centro invece che a sinistra: senza, le altre
-// quattro si leggono come due colonne separate con un vuoto in mezzo.
+// Ordine: alto-sinistra, alto-destra, medio-sinistra, medio-destra,
+// basso-sinistra, basso-destra — si legge come si leggerebbe una griglia.
 const GENRE_BUBBLE_LAYOUT = [
-  { left: 4, top: 8 }, { left: 58, top: 8 }, { left: 20, top: 35 },
-  { left: 62, top: 39 }, { left: 30, top: 64 },
+  { left: 9.12, top: 6 }, { left: 43.62, top: 6 },
+  { left: 26.38, top: 26.77 }, { left: 60.88, top: 26.77 },
+  { left: 9.12, top: 47.54 }, { left: 43.62, top: 47.54 },
 ];
 
 // Respiro: un unico impulso morbido (solo scale + un filo di brightness),
 // stesso per tutte, sfasato abbastanza (550ms) da una bolla alla successiva
-// che non si leggano mai come un blocco unico che pulsa insieme — con 5
-// bolle lo sfasamento totale copre più di metà del periodo, quindi quando
-// una è al picco un'altra è già in discesa: bolle indipendenti, non un
-// "turno" scandito né un blocco sincronizzato.
+// che non si leggano mai come un blocco unico che pulsa insieme — con 6
+// bolle lo sfasamento totale copre più di due terzi del periodo, quindi
+// quando una è al picco le altre sono altrove nel loro ciclo: bolle
+// indipendenti, non un "turno" scandito né un blocco sincronizzato.
 //
-// Periodo leggermente diverso per ognuna (4,0s → 4,4s) invece che identico:
+// Periodo leggermente diverso per ognuna (4,0s → 4,5s) invece che identico:
 // le fasi non tornano mai a coincidere allo stesso modo, quindi il respiro
 // non si ripete mai in un pattern perfettamente meccanico — costo zero,
 // stessa @keyframes, solo animation-duration diversa.
 const GENRE_PULSE_STAGGER_MS = 550;
-const GENRE_PULSE_PERIODS_S = [4.0, 4.1, 4.2, 4.3, 4.4];
+const GENRE_PULSE_PERIODS_S = [4.0, 4.1, 4.2, 4.3, 4.4, 4.5];
 
 export function renderGenreBubbles(entries) {
   const container = document.getElementById("genreBars");
