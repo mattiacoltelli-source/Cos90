@@ -1,15 +1,15 @@
-import { supabase } from "./supabase.js?v=1b7d74b";
+import { supabase } from "./supabase.js?v=c79de6e";
 import {
   uniqueKey, normalizedItem, sanitizeVoteInput, parseUserVote,
   decadeOf, posterUrl, buildDateRange, randomPage,
   escapeHtml, mediaLabel, rawNumberToFixed, mergeRemoteIntoLocal,
   GENRE_NAME_TO_ID, matchedFavoriteActors
-} from "./cine-core.js?v=1b7d74b";
-import { FAVORITE_ACTORS } from "./taste-profile.js?v=1b7d74b";
+} from "./cine-core.js?v=c79de6e";
+import { FAVORITE_ACTORS } from "./taste-profile.js?v=c79de6e";
 import {
   loadDB, saveDB, queueRealtimeSync, hasReliableBaseline, loadSuggestHistory, saveSuggestHistory,
   loadLatestReport, regenerateReport, getGenreView, setGenreView
-} from "./storage.js?v=1b7d74b";
+} from "./storage.js?v=c79de6e";
 import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
@@ -18,10 +18,10 @@ import {
   toggleRankingList,
   renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
   renderReportMeta, renderReportContent
-} from "./ui.js?v=1b7d74b";
+} from "./ui.js?v=c79de6e";
 import {
   tmdbSearch, tmdbFetchDetail, tmdbFetchDiscoverLevel, buildFallbackQueries
-} from "./tmdb.js?v=1b7d74b";
+} from "./tmdb.js?v=c79de6e";
 
 const API_KEY = "f8d5e378edf5128176f0d89f49310151";
 const BASE_URL = "https://api.themoviedb.org/3";
