@@ -308,35 +308,32 @@ export function renderGenreBars(entries) {
   animateBarGroups();
 }
 
-// Posizioni in % del riquadro, con la bolla larga il 31% (vedi .genre-bubble).
+// Posizioni in % del riquadro, con la bolla larga il 36% (vedi .genre-bubble).
 //
-// Disposizione a raggiera: le 5 bolle stanno su un cerchio intorno al mozzo
-// centrale, agli angoli di un pentagono regolare (72° l'una dall'altra).
-// Un solo criterio, applicato ovunque: NESSUNA sovrapposizione, da nessuna
-// parte — né fra bolle vicine né fra bolla e mozzo. Il raggio del cerchio è
-// scelto apposta perché il distacco fra mozzo e bolla (5% del riquadro) e
-// quello fra due bolle adiacenti (7,2%) restino ben visibili anche al picco
-// del respiro/pulsazione (vedi .genre-bubble-breathe e .genre-hub più sotto).
-// Corrisponde in ordine alle posizioni prima/dopo il mozzo nel giro:
-// alto-sinistra, alto-destra, medio-sinistra, medio-destra, basso-centro.
+// Due regole tengono insieme la disposizione:
+//
+// 1. Le bolle che si sfiorano si sovrappongono di circa il 10% del diametro.
+//    La via di mezzo è il caso peggiore: due cerchi distanti pochi pixel
+//    sembrano un errore di allineamento, non una scelta.
+// 2. Si sovrappongono solo in DIAGONALE, mai affiancate alla stessa altezza.
+//    Due bolle una di fianco all'altra si intersecano in una lente verticale
+//    alta, in mezzo alla composizione e proprio fra le due etichette; in
+//    diagonale la lente è piccola e defilata in un angolo. Per questo la 3ª e
+//    la 4ª bolla, che stanno alla stessa altezza, restano staccate.
+//
+// La 5ª chiude in basso al centro invece che a sinistra: senza, le altre
+// quattro si leggono come due colonne separate con un vuoto in mezzo.
 const GENRE_BUBBLE_LAYOUT = [
-  { left: 15.4, top: 5.2 }, { left: 53.6, top: 5.2 }, { left: 3.6, top: 41.5 },
-  { left: 65.4, top: 41.5 }, { left: 34.5, top: 64 },
+  { left: 4, top: 8 }, { left: 58, top: 8 }, { left: 20, top: 35 },
+  { left: 62, top: 39 }, { left: 30, top: 64 },
 ];
-const GENRE_BUBBLE_HALF = 15.5; // metà larghezza bolla (31% / 2), per agganciare le linee al centro
 
-// Onda sequenziale "Cinema DNA": un solo impulso che viaggia CENTRO → bolla
-// → bolla → ... → CENTRO, mai un respiro indipendente per ognuna. 6 tappe in
-// giro (centro + 5 bolle) equispaziate su un periodo condiviso: la tappa i
-// pulsa da sola, poi la successiva, e così via, in loop.
-//
-// L'ordine delle tappe segue il giro geometrico del pentagono (vedi
-// GENRE_BUBBLE_LAYOUT), non il nome del genere: alto-sx → alto-dx →
-// medio-dx → basso-centro → medio-sx → di nuovo il centro. Così la
-// sequenza resta sempre coerente visivamente (un giro pulito, un passo di
-// 72° alla volta) qualunque siano i 5 generi reali mostrati.
-const GENRE_DNA_PERIOD_MS = 6000; // 6 tappe, 1s l'una
-const GENRE_DNA_SLOT = [1, 2, 5, 3, 4]; // slot per indice di GENRE_BUBBLE_LAYOUT (0 = mozzo)
+// Respiro: un unico impulso morbido (scale + bagliore), stesso per tutte,
+// sfasato di poco (280ms) da una bolla alla successiva — non tutte insieme
+// a blocco unico, ma nemmeno una sequenza a scatti: la differenza di fase è
+// piccola rispetto al periodo lento (4,2s), così si legge come un lievissimo
+// scintillio che percorre il gruppo, non come un "turno" di ognuna.
+const GENRE_PULSE_STAGGER_MS = 280;
 
 export function renderGenreBubbles(entries) {
   const container = document.getElementById("genreBars");
@@ -358,46 +355,6 @@ export function renderGenreBubbles(entries) {
   const wrap = document.createElement("div");
   wrap.className = "genre-bubbles-wrap";
 
-  // Mozzo centrale (il ciak dell'app), al centro esatto del pentagono di
-  // bolle, collegato a ognuna da una linea statica. Mozzo e linee sono
-  // dietro alle bolle (z-index più basso): dove le bolle non coprono,
-  // restano visibili.
-  //
-  // Il mozzo è la tappa 0 dell'onda "Cinema DNA" (vedi GENRE_DNA_SLOT):
-  // pulsa da fermo, poi il turno passa alla prima bolla. SOLO transform e
-  // opacity animati — mai box-shadow o stroke-dashoffset, che misurati
-  // costano ~50 volte di più in tempo di stile/paint per un risultato
-  // equivalente. Il riquadro stesso non si muove mai (niente deriva): la
-  // sensazione di energia viene tutta dal viaggiare dell'impulso.
-  const HUB = { left: 50, top: 47, size: 24 };
-  const links = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  links.setAttribute("viewBox", "0 0 100 100");
-  links.setAttribute("preserveAspectRatio", "none");
-  links.setAttribute("class", "genre-links");
-  entries.forEach((g, i) => {
-    const pos = GENRE_BUBBLE_LAYOUT[i] || { left: (i * 20) % 60, top: (i * 25) % 60 };
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", HUB.left); line.setAttribute("y1", HUB.top);
-    line.setAttribute("x2", pos.left + GENRE_BUBBLE_HALF); line.setAttribute("y2", pos.top + GENRE_BUBBLE_HALF);
-    links.appendChild(line);
-  });
-  wrap.appendChild(links);
-
-  const hub = document.createElement("div");
-  hub.className = "genre-hub";
-  hub.style.left = (HUB.left - HUB.size / 2) + "%";
-  hub.style.top = (HUB.top - HUB.size / 2) + "%";
-  hub.style.width = HUB.size + "%";
-  hub.style.animationDelay = "0ms";
-  hub.innerHTML = `
-    <div class="genre-dna-glow" style="animation-delay:0ms;"></div>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 10h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9Z"/>
-      <path d="M3 10l1.5-5.5L20 8l-1 3"/>
-      <path d="M7.5 5.2l2 3.6M12 4.3l2 3.9M16.5 3.4l2 4.3" stroke-width="1.3"/>
-    </svg>`;
-  wrap.appendChild(hub);
-
   entries.forEach((g, i) => {
     const hasAvg = Number.isFinite(g.avgVote);
     const t = hasAvg ? (g.avgVote - minAvg) / avgRange : 0.5;
@@ -414,11 +371,10 @@ export function renderGenreBubbles(entries) {
     el.style.left = pos.left + "%";
     el.style.top = pos.top + "%";
 
-    const dnaSlot = GENRE_DNA_SLOT[i] || 0;
-    const dnaDelay = Math.round(dnaSlot * (GENRE_DNA_PERIOD_MS / 6));
+    const pulseDelay = i * GENRE_PULSE_STAGGER_MS;
     el.innerHTML = `
-      <div class="genre-bubble-breathe" style="animation-delay:${dnaDelay}ms;">
-        <div class="genre-dna-glow" style="animation-delay:${dnaDelay}ms;"></div>
+      <div class="genre-bubble-breathe" style="animation-delay:-${pulseDelay}ms;">
+        <div class="genre-bubble-glow" style="animation-delay:-${pulseDelay}ms;"></div>
         <div class="genre-bubble-inner">
           <div class="genre-bubble-fill" style="height:${fillPct}%;animation-delay:${fillDelay}ms;">
             <div class="genre-bubble-fill-inner" style="background:${fillGradient};"></div>

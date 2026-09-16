@@ -895,7 +895,7 @@ select option {
    sono in %, quindi solo così le sovrapposizioni restano quelle volute su ogni
    larghezza di schermo. Con i 118px fissi di prima le bolle si accavallavano
    molto su un telefono stretto e si staccavano su uno largo. */
-.genre-bubble{position:absolute;width:31%;aspect-ratio:1;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent;container-type:inline-size;}
+.genre-bubble{position:absolute;width:36%;aspect-ratio:1;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent;container-type:inline-size;}
 .genre-bubble-inner{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;background:#0e1520;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 20px rgba(0,0,0,.4);transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease;outline:none;-webkit-tap-highlight-color:transparent;}
 .genre-bubble.active .genre-bubble-inner{transform:scale(1.08);border-color:rgba(245,196,81,.55);box-shadow:0 12px 30px rgba(0,0,0,.5),0 0 18px rgba(253,216,120,.4);}
 .genre-bubble-fill{position:absolute;left:0;right:0;bottom:0;overflow:hidden;z-index:1;box-shadow:inset 0 1px 0 rgba(255,255,255,.35);transform-origin:bottom;animation:genreBubbleFillRise 1.1s cubic-bezier(.22,1,.36,1) both;}
@@ -907,63 +907,36 @@ select option {
 .genre-bubble-text .label{font-size:clamp(8px,7.6cqi,9px);color:#fff;opacity:.85;text-shadow:0 1px 3px rgba(0,0,0,.55);}
 .genre-bubble-text .vote{margin-top:4px;font-family:'Outfit',sans-serif;font-weight:700;font-size:clamp(9px,9.2cqi,11px);color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55);}
 
-/* Onda sequenziale "Cinema DNA" (vedi GENRE_DNA_SLOT in ui.js): un solo
-   impulso che viaggia CENTRO → bolla → bolla → ... → CENTRO, mai un
-   respiro indipendente per ognuna e mai il gruppo intero che si sposta —
-   il riquadro resta sempre fermo, cambia solo QUALE tappa sta pulsando.
-   Stesse due @keyframes condivise da mozzo e bolle, sfasate solo con
-   animation-delay (assegnato in JS in base allo slot di ognuna): così
-   restano perfettamente sincronizzate come un unico ciclo che gira.
-   SOLO transform e opacity animati — mai box-shadow o stroke-dashoffset,
-   che misurati costano ~50x di più in tempo di stile/paint per un
+/* Respiro: un impulso morbido e lento, curva simmetrica (sine-like, mai un
+   attacco di scatto) — sale e scende con lo stesso ritmo, nessun "colpo".
+   Ogni bolla usa la stessa @keyframes, sfasata di poco con animation-delay
+   negativo (vedi GENRE_PULSE_STAGGER_MS in ui.js): parte già a metà del suo
+   ciclo invece di aspettare, così tutte respirano fin dal primo fotogramma.
+   SOLO transform e opacity animati — mai box-shadow o stroke-dashoffset
+   animati, che misurati costano ~50x di più in tempo di stile/paint per un
    risultato equivalente. Wrapper separato da .genre-bubble-inner apposta:
    l'inner ha già un transform per lo stato .active (tocco per il voto),
    stare su elementi diversi evita che le due animazioni si contendano la
    stessa proprietà. */
-.genre-bubble-breathe{position:relative;width:100%;height:100%;animation:genreDnaScale 6s cubic-bezier(.22,1,.36,1) infinite;}
-@keyframes genreDnaScale{
-  0%,100%{transform:scale(1)}
-  2%{transform:scale(1.045)}
-  10%{transform:scale(1.016)}
-  20%{transform:scale(1)}
-}
+.genre-bubble-breathe{position:relative;width:100%;height:100%;animation:genreBubblePulse 4.2s ease-in-out infinite;}
+@keyframes genreBubblePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
 
-/* Alone del passaggio dell'onda: un cerchio di luce già disegnato (sfumatura
-   + ombra statiche, mai animate) di cui si anima solo l'opacità — costa
-   quanto un fade, cioè quasi niente. Sta PRIMA dell'elemento pieno nel
-   markup, così quello lo copre al centro e l'alone resta visibile solo sul
-   bordo, verso l'esterno. */
-.genre-dna-glow{position:absolute;inset:-8%;border-radius:50%;pointer-events:none;
-  background:radial-gradient(circle,rgba(253,216,120,.55),transparent 70%);
-  box-shadow:0 0 14px 3px rgba(253,216,120,.35);
-  opacity:0;animation:genreDnaGlow 6s cubic-bezier(.22,1,.36,1) infinite;}
-@keyframes genreDnaGlow{
-  0%,100%{opacity:0}
-  2%{opacity:1}
-  10%{opacity:.35}
-  20%{opacity:0}
-}
+/* Bagliore che respira insieme alla bolla: un cerchio di luce già disegnato
+   (sfumatura + ombra statiche, mai animate) di cui si anima solo l'opacità —
+   costa quanto un fade, cioè quasi niente. Sta PRIMA di .genre-bubble-inner
+   nel markup, così quello lo copre al centro e il bagliore resta visibile
+   solo sul bordo, verso l'esterno. */
+.genre-bubble-glow{position:absolute;inset:-8%;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(253,216,120,.5),transparent 70%);
+  box-shadow:0 0 14px 3px rgba(253,216,120,.3);
+  opacity:0;animation:genreBubbleGlow 4.2s ease-in-out infinite;}
+@keyframes genreBubbleGlow{0%,100%{opacity:0}50%{opacity:.5}}
 
-/* Linee statiche dal mozzo a ogni bolla: dietro a tutto (z-index 0), nessuna
-   animazione — un disegno fisso costa zero, a differenza di farle "scorrere". */
-.genre-links{position:absolute;inset:0;width:100%;height:100%;z-index:0;}
-.genre-links line{stroke:#fdd878;stroke-width:1.3;stroke-opacity:.35;}
-
-/* Mozzo centrale (il ciak dell'app): al centro esatto del pentagono di
-   bolle, mai a contatto con nessuna (vedi GENRE_BUBBLE_LAYOUT in ui.js per
-   il criterio di spaziatura). z-index 1: sopra alle linee, sotto alle
-   bolle — dove le bolle non coprono resta visibile. È la tappa 0 dell'onda:
-   stesse @keyframes delle bolle (delay 0). */
-.genre-hub{position:absolute;aspect-ratio:1;border-radius:50%;z-index:1;
-  background:radial-gradient(circle at 35% 30%,#1a2535,#0e1520 70%);border:1.5px solid rgba(253,216,120,.5);
-  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 16px rgba(253,216,120,.10);
-  animation:genreDnaScale 6s cubic-bezier(.22,1,.36,1) infinite;}
-.genre-hub svg{width:44%;height:44%;color:#fdd878;opacity:.9;position:relative;z-index:1;}
 .genre-bubble-legend{font-size:11px;color:#a8b8cc;line-height:1.5;margin-bottom:8px;}
 .genre-bubble-legend b.fill{color:#eef2f7;font-weight:600;}
 .genre-bubble-legend b.gold{color:#fdd878;font-weight:600;}
 @keyframes genreBubbleFillRise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-@media (prefers-reduced-motion: reduce){ .genre-bubble-fill,.genre-bubble-breathe,.genre-hub,.genre-dna-glow{animation:none !important;} }
+@media (prefers-reduced-motion: reduce){ .genre-bubble-fill,.genre-bubble-breathe,.genre-bubble-glow{animation:none !important;} }
 
 /* ---------------- Report ---------------- */
 
