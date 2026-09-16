@@ -909,17 +909,22 @@ select option {
 
 /* Respiro: un impulso morbido e lento, curva simmetrica (sine-like, mai un
    attacco di scatto) — sale e scende con lo stesso ritmo, nessun "colpo".
-   Solo transform:scale, niente bagliore/contorno: ogni bolla usa la stessa
-   @keyframes, sfasata con animation-delay negativo (vedi
-   GENRE_PULSE_STAGGER_MS in ui.js, ora abbastanza ampio da leggersi come
-   bolle indipendenti e non come un blocco unico che pulsa insieme) — parte
-   già a metà del suo ciclo invece di aspettare, così respirano tutte fin dal
-   primo fotogramma. Wrapper separato da .genre-bubble-inner apposta: l'inner
-   ha già un transform per lo stato .active (tocco per il voto), stare su
-   elementi diversi evita che le due animazioni si contendano la stessa
-   proprietà. */
+   Solo transform:scale e un filo di filter:brightness, niente
+   bagliore/contorno: ogni bolla usa la stessa @keyframes, sfasata con
+   animation-delay negativo (vedi GENRE_PULSE_STAGGER_MS in ui.js, ampio
+   abbastanza da leggersi come bolle indipendenti e non come un blocco unico
+   che pulsa insieme) — parte già a metà del suo ciclo invece di aspettare,
+   così respirano tutte fin dal primo fotogramma. La luminosità resta
+   apposta minima (1.05, appena sopra la soglia in cui si nota): deve dare
+   un filo di vita in più al respiro, non leggersi come un effetto a sé.
+   Wrapper separato da .genre-bubble-inner apposta: l'inner ha già un
+   transform per lo stato .active (tocco per il voto), stare su elementi
+   diversi evita che le due animazioni si contendano la stessa proprietà. */
 .genre-bubble-breathe{position:relative;width:100%;height:100%;animation:genreBubblePulse 4.2s ease-in-out infinite;}
-@keyframes genreBubblePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes genreBubblePulse{
+  0%,100%{transform:scale(1);filter:brightness(1)}
+  50%{transform:scale(1.085);filter:brightness(1.05)}
+}
 
 .genre-bubble-legend{font-size:11px;color:#a8b8cc;line-height:1.5;margin-bottom:8px;}
 .genre-bubble-legend b.fill{color:#eef2f7;font-weight:600;}
