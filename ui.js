@@ -308,33 +308,32 @@ export function renderGenreBars(entries) {
   animateBarGroups();
 }
 
-// Posizioni in % del riquadro, con la bolla larga il 34,5% (vedi
+// Posizioni in % del riquadro, con la bolla larga il 30% (vedi
 // .genre-bubble). 6 bolle, griglia a nido d'ape su 3 righe da 2 (la riga di
-// mezzo sfalsata di mezzo passo), margini stretti (3% ai lati, 3,5% sopra)
-// per usare tutto lo spazio del riquadro invece di lasciarlo vuoto intorno.
+// mezzo sfalsata di mezzo passo).
 //
-// 1. In diagonale (una bolla e le due della riga sopra/sotto più vicine) si
-//    sovrappongono sempre esattamente del 10% del diametro — mai un valore
-//    a caso, la via di mezzo fra due cerchi che si toccano è il caso
-//    peggiore: sembra un errore di allineamento, non una scelta.
-// 2. Sulla stessa riga (stessa altezza) non si sovrappongono MAI: restano
-//    staccate di un 15% del diametro. Non un numero a caso nemmeno questo:
-//    con la pulsazione a scale(1.085) il raggio di ogni bolla cresce
-//    dell'8,5% del diametro al picco, quindi nel caso limite in cui le due
-//    bolle affiancate pulsano al massimo ESATTAMENTE insieme (periodi
-//    leggermente diversi fra loro — vedi GENRE_PULSE_PERIODS_S — quindi
-//    ogni combinazione di fase, prima o poi, capita) il gap si consuma
-//    dell'8,5%: un 15% di partenza lascia comunque un margine reale di
-//    sicurezza (~6,5%), mai zero. Il margine resta lo stesso qualunque sia
-//    la dimensione della bolla, perché è una percentuale del suo stesso
-//    diametro — allargare le bolle non lo intacca.
+// Criterio unico, uguale in ogni direzione: NESSUNA bolla tocca o si
+// sovrappone a un'altra, mai — né in diagonale né sulla stessa riga. Ogni
+// coppia di bolle vicine (diagonale o affiancata) resta staccata dello
+// stesso 15% del diametro. Non un numero a caso: con la pulsazione a
+// scale(1.085) il raggio di ogni bolla cresce dell'8,5% del diametro al
+// picco, quindi nel caso limite in cui due bolle vicine pulsano al massimo
+// ESATTAMENTE insieme (periodi leggermente diversi fra loro — vedi
+// GENRE_PULSE_PERIODS_S — quindi ogni combinazione di fase, prima o poi,
+// capita) il gap si consuma dell'8,5%: un 15% di partenza lascia comunque
+// un margine reale di sicurezza (~6,5%), mai zero, qualunque sia la coppia.
+// Il margine resta lo stesso qualunque sia la dimensione della bolla,
+// perché è una percentuale del suo stesso diametro.
+//
+// Lo spaziarle così (invece di farle toccare in diagonale come nella prima
+// versione) usa più altezza del riquadro invece di lasciarla vuota sotto.
 //
 // Ordine: alto-sinistra, alto-destra, medio-sinistra, medio-destra,
 // basso-sinistra, basso-destra — si legge come si leggerebbe una griglia.
 const GENRE_BUBBLE_LAYOUT = [
-  { left: 3, top: 3.5 }, { left: 42.67, top: 3.5 },
-  { left: 22.83, top: 27.38 }, { left: 62.5, top: 27.38 },
-  { left: 3, top: 51.26 }, { left: 42.67, top: 51.26 },
+  { left: 9.12, top: 3.5 }, { left: 43.62, top: 3.5 },
+  { left: 26.38, top: 33.38 }, { left: 60.88, top: 33.38 },
+  { left: 9.12, top: 63.26 }, { left: 43.62, top: 63.26 },
 ];
 
 // Respiro: un unico impulso morbido (solo scale + un filo di brightness),
