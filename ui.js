@@ -397,6 +397,75 @@ export function renderGenreBubbles(entries) {
   });
 
   container.appendChild(wrap);
+  startGenreDrift();
+}
+
+// ─── Deriva del riquadro (rifatta da capo, meccanismo diverso da prima) ──────
+//
+// Il tentativo precedente usava un'animazione CSS (@keyframes + animation-delay
+// negativo per non far ripartire la fase quando il riquadro viene ricreato).
+// Funzionava in ogni test automatico, ma sul telefono vero le bolle
+// restavano ferme — su DUE telefoni diversi, con la build corretta
+// confermata byte per byte sul sito live. Non è mai stato chiarito se la
+// causa fosse un dettaglio del motore CSS mobile che non è possibile
+// verificare da un container Linux, o qualcos'altro: la build è stata
+// riportata alle bolle statiche prima di trovare la vera causa.
+//
+// Qui la posizione è calcolata in JavaScript da performance.now() (l'orologio
+// dei DOMHighResTimeStamp passati a requestAnimationFrame) e scritta
+// direttamente su .style.transform a ogni fotogramma — nessun @keyframes,
+// nessun animation-delay. Due vantaggi concreti sul tentativo precedente:
+//
+// 1. Non dipende da un dettaglio CSS mai verificabile su un motore mobile
+//    reale da questo ambiente: solo aritmetica e una singola style property,
+//    supportate allo stesso modo ovunque.
+// 2. Il ciclo cerca il riquadro con querySelector ad ogni fotogramma invece
+//    di tenere un riferimento fisso: se renderGenreBubbles lo ricrea da zero
+//    (qui capita spesso, un evento realtime Supabase arriva ad ogni voto del
+//    gruppo), il fotogramma successivo trova e anima il riquadro NUOVO senza
+//    percepire la ricreazione — niente concetto di "fase che riparte da 0",
+//    quindi quel problema (comunque risolto la volta scorsa, ma su un
+//    meccanismo che si è rivelato inaffidabile) qui non può proprio esistere.
+//
+// RADIUS_PX/PERIOD_MS qui sotto sono apposta grandi e veloci: è una build di
+// verifica, non quella finale. Serve a dare una risposta netta — "si muove"
+// o "non si muove" — prima di render una deriva elegante e lentissima come
+// nell'idea originale. Vanno ridotti non appena confermato che si vede.
+const GENRE_DRIFT_RADIUS_PX = 18;
+const GENRE_DRIFT_PERIOD_MS = 5000;
+let _genreDriftRunning = false;
+
+function startGenreDrift() {
+  // Guardia contro cicli doppi: renderGenreBubbles (quindi questa funzione)
+  // può essere richiamata molte volte mentre si resta su Statistiche —
+  // senza questa guardia ogni chiamata avvierebbe un altro requestAnimationFrame
+  // parallelo, tutti scrivono sullo stesso elemento senza fare danni visibili,
+  // ma sprecano lavoro e complicano il debug se qualcosa va storto.
+  if (_genreDriftRunning) return;
+  const reduceMotionQuery = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
+  if (reduceMotionQuery?.matches) return;
+  _genreDriftRunning = true;
+
+  function tick(now) {
+    // Controllato ad ogni fotogramma, non solo all'avvio: se l'utente cambia
+    // l'impostazione di sistema mentre la schermata è già aperta, il ciclo si
+    // ferma subito invece di continuare fino alla prossima apertura.
+    if (reduceMotionQuery?.matches) { _genreDriftRunning = false; return; }
+    const wrap = document.querySelector(".genre-bubbles-wrap");
+    if (!wrap) {
+      // Il riquadro non esiste più (vista Barre, o meno di 3 titoli visti):
+      // niente da animare. La guardia si resetta, così la prossima
+      // renderGenreBubbles che ricrea il riquadro fa ripartire il ciclo da sola.
+      _genreDriftRunning = false;
+      return;
+    }
+    const phase = ((now % GENRE_DRIFT_PERIOD_MS) / GENRE_DRIFT_PERIOD_MS) * Math.PI * 2;
+    const x = GENRE_DRIFT_RADIUS_PX * Math.sin(phase);
+    const y = -GENRE_DRIFT_RADIUS_PX * Math.cos(phase);
+    wrap.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
 
 const MEDALS = [
