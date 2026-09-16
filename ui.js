@@ -325,6 +325,19 @@ const GENRE_BUBBLE_LAYOUT = [
 ];
 const GENRE_BUBBLE_HALF = 15.5; // metà larghezza bolla (31% / 2), per agganciare le linee al centro
 
+// Onda sequenziale "Cinema DNA": un solo impulso che viaggia CENTRO → bolla
+// → bolla → ... → CENTRO, mai un respiro indipendente per ognuna. 6 tappe in
+// giro (centro + 5 bolle) equispaziate su un periodo condiviso: la tappa i
+// pulsa da sola, poi la successiva, e così via, in loop.
+//
+// L'ordine delle tappe segue il giro geometrico del pentagono (vedi
+// GENRE_BUBBLE_LAYOUT), non il nome del genere: alto-sx → alto-dx →
+// medio-dx → basso-centro → medio-sx → di nuovo il centro. Così la
+// sequenza resta sempre coerente visivamente (un giro pulito, un passo di
+// 72° alla volta) qualunque siano i 5 generi reali mostrati.
+const GENRE_DNA_PERIOD_MS = 6000; // 6 tappe, 1s l'una
+const GENRE_DNA_SLOT = [1, 2, 5, 3, 4]; // slot per indice di GENRE_BUBBLE_LAYOUT (0 = mozzo)
+
 export function renderGenreBubbles(entries) {
   const container = document.getElementById("genreBars");
 
@@ -350,11 +363,12 @@ export function renderGenreBubbles(entries) {
   // dietro alle bolle (z-index più basso): dove le bolle non coprono,
   // restano visibili.
   //
-  // Il mozzo pulsa e le bolle "respirano" (vedi sotto), ma SOLO con
-  // transform:scale — mai box-shadow o stroke-dashoffset animati, che
-  // misurati costano ~50 volte di più in tempo di stile/paint per un
-  // risultato equivalente. Qui l'animazione resta sotto la soglia di
-  // rumore (pochi ms su 5s), come la deriva del grappolo.
+  // Il mozzo è la tappa 0 dell'onda "Cinema DNA" (vedi GENRE_DNA_SLOT):
+  // pulsa da fermo, poi il turno passa alla prima bolla. SOLO transform e
+  // opacity animati — mai box-shadow o stroke-dashoffset, che misurati
+  // costano ~50 volte di più in tempo di stile/paint per un risultato
+  // equivalente. Il riquadro stesso non si muove mai (niente deriva): la
+  // sensazione di energia viene tutta dal viaggiare dell'impulso.
   const HUB = { left: 50, top: 47, size: 24 };
   const links = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   links.setAttribute("viewBox", "0 0 100 100");
@@ -374,7 +388,9 @@ export function renderGenreBubbles(entries) {
   hub.style.left = (HUB.left - HUB.size / 2) + "%";
   hub.style.top = (HUB.top - HUB.size / 2) + "%";
   hub.style.width = HUB.size + "%";
+  hub.style.animationDelay = "0ms";
   hub.innerHTML = `
+    <div class="genre-dna-glow" style="animation-delay:0ms;"></div>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 10h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9Z"/>
       <path d="M3 10l1.5-5.5L20 8l-1 3"/>
@@ -398,9 +414,11 @@ export function renderGenreBubbles(entries) {
     el.style.left = pos.left + "%";
     el.style.top = pos.top + "%";
 
-    const breatheDelay = i * 350;
+    const dnaSlot = GENRE_DNA_SLOT[i] || 0;
+    const dnaDelay = Math.round(dnaSlot * (GENRE_DNA_PERIOD_MS / 6));
     el.innerHTML = `
-      <div class="genre-bubble-breathe" style="animation-delay:${breatheDelay}ms;">
+      <div class="genre-bubble-breathe" style="animation-delay:${dnaDelay}ms;">
+        <div class="genre-dna-glow" style="animation-delay:${dnaDelay}ms;"></div>
         <div class="genre-bubble-inner">
           <div class="genre-bubble-fill" style="height:${fillPct}%;animation-delay:${fillDelay}ms;">
             <div class="genre-bubble-fill-inner" style="background:${fillGradient};"></div>
@@ -434,75 +452,6 @@ export function renderGenreBubbles(entries) {
   });
 
   container.appendChild(wrap);
-  startGenreDrift();
-}
-
-// ─── Deriva del riquadro (rifatta da capo, meccanismo diverso da prima) ──────
-//
-// Il tentativo precedente usava un'animazione CSS (@keyframes + animation-delay
-// negativo per non far ripartire la fase quando il riquadro viene ricreato).
-// Funzionava in ogni test automatico, ma sul telefono vero le bolle
-// restavano ferme — su DUE telefoni diversi, con la build corretta
-// confermata byte per byte sul sito live. Non è mai stato chiarito se la
-// causa fosse un dettaglio del motore CSS mobile che non è possibile
-// verificare da un container Linux, o qualcos'altro: la build è stata
-// riportata alle bolle statiche prima di trovare la vera causa.
-//
-// Qui la posizione è calcolata in JavaScript da performance.now() (l'orologio
-// dei DOMHighResTimeStamp passati a requestAnimationFrame) e scritta
-// direttamente su .style.transform a ogni fotogramma — nessun @keyframes,
-// nessun animation-delay. Due vantaggi concreti sul tentativo precedente:
-//
-// 1. Non dipende da un dettaglio CSS mai verificabile su un motore mobile
-//    reale da questo ambiente: solo aritmetica e una singola style property,
-//    supportate allo stesso modo ovunque.
-// 2. Il ciclo cerca il riquadro con querySelector ad ogni fotogramma invece
-//    di tenere un riferimento fisso: se renderGenreBubbles lo ricrea da zero
-//    (qui capita spesso, un evento realtime Supabase arriva ad ogni voto del
-//    gruppo), il fotogramma successivo trova e anima il riquadro NUOVO senza
-//    percepire la ricreazione — niente concetto di "fase che riparte da 0",
-//    quindi quel problema (comunque risolto la volta scorsa, ma su un
-//    meccanismo che si è rivelato inaffidabile) qui non può proprio esistere.
-//
-// RADIUS_PX/PERIOD_MS qui sotto sono apposta grandi e veloci: è una build di
-// verifica, non quella finale. Serve a dare una risposta netta — "si muove"
-// o "non si muove" — prima di render una deriva elegante e lentissima come
-// nell'idea originale. Vanno ridotti non appena confermato che si vede.
-const GENRE_DRIFT_RADIUS_PX = 18;
-const GENRE_DRIFT_PERIOD_MS = 5000;
-let _genreDriftRunning = false;
-
-function startGenreDrift() {
-  // Guardia contro cicli doppi: renderGenreBubbles (quindi questa funzione)
-  // può essere richiamata molte volte mentre si resta su Statistiche —
-  // senza questa guardia ogni chiamata avvierebbe un altro requestAnimationFrame
-  // parallelo, tutti scrivono sullo stesso elemento senza fare danni visibili,
-  // ma sprecano lavoro e complicano il debug se qualcosa va storto.
-  if (_genreDriftRunning) return;
-  const reduceMotionQuery = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
-  if (reduceMotionQuery?.matches) return;
-  _genreDriftRunning = true;
-
-  function tick(now) {
-    // Controllato ad ogni fotogramma, non solo all'avvio: se l'utente cambia
-    // l'impostazione di sistema mentre la schermata è già aperta, il ciclo si
-    // ferma subito invece di continuare fino alla prossima apertura.
-    if (reduceMotionQuery?.matches) { _genreDriftRunning = false; return; }
-    const wrap = document.querySelector(".genre-bubbles-wrap");
-    if (!wrap) {
-      // Il riquadro non esiste più (vista Barre, o meno di 3 titoli visti):
-      // niente da animare. La guardia si resetta, così la prossima
-      // renderGenreBubbles che ricrea il riquadro fa ripartire il ciclo da sola.
-      _genreDriftRunning = false;
-      return;
-    }
-    const phase = ((now % GENRE_DRIFT_PERIOD_MS) / GENRE_DRIFT_PERIOD_MS) * Math.PI * 2;
-    const x = GENRE_DRIFT_RADIUS_PX * Math.sin(phase);
-    const y = -GENRE_DRIFT_RADIUS_PX * Math.cos(phase);
-    wrap.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
 }
 
 const MEDALS = [
