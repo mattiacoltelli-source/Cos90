@@ -347,6 +347,20 @@ export function renderGenreBubbles(entries) {
 
   const wrap = document.createElement("div");
   wrap.className = "genre-bubbles-wrap";
+  // Il riquadro viene ricreato da zero a ogni render (vedi sopra), e in
+  // quest'app "ogni render" include anche l'evento realtime che arriva a
+  // ogni voto/aggiunta di chiunque nel gruppo — capita spesso, non è un
+  // caso raro. Senza questo, l'animazione CSS della deriva ripartirebbe da
+  // 0% a ogni ricreazione: se gli eventi arrivano più spesso dei 28s che
+  // servono per un giro visibile, le bolle non completano mai un
+  // movimento apprezzabile e sembrano ferme anche se il codice gira.
+  // Un animation-delay NEGATIVO ancorato a performance.now() (tempo dal
+  // caricamento della pagina, stabile per tutta la sessione) fa ripartire
+  // ogni nuova istanza esattamente dal punto in cui sarebbe arrivata quella
+  // vecchia: la deriva prosegue senza interruzioni attraverso un DOM
+  // ricreato quante volte serve.
+  const DRIFT_PERIOD_S = 28; // deve combaciare con la durata di genreBubbleDrift in styles.css
+  wrap.style.animationDelay = `-${((performance.now() / 1000) % DRIFT_PERIOD_S).toFixed(2)}s`;
 
   entries.forEach((g, i) => {
     const hasAvg = Number.isFinite(g.avgVote);
