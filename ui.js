@@ -308,11 +308,10 @@ export function renderGenreBars(entries) {
   animateBarGroups();
 }
 
-// Posizioni in % del riquadro, con la bolla larga il 30% (vedi .genre-bubble).
-//
-// 6 bolle, griglia a nido d'ape su 3 righe da 2 (la riga di mezzo sfalsata
-// di mezzo passo): stesso identico criterio di prima, solo esteso a una
-// colonna in più.
+// Posizioni in % del riquadro, con la bolla larga il 34,5% (vedi
+// .genre-bubble). 6 bolle, griglia a nido d'ape su 3 righe da 2 (la riga di
+// mezzo sfalsata di mezzo passo), margini stretti (3% ai lati, 3,5% sopra)
+// per usare tutto lo spazio del riquadro invece di lasciarlo vuoto intorno.
 //
 // 1. In diagonale (una bolla e le due della riga sopra/sotto più vicine) si
 //    sovrappongono sempre esattamente del 10% del diametro — mai un valore
@@ -326,14 +325,16 @@ export function renderGenreBars(entries) {
 //    leggermente diversi fra loro — vedi GENRE_PULSE_PERIODS_S — quindi
 //    ogni combinazione di fase, prima o poi, capita) il gap si consuma
 //    dell'8,5%: un 15% di partenza lascia comunque un margine reale di
-//    sicurezza (~6,5%), mai zero.
+//    sicurezza (~6,5%), mai zero. Il margine resta lo stesso qualunque sia
+//    la dimensione della bolla, perché è una percentuale del suo stesso
+//    diametro — allargare le bolle non lo intacca.
 //
 // Ordine: alto-sinistra, alto-destra, medio-sinistra, medio-destra,
 // basso-sinistra, basso-destra — si legge come si leggerebbe una griglia.
 const GENRE_BUBBLE_LAYOUT = [
-  { left: 9.12, top: 6 }, { left: 43.62, top: 6 },
-  { left: 26.38, top: 26.77 }, { left: 60.88, top: 26.77 },
-  { left: 9.12, top: 47.54 }, { left: 43.62, top: 47.54 },
+  { left: 3, top: 3.5 }, { left: 42.67, top: 3.5 },
+  { left: 22.83, top: 27.38 }, { left: 62.5, top: 27.38 },
+  { left: 3, top: 51.26 }, { left: 42.67, top: 51.26 },
 ];
 
 // Respiro: un unico impulso morbido (solo scale + un filo di brightness),
