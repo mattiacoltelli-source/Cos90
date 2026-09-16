@@ -384,7 +384,7 @@ select option {
   cursor: pointer;
   scroll-snap-align: start;
   transition: transform var(--t-mid) var(--ease), opacity var(--t-mid);
-  animation: shelfCardIn .28s var(--ease) both;
+  animation: shelfCardIn .4s var(--ease) both;
 }
 
 /* Ingresso leggero quando la shelf si popola: solo transform, mai opacity —
