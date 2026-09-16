@@ -328,13 +328,19 @@ const GENRE_BUBBLE_LAYOUT = [
   { left: 62, top: 39 }, { left: 30, top: 64 },
 ];
 
-// Respiro: un unico impulso morbido (solo scale, niente bagliore), stesso
-// per tutte, sfasato abbastanza (550ms) da una bolla alla successiva che
-// non si leggano mai come un blocco unico che pulsa insieme — con 5 bolle
-// lo sfasamento totale copre più di metà del periodo (4,2s), quindi quando
+// Respiro: un unico impulso morbido (solo scale + un filo di brightness),
+// stesso per tutte, sfasato abbastanza (550ms) da una bolla alla successiva
+// che non si leggano mai come un blocco unico che pulsa insieme — con 5
+// bolle lo sfasamento totale copre più di metà del periodo, quindi quando
 // una è al picco un'altra è già in discesa: bolle indipendenti, non un
 // "turno" scandito né un blocco sincronizzato.
+//
+// Periodo leggermente diverso per ognuna (4,0s → 4,4s) invece che identico:
+// le fasi non tornano mai a coincidere allo stesso modo, quindi il respiro
+// non si ripete mai in un pattern perfettamente meccanico — costo zero,
+// stessa @keyframes, solo animation-duration diversa.
 const GENRE_PULSE_STAGGER_MS = 550;
+const GENRE_PULSE_PERIODS_S = [4.0, 4.1, 4.2, 4.3, 4.4];
 
 export function renderGenreBubbles(entries) {
   const container = document.getElementById("genreBars");
@@ -373,8 +379,9 @@ export function renderGenreBubbles(entries) {
     el.style.top = pos.top + "%";
 
     const pulseDelay = i * GENRE_PULSE_STAGGER_MS;
+    const pulsePeriod = GENRE_PULSE_PERIODS_S[i] || 4.2;
     el.innerHTML = `
-      <div class="genre-bubble-breathe" style="animation-delay:-${pulseDelay}ms;">
+      <div class="genre-bubble-breathe" style="animation-delay:-${pulseDelay}ms;animation-duration:${pulsePeriod}s;">
         <div class="genre-bubble-inner">
           <div class="genre-bubble-fill" style="height:${fillPct}%;animation-delay:${fillDelay}ms;">
             <div class="genre-bubble-fill-inner" style="background:${fillGradient};"></div>
