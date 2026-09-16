@@ -890,7 +890,7 @@ select option {
   will-change: width;
 }
 
-.genre-bubbles-wrap{position:relative;width:100%;aspect-ratio:1/0.89;margin-top:6px;}
+.genre-bubbles-wrap{position:relative;width:100%;aspect-ratio:1/0.92;margin-top:6px;}
 /* Diametro in % del riquadro, non in px: le posizioni di GENRE_BUBBLE_LAYOUT
    sono in %, quindi solo così le sovrapposizioni restano quelle volute su ogni
    larghezza di schermo. Con i 118px fissi di prima le bolle si accavallavano

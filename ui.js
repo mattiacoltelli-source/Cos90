@@ -309,11 +309,17 @@ export function renderGenreBars(entries) {
 }
 
 // Posizioni in % del riquadro, con la bolla larga il 32% (vedi
-// .genre-bubble). Non più una griglia regolare: posizioni scelte a mano,
+// .genre-bubble). Non una griglia regolare: posizioni scelte a mano,
 // irregolari e asimmetriche apposta — nessuna formula unica di spaziatura,
 // ogni coppia vicina si sovrappone (o si stacca) di un valore diverso,
-// dallo 0 al 14% circa del diametro, mai oltre: abbastanza da leggersi come
-// un gruppo compatto e organico, mai una bolla che ne nasconde un'altra.
+// mai oltre il 19% circa: abbastanza da leggersi come un gruppo compatto e
+// organico, mai una bolla che ne nasconde un'altra.
+//
+// La coppia di destra di ogni riga (Horror, Azione) arriva alla stessa
+// distanza dal bordo destro: nella prima versione una arrivava molto più
+// vicina al bordo dell'altra, e il gruppo sembrava spostato a sinistra
+// anche se il centro geometrico era quasi giusto — non basta il centroide,
+// contano i bordi esterni che l'occhio segue riga per riga.
 //
 // La pulsazione può quindi far toccare per un attimo anche una coppia che a
 // riposo ha un piccolo distacco: non è un problema qui, è parte
@@ -321,9 +327,9 @@ export function renderGenreBars(entries) {
 // della disposizione a griglia di prima, dove invece nessuna coppia doveva
 // MAI toccarsi ed era necessario un margine di sicurezza calcolato.
 const GENRE_BUBBLE_LAYOUT = [
-  { left: 3, top: 6 }, { left: 48, top: 4 },
-  { left: 24, top: 27 }, { left: 60, top: 29 },
-  { left: 7, top: 53 }, { left: 41, top: 50 },
+  { left: 3, top: 6 }, { left: 52, top: 3 },
+  { left: 23, top: 27 }, { left: 60, top: 30 },
+  { left: 6, top: 56 }, { left: 52, top: 54 },
 ];
 
 // Respiro: un unico impulso morbido (solo scale + un filo di brightness),
