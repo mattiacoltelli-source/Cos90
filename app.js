@@ -810,6 +810,8 @@ function applyVoteState(hasVote, seen, editing = false) {
   const showSummary = seen && hasVote && !editing;
   const toggle = (id, hidden) => document.getElementById(id)?.classList.toggle("hidden", hidden);
   toggle("detailVoteSummary", !showSummary);
+  // Nel riepilogo il titolo "Il tuo voto" sta dentro il riepilogo, sopra il voto.
+  toggle("detailVoteHead", showSummary);
   toggle("detailVoteEditor", showSummary);
   toggle("detailCancelEditBtn", !(seen && hasVote && editing));
   toggle("detailClearVoteBtn", !(seen && hasVote && editing));
