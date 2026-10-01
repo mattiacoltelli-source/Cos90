@@ -358,6 +358,34 @@
       </div>
 
       <div class="detail-body">
+        <div class="detail-card" id="detailVoteCard">
+          <div class="detail-card__head">
+            <div class="detail-card__title">Il tuo voto</div>
+            <span id="detailVoteBadge" class="vote-badge vote-badge--todo">Da votare</span>
+          </div>
+
+          <div id="detailVoteSummary" class="vote-summary hidden">
+            <div id="detailVoteSummaryNum" class="vote-summary__num">–</div>
+            <div class="vote-summary__body">
+              <div>il tuo voto</div>
+              <div id="detailVoteSummaryComment" class="vote-summary__comment"></div>
+            </div>
+            <button id="detailVoteEditBtn" class="vote-summary__edit" type="button">Modifica</button>
+          </div>
+
+          <div id="detailVoteEditor">
+            <input id="detailVoteInput" type="text" aria-label="Il tuo voto" placeholder="Es. 7, 7+, 7,5, 8-" />
+            <textarea id="detailCommentInput" class="hidden" aria-label="Il tuo commento" placeholder="Cosa ne pensi?"></textarea>
+            <div class="detail-actions-row">
+              <button class="btn btn--ok" id="detailSaveNoteBtn">Salva voto</button>
+              <button class="btn btn--ghost hidden" id="detailCancelEditBtn" type="button">Annulla</button>
+              <button class="btn-link-danger detail-clear hidden" id="detailClearVoteBtn" type="button">Rimuovi</button>
+              <button class="btn btn--ok" id="detailSeenBtn">Segna come visto</button>
+            </div>
+            <button id="detailCommentToggle" class="btn-link-quiet detail-comment-toggle" type="button">+ Aggiungi un commento</button>
+          </div>
+        </div>
+
         <div class="detail-card">
           <div class="detail-card__title">Trama</div>
           <div id="detailOverview" class="detail-overview">Nessuna trama disponibile.</div>
@@ -368,24 +396,10 @@
           <div id="detailFacts" class="detail-facts"></div>
         </div>
 
-        <div class="detail-card">
-          <div class="detail-card__title">La tua scheda personale</div>
-
-          <label class="detail-form-label" for="detailVoteInput">Il tuo voto</label>
-          <input id="detailVoteInput" type="text" placeholder="Es. 7, 7+, 7,5, 8-" />
-
-          <div class="detail-spacer"></div>
-
-          <label class="detail-form-label" for="detailCommentInput">Il tuo commento</label>
-          <textarea id="detailCommentInput" placeholder="Cosa ne pensi?"></textarea>
-
-          <div class="detail-actions">
-            <button class="btn btn--ok btn--full" id="detailSaveNoteBtn">Salva voto / commento</button>
-            <div class="detail-status-actions" id="detailStatusActions">
-              <button class="btn btn--ok btn--full" id="detailSeenBtn">Segna come visto</button>
-              <button class="btn btn--secondary btn--full" id="detailWatchBtn">Aggiungi a watchlist</button>
-              <button class="btn-link-danger" id="detailRemoveBtn">Rimuovi</button>
-            </div>
+        <div class="detail-actions">
+          <div class="detail-status-actions" id="detailStatusActions">
+            <button class="btn btn--secondary btn--full" id="detailWatchBtn">Aggiungi a watchlist</button>
+            <button class="btn-link-danger" id="detailRemoveBtn">Rimuovi</button>
           </div>
         </div>
       </div>
