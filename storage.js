@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js?v=3089738";
+import { supabase } from "./supabase.js?v=cb98038";
 
 const USER_ID = "default";
 
