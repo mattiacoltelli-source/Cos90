@@ -783,9 +783,60 @@ async function doSearch() {
   }
 }
 
-function openDetail(item) {
+let detailReturnScrollY = 0;
+
+// html ha scroll-behavior: smooth: scrollTo(x, y) scivolerebbe in animazione
+// sotto la schermata che sta comparendo. Qui serve un salto istantaneo.
+function jumpScroll(y) {
+  window.scrollTo({ top: y, left: 0, behavior: "instant" });
+}
+
+// Il commento resta nascosto finche' non serve: si apre da solo se c'e' gia'
+// un commento, oppure col link "+ Aggiungi un commento".
+function setDetailComment(text) {
+  const input = document.getElementById("detailCommentInput");
+  const toggle = document.getElementById("detailCommentToggle");
+  if (!input) return;
+  input.value = text;
+  input.classList.toggle("hidden", !text);
+  if (toggle) toggle.classList.toggle("hidden", !!text);
+}
+
+// Stato della card "Il tuo voto": non votato (campo aperto + "Da votare"),
+// votato in riepilogo (voto grande + "Modifica") o votato in modifica (con
+// Annulla/Rimuovi voto). Il riepilogo vale solo per i titoli gia' visti: per
+// gli altri il campo resta aperto, perche' "Segna come visto" e' li'.
+function applyVoteState(hasVote, seen, editing = false) {
+  const showSummary = seen && hasVote && !editing;
+  const toggle = (id, hidden) => document.getElementById(id)?.classList.toggle("hidden", hidden);
+  toggle("detailVoteSummary", !showSummary);
+  toggle("detailVoteEditor", showSummary);
+  toggle("detailCancelEditBtn", !(seen && hasVote && editing));
+  toggle("detailClearVoteBtn", !(seen && hasVote && editing));
+  const badge = document.getElementById("detailVoteBadge");
+  if (badge) {
+    badge.textContent = hasVote ? "✓ Votato" : "Da votare";
+    badge.classList.toggle("vote-badge--done", hasVote);
+    badge.classList.toggle("vote-badge--todo", !hasVote);
+  }
+}
+
+function fillVoteSummary(vote, comment) {
+  const num = document.getElementById("detailVoteSummaryNum");
+  const com = document.getElementById("detailVoteSummaryComment");
+  if (num) num.textContent = vote || "–";
+  if (com) com.textContent = comment ? `“${comment}”` : "";
+}
+
+// options.refresh: rilettura dopo un salvataggio (non si sposta lo scorrimento);
+// altrimenti e' una vera apertura e la scheda parte sempre dall'inizio.
+function openDetail(item, options = {}) {
   try {
     if (!item) return;
+    const isRefresh = options.refresh === true;
+    if (!isRefresh && SCREENS.detail && SCREENS.detail.classList.contains("hidden")) {
+      detailReturnScrollY = window.scrollY;
+    }
 
     const safeItem = normalizedItem(item);
     currentDetail = safeItem;
@@ -838,7 +889,8 @@ function openDetail(item) {
     }
 
     if (detailVoteInput) detailVoteInput.value = src.vote || "";
-    if (detailCommentInput) detailCommentInput.value = src.comment || "";
+    setDetailComment(src.comment || "");
+    fillVoteSummary(src.vote, src.comment);
 
     // Stessa logica di priorità di CineFighi: "Segna come visto" è il
     // pulsante pieno finché il titolo non è ancora visto (in watchlist o
@@ -854,6 +906,7 @@ function openDetail(item) {
     // invertiva "hidden" rispetto alla volta prima invece di fissarlo.
     const seen = !!inSeen(src);
     const watchOnly = !seen && !!inWatch(src);
+    applyVoteState(!!String(src.vote || "").trim(), seen);
     const detailRemoveBtn = document.getElementById("detailRemoveBtn");
     const detailStatusActions = document.getElementById("detailStatusActions");
 
@@ -887,6 +940,7 @@ function openDetail(item) {
     }
 
     switchScreen("detail");
+    if (!isRefresh) jumpScroll(0);
   } catch (e) {
     console.error("Errore openDetail:", e);
     showToast("Errore apertura scheda.", "error", "Errore");
@@ -968,7 +1022,7 @@ async function doSaveDetailNotes() {
 
   const savedLocally = await saveDB(db);
   renderAll();
-  openDetail(target);
+  openDetail(target, { refresh: true });
 
   saveResultToast(savedLocally, "Voto e commento salvati.", "success", "Aggiornato");
   haptic([12, 20, 12]);
@@ -1530,6 +1584,7 @@ function bindEvents() {
   if (detailBackBtn) {
     detailBackBtn.addEventListener("click", () => {
       switchScreen(getPreviousScreen() || "home");
+      jumpScroll(detailReturnScrollY);
     });
   }
 
@@ -1559,7 +1614,7 @@ function bindEvents() {
         await doSaveDetailNotes();
       }
 
-      openDetail(currentDetail);
+      openDetail(currentDetail, { refresh: true });
     });
   }
 
@@ -1609,11 +1664,36 @@ function bindEvents() {
         return;
       }
 
-      openDetail(currentDetail);
+      openDetail(currentDetail, { refresh: true });
     });
   }
 
   if (detailSaveNoteBtn) detailSaveNoteBtn.addEventListener("click", doSaveDetailNotes);
+
+  document.getElementById("detailCommentToggle")?.addEventListener("click", () => {
+    document.getElementById("detailCommentToggle").classList.add("hidden");
+    const input = document.getElementById("detailCommentInput");
+    input.classList.remove("hidden");
+    input.focus();
+  });
+  document.getElementById("detailVoteEditBtn")?.addEventListener("click", () => {
+    applyVoteState(true, true, true);
+    document.getElementById("detailVoteInput")?.focus();
+  });
+  document.getElementById("detailCancelEditBtn")?.addEventListener("click", () => {
+    const stored = currentDetail ? getStoredItem(currentDetail) : null;
+    const voteInput = document.getElementById("detailVoteInput");
+    if (stored && voteInput) {
+      voteInput.value = stored.vote || "";
+      setDetailComment(stored.comment || "");
+    }
+    applyVoteState(true, true, false);
+  });
+  document.getElementById("detailClearVoteBtn")?.addEventListener("click", async () => {
+    const voteInput = document.getElementById("detailVoteInput");
+    if (voteInput) voteInput.value = "";
+    await doSaveDetailNotes();
+  });
 
   if (detailRemoveBtn) {
     detailRemoveBtn.addEventListener("click", () => {
@@ -1683,6 +1763,7 @@ function bindEvents() {
   window.addEventListener("popstate", (e) => {
     const name = e.state?.screen || "home";
     if (!SCREENS[name]) return;
+    const wasDetail = SCREENS.detail && !SCREENS.detail.classList.contains("hidden");
 
     Object.values(SCREENS).forEach(screen => {
       screen.classList.add("hidden");
@@ -1695,6 +1776,8 @@ function bindEvents() {
     document.querySelectorAll(".nav__btn[data-screen]").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.screen === name);
     });
+
+    if (wasDetail && name !== "detail") jumpScroll(detailReturnScrollY);
 
     if (name === "stats") renderStats();
     if (name === "report") renderReport();

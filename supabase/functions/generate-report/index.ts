@@ -58,7 +58,7 @@ function average(values: number[]): number {
 function normTitle(t: string): string {
   return t
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
@@ -187,6 +187,32 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.avg - a.avg)
       .slice(0, 8);
 
+    // Attori ricorrenti (solo i primi 3 del cast di ogni titolo) e decennio:
+    // calcolati qui, il modello li riceve già fatti. Stesse soglie di
+    // CineFighi (generate-report): 4 titoli per un attore e 10 per un
+    // decennio da 100 titoli in su, 3 e 5 sotto.
+    const actorVotes: Record<string, number[]> = {};
+    const decadeVotes: Record<string, number[]> = {};
+    for (const item of seen) {
+      const vote = parseVote(item.vote);
+      if (!Number.isFinite(vote)) continue;
+      for (const a of (Array.isArray(item.cast) ? item.cast : []).slice(0, 3)) (actorVotes[a] ||= []).push(vote);
+      const y = Number(item.year);
+      if (Number.isFinite(y) && y > 1880) (decadeVotes[`${Math.floor(y / 10) * 10}s`] ||= []).push(vote);
+    }
+    const minActor = seen.length >= 100 ? 4 : 3;
+    const actors = Object.entries(actorVotes)
+      .filter(([, v]) => v.length >= minActor)
+      .map(([name, v]) => ({ name, count: v.length, avg: Number(average(v).toFixed(2)) }))
+      .sort((a, b) => b.count - a.count || b.avg - a.avg)
+      .slice(0, 5);
+    const minDecade = seen.length >= 100 ? 10 : 5;
+    const decades = Object.entries(decadeVotes)
+      .filter(([, v]) => v.length >= minDecade)
+      .map(([name, v]) => ({ name, count: v.length, avg: Number(average(v).toFixed(2)) }));
+    const decadeMostSeen = [...decades].sort((a, b) => b.count - a.count)[0] || null;
+    const decadeBestRated = [...decades].sort((a, b) => b.avg - a.avg)[0] || null;
+
     // Righe compatte per il prompt: tengono il costo basso anche con centinaia
     // di titoli (niente chiavi JSON ripetute 250+ volte).
     const seenLines = seen
@@ -211,9 +237,11 @@ Deno.serve(async (req) => {
         role: "user",
         content: `Statistiche già calcolate (non ricalcolarle):
 - Titoli visti: ${seen.length}, voto medio: ${avgVote !== null ? avgVote.toFixed(2) : "n.d."}
-- Generi più visti: ${JSON.stringify(genresTopCount)}
-- Generi meglio votati (min. 5 titoli): ${JSON.stringify(genresTopAvg)}
+- Generi PIÙ VISTI (per numero di titoli): ${JSON.stringify(genresTopCount)}
+- Generi PIÙ AMATI (per media voto, min. 5 titoli): ${JSON.stringify(genresTopAvg)}
 - Registi con almeno 2 titoli, per media voto: ${JSON.stringify(directors)}
+- Attori ricorrenti (nei primi 3 del cast, almeno ${minActor} titoli): ${JSON.stringify(actors)}
+- Decennio più visto: ${JSON.stringify(decadeMostSeen)}; decennio meglio votato (min. ${minDecade} titoli): ${JSON.stringify(decadeBestRated)}
 
 Libreria vista (titolo (anno) | regista | generi | voto):
 ${seenLines}
@@ -221,8 +249,8 @@ ${seenLines}
 In watchlist (NON consigliare questi): ${watchlistLine}
 
 Scrivi:
-1. "profile": 2-3 paragrafi VERI — ognuno un blocco discorsivo di almeno 4-5 frasi collegate tra loro, mai una lista di frasi telegrafiche spezzate a capo (NON accettabile: "286 titoli visti, media 6.75. Thriller e Horror dominano."; corretto: "Con 286 titoli visti e una media di 6.75, sei un fruitore molto attivo che alterna generi di intrattenimento a roba più ricercata: non ti accontenti del blockbuster medio, ma nemmeno disdegni gli horror più trash quando servono per staccare la spina.") — con numeri concreti presi dai dati sopra.
-2. "genres_note": 2-3 frasi discorsive (stesso principio: frasi vere, non frammenti) su generi più visti vs. meglio votati.
+1. "profile": 2-3 paragrafi VERI — ognuno un blocco discorsivo di almeno 4-5 frasi collegate tra loro, mai una lista di frasi telegrafiche spezzate a capo (NON accettabile: "286 titoli visti, media 6.75. Thriller e Horror dominano."; corretto: "Con 286 titoli visti e una media di 6.75, sei un fruitore molto attivo che alterna generi di intrattenimento a roba più ricercata: non ti accontenti del blockbuster medio, ma nemmeno disdegni gli horror più trash quando servono per staccare la spina.") — con numeri concreti presi dai dati sopra. Se nei dati ci sono attori ricorrenti, cita almeno uno o due attori per nome con il numero di titoli e la media; cita anche il decennio più visto o meglio votato. Racconta i numeri veri (conteggi e medie): non scrivere le soglie minime usate per selezionare i dati (niente "su almeno 10 titoli").
+2. "genres_note": 2-3 frasi discorsive (stesso principio: frasi vere, non frammenti) su generi più visti vs. più amati. Chiama "più visti" solo i generi con più titoli e "più amati" solo quelli con la media più alta: non scambiare i due termini e non chiamare "preferito" un genere solo perché ha molti titoli.
 3. "recommendations": esattamente ${RECS_REQUESTED} titoli reali (film o serie, indica "media_type" corretto), MAI titoli già presenti nell'elenco dei visti o della watchlist qui sopra (controlla con attenzione, anche eventuali sequel/prequel/remake con lo stesso titolo esatto vanno evitati se il titolo coincide) — ne verranno scartati alcuni per sicurezza, per questo te ne chiediamo ${RECS_REQUESTED} invece di ${RECS_FINAL}. Preferisci titoli conosciuti e reperibili (non oscurità estrema): verrà cercato il loro poster su TMDB e chi non lo ha rischia di essere scartato. Ogni titolo deve avere una riga di motivazione ("why", almeno una frase completa) legata a un dato concreto sopra (un regista, un genere, una struttura narrativa ricorrente) — non lasciarla mai vuota o generica.
 
 Formattazione: in "profile" e "genres_note", evidenzia con **doppi asterischi** al massimo 2-3 dati o nomi davvero rilevanti PER PARAGRAFO (non per frase — un paragrafo di 4-5 frasi ha diritto a 2-3 grassetti in totale, non uno a frase), e in ogni "why" al massimo 1-2. Un numero, un genere, un regista — non l'intera frase, non ogni numero o genere citato. Es: "con **286 titoli** visti sei un divoratore di **Thriller**". Niente altra formattazione markdown.`,
