@@ -299,12 +299,24 @@ export function uniqueKey(item) {
 // caso raro in cui sia stato invece cancellato da un altro dispositivo,
 // resta visibile localmente fino al prossimo caricamento completo — una
 // staleness temporanea, molto meno grave di una cancellazione spuria.
+// Piu' recenti per primi (savedAt = quando il titolo e' stato salvato/segnato
+// visto): stesso ordine che dava `unshift` in locale. Supabase non garantisce
+// nessun ordine alle righe, quindi senza questo la lista appena riletta dal
+// server non e' cronologica.
+export function sortBySavedAtDesc(items) {
+  const t = item => {
+    const ms = Date.parse(item?.savedAt || "");
+    return Number.isFinite(ms) ? ms : 0;
+  };
+  return [...(items || [])].sort((a, b) => t(b) - t(a));
+}
+
 export function mergeRemoteIntoLocal(localItems, remoteItems) {
   const merged = new Map((localItems || []).map(item => [uniqueKey(item), item]));
   for (const remoteItem of (remoteItems || [])) {
     merged.set(uniqueKey(remoteItem), remoteItem);
   }
-  return Array.from(merged.values());
+  return sortBySavedAtDesc(Array.from(merged.values()));
 }
 
 export function decadeOf(year) {
