@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js?v=be176cc";
+import { sortBySavedAtDesc } from "./cine-core.js?v=be176cc";
 
 const USER_ID = "default";
 
@@ -167,13 +168,13 @@ async function syncFromSupabase() {
 
     const data = res.data || [];
 
-    const seen = data
+    const seen = sortBySavedAtDesc(data
       .filter(r => r.list === "seen")
-      .map(r => r.data);
+      .map(r => r.data));
 
-    const watchlist = data
+    const watchlist = sortBySavedAtDesc(data
       .filter(r => r.list === "watchlist")
-      .map(r => r.data);
+      .map(r => r.data));
 
     const db = { seen, watchlist };
     saveLocalCache(db);
