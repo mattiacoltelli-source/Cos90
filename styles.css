@@ -752,53 +752,43 @@ select option {
   margin: -6px 0 8px 2px;
 }
 
-.stats-grid {
+/* I quattro numeri (visti, watchlist, film, serie) stanno su una riga sola,
+   sotto la Classifica e i generi: la Classifica è ciò che si guarda e si
+   tocca, i numeri sono contorno e non devono rubarle la prima schermata. */
+.stats-strip {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
+  grid-template-columns: repeat(4, 1fr);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 8px 12px 7px;
-  position: relative;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  transition: border-color var(--t-mid), transform var(--t-mid);
 }
 
-.stat-card::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--gold), transparent);
-  opacity: .5;
+.stats-strip__item {
+  padding: 8px 4px 7px;
+  text-align: center;
+  min-width: 0;
 }
 
-.stat-card:nth-child(2)::before { background: linear-gradient(90deg, var(--blue), transparent); }
-.stat-card:nth-child(3)::before { background: linear-gradient(90deg, var(--gold), transparent); }
-.stat-card:nth-child(4)::before { background: linear-gradient(90deg, var(--blue), transparent); }
+.stats-strip__item + .stats-strip__item { border-left: 1px solid var(--border); }
 
-.stat-card:active { transform: scale(.98); }
-
-.stat-card__num {
+.stats-strip__num {
+  display: block;
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 900;
   line-height: 1;
-  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
-.stat-card__label {
+.stats-strip__label {
+  display: block;
+  margin-top: 3px;
   font-size: 10px;
   color: var(--text3);
-  margin-top: 3px;
   text-transform: uppercase;
-  letter-spacing: .5px;
+  letter-spacing: .4px;
+  white-space: nowrap;
 }
 
 .taste-block {
@@ -830,7 +820,7 @@ select option {
 }
 .taste-block__header .taste-block__title { margin-bottom: 0; }
 
-/* Stesso linguaggio del .ranking-toggle Film/Serie, in scala ridotta: qui la
+/* Pillola compatta (Barre/Bolle, Film/Serie TV): qui la
    scelta è solo come guardare gli stessi dati, non quali dati mostrare. */
 .genre-view-toggle {
   display: flex;
@@ -1142,40 +1132,31 @@ select option {
   color: var(--text2);
 }
 
-.ranking-toggle {
+.section-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 18px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
 
-.ranking-toggle-btn {
-  flex: 1;
-  padding: 11px 14px;
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text3);
+.section-row .section__title { margin: 0; }
+
+/* Toggle Film/Serie a sinistra, legenda a destra. */
+.ranking-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ranking-legend {
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  box-shadow: none;
-  transition:
-    background var(--t-mid),
-    color var(--t-mid),
-    border-color var(--t-mid),
-    box-shadow var(--t-mid),
-    transform var(--t-fast);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text3);
+  white-space: nowrap;
 }
-
-.ranking-toggle-btn.active {
-  background: var(--surface3);
-  color: var(--text);
-  border-color: rgba(77,163,255,.32);
-  box-shadow: var(--blue-glow);
-}
-
-.ranking-toggle-btn:active { transform: scale(.97); }
 
 .count-badge {
   padding: 5px 12px;
@@ -1219,13 +1200,16 @@ select option {
 
 .podium-card:active { transform: scale(.96); }
 
-.podium-card--gold {
-  border-color: rgba(245,196,81,.3);
-  box-shadow: 0 0 0 1px rgba(245,196,81,.08), 0 8px 24px rgba(245,196,81,.1);
+/* Il 1° sta al centro (vedi podiumOrder in ui.js), un filo sollevato e con
+   l'alone oro: nessun colore diverso per argento e bronzo. */
+.podium-card--first {
+  transform: translateY(-8px);
+  border-color: rgba(245,196,81,.32);
+  box-shadow: 0 0 0 1px rgba(245,196,81,.1), 0 8px 24px rgba(245,196,81,.14);
 }
 
-.podium-card--silver { border-color: rgba(180,194,214,.22); }
-.podium-card--bronze { border-color: rgba(198,133,90,.22); }
+.podium-card--first:active { transform: translateY(-8px) scale(.96); }
+.podium-card--first .podium-card__medal { font-size: 28px; }
 
 .podium-card__medal {
   font-size: 24px;
@@ -2171,14 +2155,7 @@ select option {
   .detail-top { grid-template-columns: 84px 1fr; }
   .detail-poster { width: 84px; height: 126px; }
   .detail-title { font-size: 20px; }
-  /* Qui il voto va a capo sotto il poster, quindi la riga è più alta:
-     116px di contenuto = 138px di riga vera. */
-  .rank-row { grid-template-columns: 30px 44px 1fr; contain-intrinsic-size: auto 116px; }
-  .rank-row__vote {
-    grid-column: 2 / 4;
-    justify-self: start;
-    margin-top: 4px;
-  }
+  .rank-row { grid-template-columns: 30px 44px 1fr auto; }
   .list-item { grid-template-columns: 80px 1fr; gap: 10px; padding: 10px; }
   .list-item__thumb { width: 80px; }
   .nav__btn {
