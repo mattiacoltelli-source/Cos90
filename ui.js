@@ -421,21 +421,26 @@ export function renderGenreBubbles(entries) {
   container.appendChild(wrap);
 }
 
-const MEDALS = [
-  { icon:"🥇", cls:"gold", label:"1°" },
-  { icon:"🥈", cls:"silver", label:"2°" },
-  { icon:"🥉", cls:"bronze", label:"3°" }
-];
+// Riordina una lista già ordinata (items[0] = 1°) nell'ordine di disegno del
+// podio, 2°-1°-3° con il 1° al centro e sollevato. Il flag "first" segue la
+// posizione nell'array ORIGINALE, così regge anche 1 o 2 soli elementi.
+function podiumOrder(items) {
+  return [
+    items[1] ? { item: items[1], medal: "🥈", first: false } : null,
+    items[0] ? { item: items[0], medal: "🥇", first: true } : null,
+    items[2] ? { item: items[2], medal: "🥉", first: false } : null,
+  ].filter(Boolean);
+}
 
-export function renderPodium(podiumEl, items, typeLabel) {
+function renderPodium(podiumEl, items, typeLabel) {
   if (!items.length) {
     podiumEl.innerHTML = `<p class="empty-hint">Vota alcuni titoli per vedere il podio.</p>`;
     return;
   }
 
-  podiumEl.innerHTML = items.map((item, i) => `
-    <div class="podium-card podium-card--${MEDALS[i].cls} open-stored-detail" data-key="${uniqueKey(item)}">
-      <div class="podium-card__medal">${MEDALS[i].icon}</div>
+  podiumEl.innerHTML = podiumOrder(items).map(({ item, medal, first }) => `
+    <div class="podium-card open-stored-detail${first ? " podium-card--first" : ""}" data-key="${uniqueKey(item)}">
+      <div class="podium-card__medal">${medal}</div>
       <div class="podium-card__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
       <div class="podium-card__title">${escapeHtml(item.title)}</div>
       <div class="podium-card__meta">${escapeHtml(item.year)} · ${typeLabel}</div>
@@ -501,6 +506,34 @@ export function renderRankingList(listEl, items, offset, typeLabel, expandBtn = 
   const st = { items, offset, typeLabel, expanded: false, btn: expandBtn };
   _rankingLists.set(listEl, st);
   drawRankingRows(listEl, st);
+}
+
+// Classifica unica (Film oppure Serie TV): badge col numero di titoli votati,
+// podio sopra, righe dalla 4ª in giù con "Mostra tutti".
+export function renderRanking(items, typeLabel) {
+  const badgeEl = document.getElementById("rankingCountBadge");
+  const podiumEl = document.getElementById("rankingPodium");
+  const listEl = document.getElementById("rankingList");
+  const btn = document.getElementById("rankingExpandBtn");
+
+  if (badgeEl) badgeEl.textContent = String(items.length);
+
+  if (!items.length) {
+    podiumEl.innerHTML = `<p class="empty-hint">Vota ${typeLabel === "Film" ? "qualche film" : "qualche serie"} per vedere la classifica.</p>`;
+    listEl.innerHTML = "";
+    _rankingLists.delete(listEl);
+    if (btn) btn.classList.add("hidden");
+    return;
+  }
+
+  renderPodium(podiumEl, items.slice(0, 3), typeLabel);
+  if (items.length > 3) {
+    renderRankingList(listEl, items.slice(3), 4, typeLabel, btn);
+  } else {
+    listEl.innerHTML = "";
+    _rankingLists.delete(listEl);
+    if (btn) btn.classList.add("hidden");
+  }
 }
 
 // Richiamando con la lista già in cima si evita di restare a metà di una

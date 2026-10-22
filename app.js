@@ -14,7 +14,7 @@ import {
   showToast, haptic, animateStats,
   initScreens, switchScreen, getPreviousScreen, SCREENS,
   renderShelf, renderSearchResults, renderLibraryList,
-  renderGenreFilters, renderGenreBars, renderGenreBubbles, renderPodium, renderRankingList,
+  renderGenreFilters, renderGenreBars, renderGenreBubbles, renderRanking,
   toggleRankingList,
   renderTonightFive, renderDiscoverResult, renderClassicResult, renderDetailFacts,
   renderReportMeta, renderReportContent
@@ -101,6 +101,7 @@ let currentDetail = null;
 let currentLibraryMode = "watch";
 let currentLibraryFilter = "all";
 let currentLibraryGenre = "all";
+let rankingMedia = "movie"; // movie | tv — quale classifica mostra Statistiche
 let genreView = getGenreView(); // bubbles | bars — come guardare i Generi preferiti, scelta locale
 
 // "Vedi tutto" (doRenderLibrary) carica i risultati a blocchi invece di
@@ -547,46 +548,16 @@ function getRanked(type) {
 }
 
 function resetRanking() {
-  const empty = `<p class="empty-hint">Aggiungi voti per vedere la classifica.</p>`;
-
-  const ids = ["top100Podium", "top100List", "top100SeriesPodium", "top100SeriesList"];
-  ids.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = empty;
-  });
-
-  const badges = ["top100CountBadge", "top100SeriesCountBadge"];
-  badges.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = "0";
-  });
-
-  ["top100ExpandBtn", "top100SeriesExpandBtn"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.add("hidden");
-  });
+  renderRanking([], rankingMedia === "movie" ? "Film" : "Serie TV");
 }
 
-function renderRanking() {
-  const movies = getRanked("movie");
-  const series = getRanked("tv");
-
-  const badgeMovies = document.getElementById("top100CountBadge");
-  const badgeSeries = document.getElementById("top100SeriesCountBadge");
-
-  if (badgeMovies) badgeMovies.textContent = String(movies.length);
-  if (badgeSeries) badgeSeries.textContent = String(series.length);
-
-  renderPodium(document.getElementById("top100Podium"), movies.slice(0, 3), "Film");
-  renderRankingList(
-    document.getElementById("top100List"), movies.slice(3), 4, "Film",
-    document.getElementById("top100ExpandBtn")
-  );
-  renderPodium(document.getElementById("top100SeriesPodium"), series.slice(0, 3), "Serie TV");
-  renderRankingList(
-    document.getElementById("top100SeriesList"), series.slice(3), 4, "Serie TV",
-    document.getElementById("top100SeriesExpandBtn")
-  );
+function renderRankingSection() {
+  document.querySelectorAll("#rankingMediaToggle .genre-view-btn").forEach(btn => {
+    const on = btn.dataset.media === rankingMedia;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", String(on));
+  });
+  renderRanking(getRanked(rankingMedia), rankingMedia === "movie" ? "Film" : "Serie TV");
 }
 
 function renderStats() {
@@ -630,7 +601,7 @@ function renderStats() {
     });
 
   renderGenreView(topGenres);
-  renderRanking();
+  renderRankingSection();
 }
 
 // Le due viste dei Generi preferiti disegnano gli stessi `topGenres`: le
@@ -1446,8 +1417,6 @@ function bindEvents() {
   const recommendBtn = document.getElementById("recommendBtn");
   const discoverBtn = document.getElementById("discoverBtn");
   const classicBtn = document.getElementById("classicBtn");
-  const rankingToggleMovies = document.getElementById("rankingToggleMovies");
-  const rankingToggleSeries = document.getElementById("rankingToggleSeries");
   const reportRefreshBtn = document.getElementById("reportRefreshBtn");
   const exportBtn = document.getElementById("exportBtn");
   const importBtn = document.getElementById("importBtn");
@@ -1538,40 +1507,24 @@ function bindEvents() {
     });
   });
 
-  if (rankingToggleMovies && rankingToggleSeries) {
-    rankingToggleMovies.addEventListener("click", () => {
-      haptic([8]);
-      rankingToggleMovies.classList.add("active");
-      rankingToggleSeries.classList.remove("active");
-      toggleHidden("rankingPanelMovies", false);
-      toggleHidden("rankingPanelSeries", true);
-    });
-
-    rankingToggleSeries.addEventListener("click", () => {
-      haptic([8]);
-      rankingToggleSeries.classList.add("active");
-      rankingToggleMovies.classList.remove("active");
-      toggleHidden("rankingPanelSeries", false);
-      toggleHidden("rankingPanelMovies", true);
-    });
-  }
-
-  // Legato una sola volta qui (come il toggle Barre/Bolle sopra), non dentro
-  // syncGenreViewUI: quella è chiamata da renderStats(), invocata da
-  // renderAll() a ogni refresh dati (12 punti diversi in questo file, più il
-  // boot iniziale) — legare il listener lì lo riaggiungeva ad ogni render
-  // senza mai rimuovere il precedente, così bastava aprire la tab
-  // Statistiche una volta perché "Mostra tutti" finisse doppio-legato: un
-  // click espandeva e richiudeva nello stesso istante, sempre a somma zero.
-  [["top100ExpandBtn", "top100List", "rankingPanelMovies"],
-   ["top100SeriesExpandBtn", "top100SeriesList", "rankingPanelSeries"]].forEach(([btnId, listId, panelId]) => {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
+  document.querySelectorAll("#rankingMediaToggle .genre-view-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       haptic([8]);
-      toggleRankingList(document.getElementById(listId), document.getElementById(panelId));
+      rankingMedia = btn.dataset.media;
+      renderRankingSection();
     });
   });
+
+  // Legato una sola volta qui, non dentro renderStats: quella gira a ogni
+  // refresh dati, e un listener aggiunto lì finirebbe doppio-legato (un click
+  // espanderebbe e richiuderebbe la lista nello stesso istante).
+  const rankingExpandBtn = document.getElementById("rankingExpandBtn");
+  if (rankingExpandBtn) {
+    rankingExpandBtn.addEventListener("click", () => {
+      haptic([8]);
+      toggleRankingList(document.getElementById("rankingList"), document.getElementById("classificaSection"));
+    });
+  }
 
   if (exportBtn) exportBtn.addEventListener("click", () => { haptic([8]); exportBackup(); });
   if (importBtn && importFileInput) {
