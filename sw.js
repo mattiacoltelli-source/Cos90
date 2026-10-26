@@ -18,7 +18,7 @@
 //
 // Ad ogni release, cambia questo numero: è quello che fa capire al browser
 // che il file è cambiato e quindi c'è una versione nuova da proporre.
-const SW_VERSION = "997e2b4";
+const SW_VERSION = "9ecaec3";
 const SHELL = `cinetracker-shell-${SW_VERSION}`;
 const NAV_TIMEOUT_MS = 4000;
 
