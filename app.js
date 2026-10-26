@@ -58,6 +58,20 @@ function initUpdateCheck() {
     const recheckForUpdate = () => { if (document.visibilityState === "visible") reg.update(); };
     window.addEventListener("pageshow", recheckForUpdate);
     document.addEventListener("visibilitychange", recheckForUpdate);
+
+    // Cache offline: a pagina caricata, il service worker riceve l'elenco dei
+    // file dell'app realmente usati (vedi sw.js, CACHE_URLS) e li tiene da
+    // parte. Dopo qualche secondo, per non competere con il primo caricamento.
+    navigator.serviceWorker.ready.then(readyReg => {
+      const send = () => {
+        const urls = performance.getEntriesByType("resource")
+          .map(r => r.name)
+          .filter(u => u.startsWith(location.origin) && u.includes("?v="));
+        urls.push("./", "./index.html", "./manifest.json");
+        if (readyReg.active) readyReg.active.postMessage({ type: "CACHE_URLS", urls: [...new Set(urls)] });
+      };
+      setTimeout(send, 3000);
+    }).catch(() => {});
   }).catch(() => {});
 
   let alreadyReloading = false;
