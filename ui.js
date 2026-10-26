@@ -199,7 +199,7 @@ export function renderSearchResults(items, db) {
 
     return `
       <div class="poster-card">
-        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(n.poster_path))}')">
+        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(n.poster_path, "w342"))}')">
           <span class="badge ${mediaBadgeClass(n)}">${mediaLabel(n)}</span>
           ${inLibrary
             ? `<span class="poster-card__tag open-stored-detail" data-key="${uniqueKey(n)}">✓ Già in libreria · tocca per votare</span>`
@@ -224,7 +224,7 @@ export function renderSearchResults(items, db) {
 export function renderLibraryList(items, mode) {
   return items.map(item => `
     <div class="list-item open-stored-detail" data-key="${uniqueKey(item)}">
-      <div class="list-item__thumb" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
+      <div class="list-item__thumb" style="background-image:url('${escapeHtml(posterUrl(item.poster_path, "w185"))}')">
         <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
       </div>
 
@@ -441,7 +441,7 @@ function renderPodium(podiumEl, items, typeLabel) {
   podiumEl.innerHTML = podiumOrder(items).map(({ item, medal, first }) => `
     <div class="podium-card open-stored-detail${first ? " podium-card--first" : ""}" data-key="${uniqueKey(item)}">
       <div class="podium-card__medal">${medal}</div>
-      <div class="podium-card__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
+      <div class="podium-card__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path, "w342"))}')"></div>
       <div class="podium-card__title">${escapeHtml(item.title)}</div>
       <div class="podium-card__meta">${escapeHtml(item.year)} · ${typeLabel}</div>
       <div class="podium-card__vote">★ ${escapeHtml(item.vote)}</div>
@@ -461,7 +461,7 @@ function rankRowHtml(item, pos, typeLabel) {
   return `
     <div class="rank-row open-stored-detail" data-key="${uniqueKey(item)}">
       <div class="rank-row__pos">${pos}</div>
-      <div class="rank-row__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')"></div>
+      <div class="rank-row__poster" style="background-image:url('${escapeHtml(posterUrl(item.poster_path, "w185"))}')"></div>
       <div class="rank-row__info">
         <div class="rank-row__title">${escapeHtml(item.title)}</div>
         <div class="rank-row__meta">${escapeHtml(item.year)} · ${typeLabel}</div>
@@ -562,7 +562,7 @@ export function renderTonightFive(entries, profile, note) {
     <div class="results-grid">
       ${entries.map(({ item, affinity, reasons }) => `
         <div class="poster-card" data-tonight-key="${item.media_type}_${item.id}">
-          <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(item.poster_path))}')">
+          <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(item.poster_path, "w342"))}')">
             <span class="badge ${mediaBadgeClass(item)}">${mediaLabel(item)}</span>
             <span class="tonight-card__affinity">${affinity}%</span>
             <div class="poster-card__actions">
@@ -590,7 +590,7 @@ export function renderDiscoverResult(chosen, whyBits, rating, fallbackNote) {
   return `
     <div class="tonight-solo">
       <div class="poster-card" data-tonight-key="${chosen.media_type}_${chosen.id}">
-        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(chosen.poster_path))}')">
+        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(chosen.poster_path, "w342"))}')">
           <span class="badge ${mediaBadgeClass(chosen)}">${mediaLabel(chosen)}</span>
           <div class="poster-card__actions">
             <button class="poster-btn poster-btn--watch action-watch" data-id="${chosen.id}" data-type="${chosen.media_type}">♡ Lista</button>
@@ -616,7 +616,7 @@ export function renderClassicResult(pick, voto, commento) {
   return `
     <div class="tonight-solo">
       <div class="poster-card open-stored-detail" data-key="${uniqueKey(pick)}">
-        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(pick.poster_path))}')">
+        <div class="poster-card__img" style="background-image:url('${escapeHtml(posterUrl(pick.poster_path, "w342"))}')">
           <span class="badge ${mediaBadgeClass(pick)}">${mediaLabel(pick)}</span>
         </div>
         <div class="poster-card__info">
@@ -694,7 +694,7 @@ export function renderReportContent(report) {
     : `<p class="empty-hint">Nessun regista visto almeno 2 volte, per ora.</p>`;
 
   const recsHtml = recommendations.map((r, i) => {
-    const poster = posterUrl(r.poster_path || "");
+    const poster = posterUrl(r.poster_path || "", "w185");
     const posterStyle = poster ? ` style="background-image:url('${escapeHtml(poster)}')"` : "";
     return `
     <div class="rec-card">
