@@ -28,17 +28,45 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap"></noscript>
   <link rel="stylesheet" href="styles.css?v=9ecaec3">
-  <!-- Sentry: solo monitoraggio errori, nessun impatto sull'avvio se il CDN non risponde.
+  <!-- Sentry: solo monitoraggio errori. Si carica DOPO l'avvio dell'app (a
+       pagina caricata e con il browser libero), invece di bloccare il primo
+       disegno con uno script in testa alla pagina. Gli errori che avvengono
+       prima che Sentry sia pronto non si perdono: questo piccolo script li
+       tiene da parte e li invia appena l'SDK parte.
        Bundle SDK + init esplicito invece del Loader Script: il Loader
        (js.sentry-cdn.com/<chiave>.min.js) non serve mai il codice vero per le
        organizzazioni con residenza dati in Europa come questa (de.sentry.io) —
        restituisce sempre uno stub "not working anymore", verificato con curl
        diretto. Il bundle qui sotto non dipende da quel meccanismo. -->
-  <script src="https://browser.sentry-cdn.com/10.75.0/bundle.min.js" crossorigin="anonymous"></script>
   <script>
-    if (window.Sentry) {
-      Sentry.init({ dsn: "https://fc1a0707f9409d4ffc7b43afd4ec15ce@o4511991055450112.ingest.de.sentry.io/4512080200400977" });
-    }
+    (function () {
+      var early = [];
+      function keep(e) { early.push(e.error || e.reason || e.message); }
+      window.addEventListener("error", keep);
+      window.addEventListener("unhandledrejection", keep);
+
+      function load() {
+        var s = document.createElement("script");
+        s.src = "https://browser.sentry-cdn.com/10.75.0/bundle.min.js";
+        s.crossOrigin = "anonymous";
+        s.onload = function () {
+          window.removeEventListener("error", keep);
+          window.removeEventListener("unhandledrejection", keep);
+          if (!window.Sentry) return;
+          Sentry.init({ dsn: "https://fc1a0707f9409d4ffc7b43afd4ec15ce@o4511991055450112.ingest.de.sentry.io/4512080200400977" });
+          early.forEach(function (e) { Sentry.captureException(e); });
+          early = [];
+        };
+        document.head.appendChild(s);
+      }
+
+      function whenIdle() {
+        if (window.requestIdleCallback) requestIdleCallback(load, { timeout: 4000 });
+        else setTimeout(load, 2000);
+      }
+      if (document.readyState === "complete") whenIdle();
+      else window.addEventListener("load", whenIdle);
+    })();
   </script>
 </head>
 <body>
