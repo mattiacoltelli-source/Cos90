@@ -154,19 +154,122 @@ export async function loadDB(onReconciled) {
 let localWriteSeq = 0;
 let lastSavedDb = null;
 
+// ─── LETTURA "LEGGERA" ─────────────────────────────────────────────────────
+// Trama, cast e parole chiave sono circa i due terzi del peso di ogni riga
+// (~220 KB su rete, contro ~53 KB per il resto) e dopo il salvataggio di un
+// titolo non cambiano più. Il resto della libreria si rilegge sempre; questi
+// tre campi si riusano dalla copia locale, e solo per i titoli che non ci
+// sono ancora (nuovi, o aggiunti da un altro dispositivo) si scaricano da
+// Supabase.
+//
+// Importante: il risultato è IDENTICO a un `select *` (stesse chiavi, stesso
+// ordine) e `db` resta sempre completo, mai "ridotto". È questo che rende
+// sicuro il salvataggio: _pushToSupabase riscrive per intero ogni titolo, e
+// un titolo senza trama/cast/parole chiave sovrascriverebbe quelli veri.
+// Per lo stesso motivo, qualunque anomalia ripiega sul `select *` di sempre.
+const HEAVY_KEYS = ["overview", "cast", "keywords"];
+const LIGHT_SELECT = [
+  "tmdb_id", "list", "media_type",
+  "id:data->id", "title:data->title", "year:data->year",
+  "poster_path:data->poster_path", "backdrop_path:data->backdrop_path",
+  "vote:data->vote", "comment:data->comment",
+  "vote_average:data->vote_average", "vote_count:data->vote_count",
+  "popularity:data->popularity", "genre_names:data->genre_names",
+  "director:data->director", "savedAt:data->savedAt",
+  "release_date:data->release_date", "first_air_date:data->first_air_date",
+].join(",");
+// Sotto questa soglia di titoli in cache (prima apertura, cache svuotata) la
+// lettura intera costa meno di leggero + completamento.
+const LIGHT_MIN_LOCAL = 30;
+const HYDRATE_CHUNK = 100;
+
+// Postgres jsonb restituisce le chiavi ordinate per lunghezza e poi
+// alfabeticamente: riprodurre lo stesso ordine tiene uguale il confronto
+// JSON.stringify(fresh) vs cache in loadDB (altrimenti segnalerebbe una
+// differenza ad ogni apertura e ridisegnerebbe tutto per niente).
+function jsonbOrder(obj) {
+  const out = {};
+  Object.keys(obj)
+    .sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0))
+    .forEach(k => { out[k] = obj[k]; });
+  return out;
+}
+
+async function fetchFullRows() {
+  const res = await supabase.from("Coltel").select("*").eq("user_id", USER_ID);
+  if (!res || res.error) {
+    console.warn("Supabase error:", res?.error);
+    return null;
+  }
+  return res.data || [];
+}
+
+async function fetchLightRows() {
+  const cache = loadLocalCache();
+  const local = new Map();
+  (cache?.seen || []).forEach(item => local.set(`${item.id}|seen`, item));
+  (cache?.watchlist || []).forEach(item => local.set(`${item.id}|watchlist`, item));
+  if (local.size < LIGHT_MIN_LOCAL) return null;
+
+  const res = await supabase.from("Coltel").select(LIGHT_SELECT).eq("user_id", USER_ID);
+  if (!res || res.error || !Array.isArray(res.data) || !res.data.length) return null;
+
+  const heavyOf = new Map();
+  const missing = [];
+  res.data.forEach(r => {
+    const key = `${r.tmdb_id}|${r.list}`;
+    const item = local.get(key);
+    if (item) {
+      const h = {};
+      HEAVY_KEYS.forEach(k => { if (k in item) h[k] = item[k]; });
+      heavyOf.set(key, h);
+    } else {
+      missing.push(r.tmdb_id);
+    }
+  });
+
+  for (let i = 0; i < missing.length; i += HYDRATE_CHUNK) {
+    const part = await supabase.from("Coltel").select("tmdb_id,list,data")
+      .eq("user_id", USER_ID).in("tmdb_id", missing.slice(i, i + HYDRATE_CHUNK));
+    if (!part || part.error || !Array.isArray(part.data)) return null;
+    part.data.forEach(r => {
+      const h = {};
+      HEAVY_KEYS.forEach(k => { if (r.data && k in r.data) h[k] = r.data[k]; });
+      heavyOf.set(`${r.tmdb_id}|${r.list}`, h);
+    });
+  }
+
+  const rows = [];
+  for (const r of res.data) {
+    const heavy = heavyOf.get(`${r.tmdb_id}|${r.list}`);
+    if (!heavy) return null; // non completabile: meglio la lettura intera
+    const item = { ...heavy };
+    // Un campo assente (null) in una riga vecchia resta assente, come in `select *`.
+    ["id", "title", "year", "poster_path", "backdrop_path", "vote", "comment",
+     "vote_average", "vote_count", "popularity", "genre_names", "director",
+     "savedAt", "release_date", "first_air_date"].forEach(k => {
+      if (r[k] !== null && r[k] !== undefined) item[k] = r[k];
+    });
+    item.media_type = r.media_type;
+    rows.push({ list: r.list, data: jsonbOrder(item) });
+  }
+  return rows;
+}
+
+async function fetchRows() {
+  try {
+    const light = await fetchLightRows();
+    if (light) return light;
+  } catch (e) {
+    console.warn("Lettura leggera non riuscita, uso quella intera:", e);
+  }
+  return fetchFullRows();
+}
+
 async function syncFromSupabase() {
   try {
-    const res = await supabase
-      .from("Coltel")
-      .select("*")
-      .eq("user_id", USER_ID);
-
-    if (!res || res.error) {
-      console.warn("Supabase error:", res?.error);
-      return null;
-    }
-
-    const data = res.data || [];
+    const data = await fetchRows();
+    if (!data) return null;
 
     const seen = sortBySavedAtDesc(data
       .filter(r => r.list === "seen")
