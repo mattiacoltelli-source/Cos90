@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>CineTracker · Stanze</title>
+<link rel="stylesheet" href="stanze/stanze.css?v=9576e74">
+<script type="importmap">{ "imports": { "three": "./stanze/vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="fade"></div>
+<div id="hud">
+  <button id="back" hidden>‹ Atrio</button>
+  <div id="where"></div>
+</div>
+<div id="say"></div>
+<div id="stick"><i></i></div>
+<div id="card" hidden>
+  <div class="card-in">
+    <img id="c-img" alt="">
+    <div class="c-txt">
+      <h2 id="c-title"></h2>
+      <p id="c-meta"></p>
+      <p id="c-cast"></p>
+      <p id="c-note"></p>
+      <button id="c-close">Chiudi</button>
+    </div>
+  </div>
+</div>
+<div id="intro"><div><h1>STANZE</h1><p id="intro-msg">Carico la libreria…</p><button id="go" hidden>ENTRA</button></div></div>
+<script type="module" src="stanze/stanze.js?v=9576e74"></script>
+</body>
+</html>

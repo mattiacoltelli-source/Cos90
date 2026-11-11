@@ -1,0 +1,20 @@
+html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;font-family:Inter,system-ui,sans-serif;color:#d8d2c8}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+#fade{position:fixed;inset:0;background:#000;opacity:1;pointer-events:none;transition:opacity 1.2s}
+#hud{position:fixed;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;display:flex;gap:10px;align-items:center;pointer-events:none}
+#hud button{pointer-events:auto;background:rgba(0,0,0,.55);color:#d8d2c8;border:1px solid #ffffff22;border-radius:20px;padding:10px 16px;font:600 14px Outfit,sans-serif;min-height:44px}
+#where{font:700 12px Outfit,sans-serif;letter-spacing:.28em;text-transform:uppercase;opacity:.6}
+#say{position:fixed;left:0;right:0;bottom:22%;text-align:center;font:italic 15px Inter,sans-serif;letter-spacing:.04em;opacity:0;transition:opacity 1.2s;pointer-events:none;text-shadow:0 0 8px #000;padding:0 24px}
+#stick{position:fixed;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;border:1px solid #ffffff33;opacity:0;pointer-events:none}
+#stick i{position:absolute;left:30px;top:30px;width:32px;height:32px;border-radius:50%;background:#ffffff40}
+#card{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:flex-end;justify-content:center;z-index:5}
+#card[hidden]{display:none}
+.card-in{display:flex;gap:14px;max-width:560px;width:100%;box-sizing:border-box;padding:16px 16px max(16px,env(safe-area-inset-bottom));background:#0c0a09;border-top:1px solid #7a1c1c}
+#c-img{width:112px;height:168px;object-fit:cover;border-radius:4px;background:#1a1412;flex:none}
+.c-txt h2{margin:0 0 4px;font:800 20px Outfit,sans-serif}
+.c-txt p{margin:4px 0;font-size:13px;line-height:1.4;opacity:.8}
+#c-close{margin-top:8px;background:#7a1c1c;color:#fff;border:0;border-radius:20px;padding:10px 20px;font:700 14px Outfit,sans-serif;min-height:44px}
+#intro{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;text-align:center;z-index:9}
+#intro h1{font:900 34px Outfit,sans-serif;letter-spacing:.35em;margin:0 0 10px}
+#intro p{opacity:.6;font-size:14px;margin:0 0 22px}
+#go{background:none;color:#d8d2c8;border:1px solid #d8d2c8;padding:14px 34px;letter-spacing:.3em;font:700 14px Outfit,sans-serif;min-height:48px}
