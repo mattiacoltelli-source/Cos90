@@ -400,7 +400,6 @@ function buildRoom(genre, films) {
     room.add(g);
     posters.push({ mesh: p, plaque: pl, film, z, state: 0, hi: false, tok: 0 });
   });
-  mk(new THREE.PlaneGeometry(3, 0.9), new THREE.MeshBasicMaterial({ map: labelTexture([[films.length ? "FINE" : "NESSUN TITOLO QUI", 38, 80, "5px"]], 512, 160, hex(th.color)), fog: false }), 0, 1.6, -L + 1.02);
   $("scrub").value = 0;
 }
 
