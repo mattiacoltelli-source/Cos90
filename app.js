@@ -1442,6 +1442,11 @@ function bindEvents() {
   const detailRemoveBtn = document.getElementById("detailRemoveBtn");
   const libraryFilters = document.getElementById("libraryFilters");
 
+  document.getElementById("navRooms")?.addEventListener("click", () => {
+    haptic([8]);
+    location.href = "stanze.html";
+  });
+
   document.querySelectorAll(".nav__btn[data-screen]").forEach(btn => {
     btn.addEventListener("click", () => {
       haptic([8]);

@@ -18,3 +18,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none
 #intro h1{font:900 34px Outfit,sans-serif;letter-spacing:.35em;margin:0 0 10px}
 #intro p{opacity:.6;font-size:14px;margin:0 0 22px}
 #go{background:none;color:#d8d2c8;border:1px solid #d8d2c8;padding:14px 34px;letter-spacing:.3em;font:700 14px Outfit,sans-serif;min-height:48px}
+#exit{pointer-events:auto;background:rgba(0,0,0,.55);color:#d8d2c8;border:1px solid #ffffff22;border-radius:20px;padding:0 16px;font:600 14px Outfit,sans-serif;min-height:44px;display:inline-flex;align-items:center;text-decoration:none}
+#exit[hidden]{display:none}
+#scrub{position:fixed;left:24px;right:24px;bottom:max(18px,env(safe-area-inset-bottom));width:auto;height:30px;opacity:.55;accent-color:#d8d2c8;touch-action:pan-x;z-index:3}
+#scrub[hidden]{display:none}
