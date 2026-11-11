@@ -5,8 +5,8 @@
 // Pagina a sé (stanze.html), raggiunta dalla barra in basso dell'app.
 // I dati sono quelli di sempre (loadDB): niente di nuovo da salvare.
 import * as THREE from "three";
-import { loadDB } from "../storage.js?v=bffc920";
-import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=bffc920";
+import { loadDB } from "../storage.js?v=07e757e";
+import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=07e757e";
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
