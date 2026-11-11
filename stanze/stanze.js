@@ -5,8 +5,8 @@
 // Pagina a sé (stanze.html), raggiunta dalla barra in basso dell'app.
 // I dati sono quelli di sempre (loadDB): niente di nuovo da salvare.
 import * as THREE from "three";
-import { loadDB } from "../storage.js?v=7cfd417";
-import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=7cfd417";
+import { loadDB } from "../storage.js?v=138dbac";
+import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=138dbac";
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
@@ -166,7 +166,7 @@ const THEMES = {
   Horror: { color: 0xb02020, door: "horror", fog: [0x030102, 0.075], hemi: [0x1a2230, 0.5], lamp: [0xff6a3a, 9], torch: 34, mood: "flicker", ceil: 0x080808,
     wall: W({ tex: "brick" }, [2.1, 1.05], 0x5a4a44), floor: W({ tex: "floorA" }, [1.6, 1.6], 0x5a5650, { rough: 0.65 }), bulb: [0.5, 0.06, 0.12, 0xff9060], frame: [0x0a0807, 0, 0] },
   Mistero: { color: 0x7a5cff, door: "mist", fog: [0x06050d, 0.08], hemi: [0x6a58a8, 0.7], lamp: [0x9a7cff, 11], torch: 26, mood: "pulse", ceil: 0x07060c,
-    wall: W({ tex: "planks" }, [1.6, 1.6], 0x7a6a9a), floor: W({ tex: "rubber" }, [1, 1], 0x7a7aa0, { rough: 0.3 }), bulb: [0.4, 0.06, 0.4, 0xb8a0ff], frame: [0x120e1c, 0x7a5cff, 0.35] },
+    wall: W({ tex: "stone" }, [1.8, 1.8], 0x8a78b8), floor: W({ tex: "rubber" }, [1, 1], 0x7a7aa0, { rough: 0.3 }), bulb: [0.4, 0.06, 0.4, 0xb8a0ff], frame: [0x120e1c, 0x7a5cff, 0.35] },
   Thriller: { color: 0x3aa07a, door: "thriller", fog: [0x04100c, 0.055], hemi: [0x70a090, 1.0], lamp: [0xc8ffd8, 12], torch: 16, mood: "flicker", ceil: 0x0a0c0c,
     wall: W({ tex: "tiles" }, [1.2, 1.2], 0x5c6c64), floor: W({ tex: "rubber" }, [1, 1], 0xa8aeb0, { rough: 0.45 }), bulb: [0.9, 0.05, 0.3, 0xd8ffe4], frame: [0x101412, 0, 0] },
   Fantascienza: { color: 0x2a8cff, door: "scifi", fog: [0x06203a, 0.03], hemi: [0x4a98e0, 1.6], lamp: [0x5ab8ff, 16], torch: 8, mood: "steady", ceil: 0x0c1824, neon: 0x3a9cff,
@@ -174,7 +174,7 @@ const THEMES = {
   Drama: { color: 0xc01830, door: "drama", fog: [0x2a060c, 0.04], hemi: [0xc02838, 1.3], lamp: [0xff3040, 16], torch: 6, mood: "steady", ceil: 0x1a0608, trim: 0xc89a3a,
     wall: W({ tex: "velvet" }, [1.1, 1.1], 0xc06068), floor: W({ tex: "planks" }, [1.6, 1.6], 0xb09080, { rough: 0.5 }), bulb: [0.7, 0.05, 0.3, 0xff7a80], frame: [0x2a1c0a, 0xc89a3a, 0.35] },
   Azione: { color: 0xff7a1a, door: "steel", fog: [0x1a1008, 0.03], hemi: [0xffe0c0, 1.1], lamp: [0xffa050, 12], torch: 8, mood: "steady", ceil: 0x2a2a2a, stripe: 0xff7a1a,
-    wall: W({ proc: "concrete", c1: "#8a8a86", c2: "#6a6a66" }, [2.4, 2.4], 0xffffff), floor: W({ tex: "rubber" }, [1, 1], 0xc08060, { rough: 0.6 }), bulb: [1.2, 0.06, 0.25, 0xfff0d0], frame: [0x1a1a1a, 0xff7a1a, 0.4] },
+    wall: W({ tex: "rust" }, [2.4, 2.4], 0xe0d0c0, { rough: 0.7, metal: 0.25 }), floor: W({ tex: "floorB" }, [1.8, 1.8], 0xd8b898, { rough: 0.7 }), bulb: [1.2, 0.06, 0.25, 0xfff0d0], frame: [0x1a1a1a, 0xff7a1a, 0.4] },
   Avventura: { color: 0xd89a30, door: "stone", fog: [0xd8aa70, 0.028], hemi: [0xfff0d0, 1.5], lamp: [0xffd890, 12], torch: 0, mood: "steady", ceil: 0x4a3a2a,
     wall: W({ tex: "cliff" }, [2.2, 2.2], 0xc0987a), floor: W({ tex: "rawwood" }, [1.6, 1.6], 0xb09070), bulb: [0.3, 0.3, 0.3, 0xffb050], frame: [0x3a2812, 0, 0] },
   Animazione: { color: 0xff5aa8, door: "candy", fog: [0xbfd8ff, 0.02], hemi: [0xffffff, 1.6], lamp: [0xffffff, 10], torch: 0, mood: "steady", ceil: 0xf0f4ff,
@@ -182,21 +182,21 @@ const THEMES = {
   Commedia: { color: 0xf0b020, door: "candy", fog: [0xffe8b0, 0.02], hemi: [0xfff4e0, 1.5], lamp: [0xffe0a0, 11], torch: 0, mood: "steady", ceil: 0xfff0d0,
     wall: W({ proc: "stripes", c1: "#f4c430", c2: "#fff4cc" }, [1.2, 1.2], 0xffffff), floor: W({ tex: "parquet" }, [1.6, 1.6], 0xffe0b0, { rough: 0.5 }), bulb: [0.5, 0.05, 0.5, 0xfff0c0], frame: [0xe03030, 0xe03030, 0.25] },
   Crime: { color: 0xe0902a, door: "noir", fog: [0x120a05, 0.05], hemi: [0xb87038, 0.95], lamp: [0xffa030, 14], torch: 12, mood: "steady", ceil: 0x0a0806,
-    wall: W({ proc: "concrete", c1: "#5a5048", c2: "#3a3028" }, [2.4, 2.4], 0xffffff), floor: W({ tex: "rubber" }, [1, 1], 0x8a7a70, { rough: 0.35 }), bulb: [0.7, 0.05, 0.3, 0xffb050], frame: [0x1a1208, 0xffa030, 0.2] },
+    wall: W({ tex: "rust" }, [2.4, 2.4], 0x7a6a60, { rough: 0.6, metal: 0.2 }), floor: W({ tex: "floorB" }, [1.8, 1.8], 0x6a625a, { rough: 0.3 }), bulb: [0.7, 0.05, 0.3, 0xffb050], frame: [0x1a1208, 0xffa030, 0.2] },
   Documentario: { color: 0xa0a8b0, door: "gallery", fog: [0xe8e8ea, 0.015], hemi: [0xffffff, 1.7], lamp: [0xffffff, 10], torch: 0, mood: "steady", ceil: 0xf4f4f4,
     wall: W({ proc: "plaster", c1: "#e8e6e0", c2: "#c8c4b8" }, [2.4, 2.4], 0xffffff), floor: W({ tex: "parquet" }, [1.6, 1.6], 0xd8c8b0, { rough: 0.55 }), bulb: [1.2, 0.04, 0.3, 0xffffff], frame: [0x111111, 0, 0] },
   Famiglia: { color: 0x70c040, door: "candy", fog: [0xf0f4e0, 0.02], hemi: [0xfff8e0, 1.5], lamp: [0xffe8b0, 10], torch: 0, mood: "steady", ceil: 0xfff8ee,
     wall: W({ proc: "stripes", c1: "#bde0c8", c2: "#e8f5ec" }, [1.2, 1.2], 0xffffff), floor: W({ tex: "rawwood" }, [1.6, 1.6], 0xe0c8a0), bulb: [0.5, 0.05, 0.5, 0xfff4d0], frame: [0x8a5a2a, 0, 0] },
   Fantasy: { color: 0x5adca0, door: "forest", fog: [0x0a2018, 0.05], hemi: [0x7affc0, 0.9], lamp: [0x9affb0, 9], torch: 14, mood: "pulse", ceil: 0x0a1a14,
-    wall: W({ tex: "cliff" }, [2.2, 2.2], 0x6a9a70), floor: W({ proc: "grass", c1: "#2a5a2a", c2: "#6aaa3a" }, [1.5, 1.5], 0xffffff, { rough: 1 }), bulb: [0.2, 0.2, 0.2, 0xb8ffd0], frame: [0x1a3a22, 0x7affc0, 0.35] },
+    wall: W({ tex: "stone" }, [1.8, 1.8], 0x6aa880), floor: W({ proc: "grass", c1: "#2a5a2a", c2: "#6aaa3a" }, [1.5, 1.5], 0xffffff, { rough: 1 }), bulb: [0.2, 0.2, 0.2, 0xb8ffd0], frame: [0x1a3a22, 0x7affc0, 0.35] },
   Storia: { color: 0xb08a50, door: "wood", fog: [0x2a1a0c, 0.045], hemi: [0xffc890, 0.9], lamp: [0xffb060, 10], torch: 12, mood: "candle", ceil: 0x2a1e14, trim: 0x8a6a30,
-    wall: W({ tex: "brick" }, [2.1, 1.05], 0xb09070), floor: W({ tex: "planks" }, [1.6, 1.6], 0xb8a080), bulb: [0.15, 0.3, 0.15, 0xffa040], frame: [0x3a2410, 0xb08a3a, 0.2] },
+    wall: W({ tex: "stone" }, [1.8, 1.8], 0xd0b490), floor: W({ tex: "floorB" }, [1.8, 1.8], 0xb8a488), bulb: [0.15, 0.3, 0.15, 0xffa040], frame: [0x3a2410, 0xb08a3a, 0.2] },
   Musica: { color: 0xc050ff, door: "club", fog: [0x100820, 0.05], hemi: [0x8a4aff, 0.7], lamp: [0xff40d0, 10], torch: 10, mood: "cycle", cycle: [0xff40d0, 0x40d8ff], ceil: 0x0a0614,
     wall: W({ tex: "velvet" }, [1.1, 1.1], 0x5a3a9a), floor: W({ tex: "planks" }, [1.6, 1.6], 0x8a7aa8, { rough: 0.4 }), bulb: [0.5, 0.05, 0.5, 0xff60e0], frame: [0x140a24, 0xff60e0, 0.45] },
   Romance: { color: 0xf070a0, door: "drama", fog: [0xffd0dc, 0.025], hemi: [0xffe0e8, 1.5], lamp: [0xffb0c0, 10], torch: 0, mood: "steady", ceil: 0xffe8ee, trim: 0xe8c080,
     wall: W({ tex: "velvet" }, [1.1, 1.1], 0xe8a0b4), floor: W({ tex: "parquet" }, [1.6, 1.6], 0xffd8c8, { rough: 0.45 }), bulb: [0.6, 0.05, 0.3, 0xffe0e8], frame: [0xf0d0a0, 0xffc0d0, 0.3] },
   Guerra: { color: 0x8a9a40, door: "bunker", fog: [0x1c1e10, 0.045], hemi: [0xb8c080, 1.1], lamp: [0xd0d890, 11], torch: 12, mood: "steady", ceil: 0x1a1c10,
-    wall: W({ tex: "tiles" }, [1.2, 1.2], 0x6a7040), floor: W({ tex: "cliff" }, [2, 2], 0x6a5a40), bulb: [0.4, 0.12, 0.15, 0xd8e0a0], frame: [0x2a2c18, 0, 0] },
+    wall: W({ tex: "rust" }, [2.4, 2.4], 0x8a9060, { rough: 0.7, metal: 0.2 }), floor: W({ tex: "floorB" }, [1.8, 1.8], 0x6a6444), bulb: [0.4, 0.12, 0.15, 0xd8e0a0], frame: [0x2a2c18, 0, 0] },
   Western: { color: 0xd0803a, door: "saloon", fog: [0x3a2410, 0.035], hemi: [0xffc880, 1.1], lamp: [0xffa850, 10], torch: 8, mood: "steady", ceil: 0x3a2814,
     wall: W({ tex: "rawwood" }, [1.6, 1.6], 0xc09a6a), floor: W({ tex: "parquet" }, [1.6, 1.6], 0x9a7a50), bulb: [0.2, 0.35, 0.2, 0xffb060], frame: [0x2a1a0c, 0, 0] },
 };
