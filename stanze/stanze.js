@@ -4,8 +4,8 @@
 // (stanze.html): non tocca l'app. I dati sono quelli di sempre (loadDB).
 // Per ora: atrio + stanza Horror (le altre porte sono segnaposto).
 import * as THREE from "three";
-import { loadDB } from "../storage.js?v=f6dcb75";
-import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=f6dcb75";
+import { loadDB } from "../storage.js?v=138dbac";
+import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=138dbac";
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
