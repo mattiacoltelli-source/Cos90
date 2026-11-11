@@ -12,7 +12,7 @@ const q = new URLSearchParams(location.search);
 
 // ─── dati ────────────────────────────────────────────────────────────────────
 function demoFilms(n, genre = "Horror") {
-  const t = genre === "Fantascienza" ? ["Orbita", "Andromeda", "Il Sintetico", "Ultima Frontiera", "Segnale", "Nova", "Cyber Alba", "Terraformer", "Oltre il Vuoto", "Zero G", "Replicante", "Eclisse", "Il Cacciatore di Stelle", "Rift"] : ["Il Rituale", "Notte Nera", "La Casa in Fondo", "Sotto la Pelle", "Ultimo Piano", "Eco", "Nebbia", "Il Visitatore", "Sette Porte", "Cripta", "Lo Specchio", "Respiro", "Fuori Orario", "Il Custode"];
+  const t = genre === "Drama" ? ["Le Ore Perdute", "Casa di Sabbia", "Fiori d'Inverno", "Il Peso del Silenzio", "Ritorno a Casa", "Lettere", "Una Stagione", "Ultimo Atto", "Dove Eravamo", "Il Sipario", "Famiglia", "Tre Sorelle", "Notte di Pioggia", "L'Addio"] : genre === "Thriller" ? ["Sospetto", "Il Testimone", "Linea Rossa", "Doppio Gioco", "L'Informatore", "Scacco", "Traccia", "Ore 23:59", "Il Fantasma", "Complice", "Senza Uscita", "Contatto", "Rete", "Alibi"] : genre === "Fantascienza" ? ["Orbita", "Andromeda", "Il Sintetico", "Ultima Frontiera", "Segnale", "Nova", "Cyber Alba", "Terraformer", "Oltre il Vuoto", "Zero G", "Replicante", "Eclisse", "Il Cacciatore di Stelle", "Rift"] : ["Il Rituale", "Notte Nera", "La Casa in Fondo", "Sotto la Pelle", "Ultimo Piano", "Eco", "Nebbia", "Il Visitatore", "Sette Porte", "Cripta", "Lo Specchio", "Respiro", "Fuori Orario", "Il Custode"];
   return Array.from({ length: n }, (_, i) => ({ id: 9000 + i, media_type: "movie", title: t[i % t.length], year: 1980 + i * 2, vote: [9, 8, 7, 8.5, 6, 5, 7.5, 4, 9.5, 6.5, 3, 8, 7, 5.5][i % 14], genre_names: [genre], director: "Regista " + (i + 1), cast: ["Attore A", "Attrice B", "Attore C"], poster_path: "" }));
 }
 const GENRE_ALIAS = { "Sci-Fi & Fantasy": "Fantascienza", Dramma: "Drama", "Azione & Avventura": "Azione" };
@@ -103,8 +103,13 @@ const HUB_R = 4.6;
 const GENRE_COLOR = { Horror: 0xb02020, Fantascienza: 0x2ab8ff, Commedia: 0xf0b020, Drama: 0x9a6ad8, Thriller: 0x3aa07a, Azione: 0xe0701c, Romance: 0xe05a8a, Fantasy: 0x6ad0c0, Animazione: 0x70c040, Crime: 0x888888 };
 // Stanze già disegnate: stile della porta, della stanza e luci. Le altre porte restano segnaposto.
 const THEMES = {
-  Horror: { style: "horror", fog: 0x030102, density: 0.075, hemi: 0.5, lamp: 0xff6a3a, lampI: 9, torch: 34, flicker: true },
-  Fantascienza: { style: "scifi", fog: 0x03080d, density: 0.04, hemi: 0.9, lamp: 0x7fd8ff, lampI: 10, torch: 12, flicker: false },
+  Horror: { style: "horror", fog: 0x030102, density: 0.075, hemi: 0.5, hemiC: 0x1a2230, lamp: 0xff6a3a, lampI: 9, torch: 34, flicker: true,
+    wall: { tex: "brick", tile: [2.1, 1.05], tint: 0x5a4a44 }, floor: { tex: "floorA", tile: [1.6, 1.6], tint: 0x5a5650, rough: 0.65 }, ceil: 0x080808, bulb: [0.5, 0.06, 0.12, 0xff9060], frame: [0x0a0807, 0x000000, 0] },
+  Fantascienza: { style: "scifi", fog: 0x03080d, density: 0.04, hemi: 0.9, hemiC: 0x6aa8d0, lamp: 0x7fd8ff, lampI: 10, torch: 12, flicker: false, bulb: [0.9, 0.05, 0.5, 0xcff2ff], frame: [0x0c1c26, 0x2ab8ff, 0.5] },
+  Drama: { style: "drama", fog: 0x080204, density: 0.06, hemi: 0.6, hemiC: 0x6a4040, lamp: 0xffb060, lampI: 9, torch: 20, flicker: false,
+    wall: { tex: "velvet", tile: [1.1, 1.1], tint: 0x8a4a52 }, floor: { tex: "planks", tile: [1.6, 1.6], tint: 0x8a7e72, rough: 0.5 }, ceil: 0x120608, bulb: [0.7, 0.05, 0.3, 0xffd890], frame: [0x2a1c0a, 0xc89a3a, 0.35], trim: 0xc89a3a },
+  Thriller: { style: "thriller", fog: 0x030605, density: 0.085, hemi: 0.45, hemiC: 0x405048, lamp: 0xc8ffd8, lampI: 8, torch: 28, flicker: true,
+    wall: { tex: "tiles", tile: [1.2, 1.2], tint: 0x5c6c64 }, floor: { tex: "rubber", tile: [1.0, 1.0], tint: 0xa8aeb0, rough: 0.45 }, ceil: 0x0a0c0c, bulb: [0.9, 0.05, 0.3, 0xd8ffe4], frame: [0x101412, 0x000000, 0] },
 };
 const hex = (n) => "#" + new THREE.Color(n).getHexString();
 function canvasTex(w, h, draw, repeat) {
@@ -133,6 +138,18 @@ function doorTexture(style, color) {
       g.fillStyle = acc; g.fillRect(8, 0, 5, h); g.fillRect(w - 13, 0, 5, h);                   // barre di luce
       g.fillStyle = "#0a1016"; g.fillRect(w / 2 + 20, h * 0.5 - 24, 30, 48); g.fillStyle = acc; g.fillRect(w / 2 + 26, h * 0.5 - 14, 18, 6); g.fillRect(w / 2 + 26, h * 0.5 + 2, 18, 6);
       const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "rgba(120,220,255,.12)"); gr.addColorStop(1, "rgba(0,0,0,.3)"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    } else if (style === "drama") {
+      g.fillStyle = "#5a1422"; g.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x += 32) { const gr = g.createLinearGradient(x, 0, x + 32, 0); gr.addColorStop(0, "rgba(0,0,0,.45)"); gr.addColorStop(.5, "rgba(255,120,130,.16)"); gr.addColorStop(1, "rgba(0,0,0,.45)"); g.fillStyle = gr; g.fillRect(x, 0, 32, h); }
+      g.fillStyle = "#c89a3a"; g.fillRect(0, 0, w, 14); g.fillRect(0, h - 14, w, 14); g.fillRect(w / 2 - 2, 14, 4, h - 28);
+      g.beginPath(); g.arc(w / 2 - 22, h * 0.52, 8, 0, 7); g.arc(w / 2 + 22, h * 0.52, 8, 0, 7); g.fill();
+    } else if (style === "thriller") {
+      g.fillStyle = "#3a4642"; g.fillRect(0, 0, w, h);
+      g.fillStyle = "rgba(255,255,255,.05)"; g.fillRect(0, 0, 14, h);
+      g.fillStyle = "#101614"; g.fillRect(w / 2 - 34, 70, 68, 120);                              // oblò
+      g.fillStyle = "rgba(160,255,200,.35)"; g.fillRect(w / 2 - 28, 76, 56, 108);
+      g.fillStyle = "#222c28"; g.fillRect(0, h * 0.62, w, 6); g.fillStyle = "#9a9a9a"; g.fillRect(w - 52, h * 0.5, 28, 8);
+      g.fillStyle = "#e0c040"; for (let x = 0; x < w; x += 40) g.fillRect(x, h - 30, 22, 14);   // strisce di sicurezza
     } else {
       g.fillStyle = "#171513"; g.fillRect(0, 0, w, h);
       g.fillStyle = "#0e0d0c"; g.fillRect(26, 30, w - 52, h * 0.38); g.fillRect(26, h * 0.5, w - 52, h * 0.42);
@@ -147,7 +164,7 @@ function buildDoor(name, count, color, a) {
   const g = new THREE.Group();
   g.position.set(Math.sin(a) * (HUB_R - 0.02), 0, -Math.cos(a) * (HUB_R - 0.02));
   g.rotation.y = -a;   // il lato +z guarda il centro
-  const stone = new THREE.MeshStandardMaterial({ color: style === "scifi" ? 0x141b22 : 0x1d1a17, roughness: 0.85, emissive: style === "scifi" ? color : 0x000000, emissiveIntensity: 0.05 });
+  const stone = new THREE.MeshStandardMaterial({ color: style === "scifi" ? 0x141b22 : style === "drama" ? 0x2a1c10 : style === "thriller" ? 0x1e2422 : 0x1d1a17, roughness: 0.85, emissive: style === "scifi" ? color : 0x000000, emissiveIntensity: 0.05 });
   const box = (w, h, d, x, y, z, m = stone) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
   box(0.22, 2.62, 0.34, -0.74, 1.31, 0.17); box(0.22, 2.62, 0.34, 0.74, 1.31, 0.17); box(1.7, 0.22, 0.34, 0, 2.63, 0.17);   // stipiti e architrave
   box(1.26, 2.4, 0.02, 0, 1.2, 0.01, new THREE.MeshBasicMaterial({ color: 0x000000 }));                                      // vano buio
@@ -177,10 +194,10 @@ function buildHub(genres) {
 // Targhetta sotto la locandina: voto tuo (oro se alto) oppure voto TMDb
 function plaqueTexture(f, theme) {
   const mine = Number(f.vote) || 0, tm = Number(f.vote_average) || 0;
-  const v = mine || tm, label = mine ? "IL TUO VOTO" : (tm ? "TMDB" : "—");
+  const v = mine || tm, label = mine ? "VOTO" : (tm ? "TMDB" : "—");
   const col = !v ? "#8a8278" : v >= 8 ? "#f2c14e" : v >= 6.5 ? "#d8d2c8" : "#c0504a";
   return canvasTex(256, 80, (g, w, h) => {
-    g.fillStyle = theme === "scifi" ? "#0a141b" : "#14100d"; g.fillRect(0, 0, w, h);
+    g.fillStyle = theme === "scifi" ? "#0a141b" : theme === "drama" ? "#1a0c0c" : theme === "thriller" ? "#0c1210" : "#14100d"; g.fillRect(0, 0, w, h);
     g.strokeStyle = col; g.globalAlpha = 0.7; g.lineWidth = 3; g.strokeRect(3, 3, w - 6, h - 6); g.globalAlpha = 1;
     g.fillStyle = col; g.textBaseline = "middle"; g.textAlign = "left";
     g.font = "800 40px Outfit, sans-serif"; g.fillText(v ? (mine ? String(mine) : tm.toFixed(1)) : "—", 22, 42);
@@ -208,19 +225,19 @@ function buildRoom(genre, films) {
     floorMat = new THREE.MeshStandardMaterial({ map: canvasTex(256, 256, (g, w, h) => { g.fillStyle = "#0d1319"; g.fillRect(0, 0, w, h); g.strokeStyle = "#2a8cc0"; g.globalAlpha = 0.5; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2); g.globalAlpha = 1; }, [HW, L / 2]), roughness: 0.3, metalness: 0.4 });
     ceilMat = new THREE.MeshStandardMaterial({ color: 0x0c1218, roughness: 0.6 });
   } else {
-    wallMat = surface("brick", L / 2.1, H / 1.05, 0x5a4a44);
-    floorMat = surface("floorA", 2.4, L / 1.6, 0x5a5650, 0.65);
-    ceilMat = new THREE.MeshStandardMaterial({ color: 0x080808 });
+    wallMat = surface(th.wall.tex, L / th.wall.tile[0], H / th.wall.tile[1], th.wall.tint);
+    floorMat = surface(th.floor.tex, HW * 2 / th.floor.tile[0], L / th.floor.tile[1], th.floor.tint, th.floor.rough);
+    ceilMat = new THREE.MeshStandardMaterial({ color: th.ceil });
   }
   mk(new THREE.PlaneGeometry(L, H), wallMat, -HW, H / 2, cz, Math.PI / 2);
   mk(new THREE.PlaneGeometry(L, H), wallMat, HW, H / 2, cz, -Math.PI / 2);
   mk(new THREE.PlaneGeometry(HW * 2, L), floorMat, 0, 0, cz, 0, -Math.PI / 2);
   mk(new THREE.PlaneGeometry(HW * 2, L), ceilMat, 0, H, cz, 0, Math.PI / 2);
-  const dark = new THREE.MeshStandardMaterial({ color: scifi ? 0x0a1218 : 0x050505 });
+  const dark = new THREE.MeshStandardMaterial({ color: scifi ? 0x0a1218 : th.ceil });
   mk(new THREE.PlaneGeometry(HW * 2, H), dark, 0, H / 2, -L + 1, 0);
   mk(new THREE.PlaneGeometry(HW * 2, H), dark, 0, H / 2, 1, Math.PI);
   // porta di ritorno (dietro di te)
-  mk(new THREE.PlaneGeometry(1.2, 2.2), new THREE.MeshBasicMaterial({ color: scifi ? 0x0e2a38 : 0x1a0606 }), 0, 1.1, 0.98, Math.PI);
+  mk(new THREE.PlaneGeometry(1.2, 2.2), new THREE.MeshBasicMaterial({ color: scifi ? 0x0e2a38 : th.style === "drama" ? 0x3a0c18 : th.style === "thriller" ? 0x1a2a24 : 0x1a0606 }), 0, 1.1, 0.98, Math.PI);
   mk(new THREE.PlaneGeometry(1.5, 0.47), new THREE.MeshBasicMaterial({ map: labelTexture([["ATRIO", 44, 80, "8px"]]), fog: false }), 0, 2.5, 0.97, Math.PI);
   // luci a soffitto
   if (scifi) {
@@ -228,13 +245,15 @@ function buildRoom(genre, films) {
     [-1, 1].forEach((s) => mk(new THREE.BoxGeometry(0.06, 0.04, L), strip, s * (HW - 0.12), H - 0.04, cz));
     [-1, 1].forEach((s) => mk(new THREE.BoxGeometry(0.05, 0.05, L), strip, s * (HW - 0.01), 0.12, cz));
   }
-  for (let z = -3; z > -L + 2; z -= step * 2) mk(scifi ? new THREE.BoxGeometry(0.9, 0.05, 0.5) : new THREE.BoxGeometry(0.5, 0.06, 0.12), new THREE.MeshBasicMaterial({ color: scifi ? 0xcff2ff : 0xff9060 }), 0, H - 0.05, z);
+  if (th.trim) { const gold = new THREE.MeshStandardMaterial({ color: th.trim, emissive: th.trim, emissiveIntensity: 0.25, metalness: 0.6, roughness: 0.4 }); [-1, 1].forEach((s) => { mk(new THREE.BoxGeometry(0.05, 0.1, L), gold, s * (HW - 0.02), 0.08, cz); mk(new THREE.BoxGeometry(0.05, 0.1, L), gold, s * (HW - 0.02), H - 0.08, cz); }); }
+  const [bw, bh, bd, bc] = th.bulb;
+  for (let z = -3; z > -L + 2; z -= step * 2) mk(new THREE.BoxGeometry(bw, bh, bd), new THREE.MeshBasicMaterial({ color: bc }), 0, H - 0.05, z);
   // locandine + targhette
   films.forEach((film, i) => {
     const side = i % 2 ? 1 : -1, z = -start - Math.floor(i / 2) * step;
     const g = new THREE.Group();
     g.position.set(side * (HW - 0.03), 1.75, z); g.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
-    g.add(new THREE.Mesh(new THREE.PlaneGeometry(1.12, 1.62), new THREE.MeshStandardMaterial({ color: scifi ? 0x0c1c26 : 0x0a0807, roughness: 0.5, emissive: scifi ? 0x2ab8ff : 0x000000, emissiveIntensity: scifi ? 0.5 : 0 })));
+    g.add(new THREE.Mesh(new THREE.PlaneGeometry(1.12, 1.62), new THREE.MeshStandardMaterial({ color: th.frame[0], roughness: 0.5, emissive: th.frame[1], emissiveIntensity: th.frame[2] })));
     const mat = new THREE.MeshStandardMaterial({ map: placeholderPoster(film), roughness: 0.7, emissive: 0xffffff, emissiveIntensity: 0.4 });
     mat.emissiveMap = mat.map;
     const p = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.5), mat);
@@ -336,7 +355,7 @@ function enterRoom(genre) {
   buildRoom(genre, state.rooms[genre] || []);
   state.where = "room"; hub.visible = false; room.visible = true; $("back").hidden = false; $("where").textContent = genre;
   scene.fog.color.setHex(th.fog); scene.fog.density = th.density; scene.background.setHex(th.fog);
-  hemi.color.setHex(th.style === "scifi" ? 0x6aa8d0 : 0x1a2230); hemi.intensity = th.hemi; lamp.color.setHex(th.lamp); lamp.intensity = 0; torch.intensity = th.torch;
+  hemi.color.setHex(th.hemiC); hemi.intensity = th.hemi; lamp.color.setHex(th.lamp); lamp.intensity = 0; torch.intensity = th.torch;
   camera.position.set(0, 1.6, 0); yaw = 0; pitch = 0;
   lazyLoadPosters(0);
 }
@@ -396,9 +415,9 @@ function frame(now) {
   if (demo) $("intro-msg").textContent = "Film di prova (genere senza titoli in libreria)";
   // dal più bello al più brutto: voto tuo, poi voto TMDb
   Object.keys(THEMES).forEach((g) => { state.rooms[g] = by.get(g).slice().sort((a, b) => rank(b) - rank(a)).slice(0, 60); });
-  const others = [...by.entries()].filter(([g]) => !THEMES[g]).sort((a, b) => b[1].length - a[1].length).slice(0, 3);
+  const others = [...by.entries()].filter(([g]) => !THEMES[g]).sort((a, b) => b[1].length - a[1].length).slice(0, Math.max(1, 5 - Object.keys(THEMES).length));
   const names = [...Object.keys(THEMES).map((g) => [g, state.rooms[g].length]), ...others.map(([g, a]) => [g, a.length])];
-  ["Commedia", "Drama", "Thriller", "Azione"].forEach((g) => { if (names.length < 5 && !names.some((n) => n[0] === g)) names.push([g, 0]); });
+  ["Commedia", "Azione", "Crime", "Avventura"].forEach((g) => { if (names.length < 5 && !names.some((n) => n[0] === g)) names.push([g, 0]); });
   buildHub(names.map(([name, count]) => ({ name, count })));
   enterHub();
   if (q.get("room") && THEMES[q.get("room")]) enterRoom(q.get("room"));
