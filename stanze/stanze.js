@@ -5,6 +5,7 @@
 // Pagina a sé (stanze.html), raggiunta dalla barra in basso dell'app.
 // I dati sono quelli di sempre (loadDB): niente di nuovo da salvare.
 import * as THREE from "three";
+import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
 import { loadDB } from "../storage.js?v=07e757e";
 import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=07e757e";
 
@@ -109,6 +110,7 @@ function placeholderPoster(film) {
 // libera la memoria video di tutto ciò che sta in un gruppo
 function clearGroup(g) {
   g.traverse((o) => {
+    if (o.userData.shared) return;       // parti dei modelli in cache: restano per le stanze dopo
     o.geometry?.dispose();
     [].concat(o.material || []).forEach((m) => { ["map", "normalMap", "emissiveMap"].forEach((k) => { if (m[k] && !m[k].userData.keep) m[k].dispose(); }); m.dispose(); });
   });
@@ -158,6 +160,40 @@ function specMat(spec, rx, ry) {
   return new THREE.MeshStandardMaterial({ map: t, color: spec.tint ?? 0xffffff, roughness: rough, metalness: metal });
 }
 
+// ─── oggetti 3D (modelli GLB del gioco Horror, CC0 dove indicato nei crediti) ─
+const gltf = new GLTFLoader();
+const modelCache = new Map();
+function loadModel(name) {
+  if (!modelCache.has(name)) modelCache.set(name, gltf.loadAsync(`stanze/models/${name}.glb`).then((g) => {
+    g.scene.traverse((o) => { o.userData.shared = true; });
+    const box = new THREE.Box3().setFromObject(g.scene);
+    return { scene: g.scene, box, size: box.getSize(new THREE.Vector3()), center: box.getCenter(new THREE.Vector3()) };
+  }).catch((e) => { console.warn("modello", name, e); return null; }));
+  return modelCache.get(name);
+}
+// Oggetti per stanza: ingresso e fondo (alti, senza locandine), pavimento lungo il corridoio (bassi, sotto le targhette),
+// fixture = lampade vere al posto delle barrette, door = portone in fondo.
+const PROPS = {
+  Horror: { entrance: ["chair", "cart", "bin"], floor: ["bin", "can"], end: ["shelf", "chair"], fixture: "hlamp" },
+  Mistero: { entrance: ["cabinet", "shelf", "slamp2"], floor: ["stool", "can"], end: ["cabinet", "stool"], door: true },
+  Thriller: { entrance: ["rack", "cart"], floor: ["bin", "can"], end: ["cabinet", "rack"] },
+  Drama: { entrance: ["stool", "cabinet", "slamp2"], floor: ["stool"], end: ["stool", "slamp2"] },
+  Azione: { entrance: ["rack", "stove", "tank"], floor: ["stove", "tank"], end: ["ammo", "stove"], fixture: "hlamp" },
+  Avventura: { entrance: ["stove", "ammo", "slamp2"], floor: ["ammo", "can", "stove"], end: ["ammo", "stove"], door: true },
+  Animazione: { entrance: ["tank", "stool"], floor: ["stool", "can"], end: ["cart", "tank"] },
+  Commedia: { entrance: ["cabinet", "stool"], floor: ["stool", "bin"], end: ["cart", "stool"] },
+  Crime: { entrance: ["slamp1", "bin", "stove"], floor: ["bin", "stove"], end: ["slamp1", "cabinet"], fixture: "wlamp" },
+  Documentario: { entrance: ["shelf", "cabinet"], floor: ["stool"], end: ["rack", "cart"] },
+  Famiglia: { entrance: ["cabinet", "shelf"], floor: ["stool", "can"], end: ["cabinet", "stool"] },
+  Fantasy: { entrance: ["slamp1", "stool"], floor: ["stool"], end: ["slamp1", "stool"], door: true },
+  Storia: { entrance: ["shelf", "cabinet", "slamp2"], floor: ["stool", "can"], end: ["shelf", "stool"], door: true },
+  Musica: { entrance: ["stool", "cabinet", "slamp2"], floor: ["stool"], end: ["slamp2", "stool"] },
+  Romance: { entrance: ["cabinet", "stool", "slamp2"], floor: ["stool"], end: ["cabinet", "slamp2"] },
+  Guerra: { entrance: ["ammo", "tank", "stove"], floor: ["ammo", "tank", "can"], end: ["ammo", "rack"], fixture: "wlamp" },
+  Western: { entrance: ["stove", "cabinet", "slamp2"], floor: ["stool", "stove"], end: ["shelf", "stove"] },
+  Fantascienza: { fixture: "wlamp" },
+};
+
 // ─── i temi: una stanza per genere ───────────────────────────────────────────
 // wall/floor: spec superficie con tile in metri · hemi/lamp: [colore, intensità] · torch: intensità della torcia
 // mood: steady | flicker | pulse | cycle · bulb: [w,h,d,colore] lampade a soffitto · frame: [cornice, emissivo, intensità]
@@ -176,7 +212,7 @@ const THEMES = {
   Azione: { color: 0xff7a1a, door: "steel", fog: [0x1a1008, 0.03], hemi: [0xffe0c0, 1.1], lamp: [0xffa050, 12], torch: 8, mood: "steady", ceil: 0x2a2a2a, stripe: 0xff7a1a,
     wall: W({ tex: "rust" }, [2.4, 2.4], 0xe0d0c0, { rough: 0.7, metal: 0.25 }), floor: W({ tex: "floorB" }, [1.8, 1.8], 0xd8b898, { rough: 0.7 }), bulb: [1.2, 0.06, 0.25, 0xfff0d0], frame: [0x1a1a1a, 0xff7a1a, 0.4] },
   Avventura: { color: 0xd89a30, door: "stone", fog: [0xd8aa70, 0.028], hemi: [0xfff0d0, 1.5], lamp: [0xffd890, 12], torch: 0, mood: "steady", ceil: 0x4a3a2a,
-    wall: W({ tex: "cliff" }, [2.2, 2.2], 0xc0987a), floor: W({ tex: "rawwood" }, [1.6, 1.6], 0xb09070), bulb: [0.3, 0.3, 0.3, 0xffb050], frame: [0x3a2812, 0, 0] },
+    wall: W({ tex: "cliff" }, [2.2, 2.2], 0xc0987a), floor: W({ tex: "sand" }, [1.8, 1.8], 0xe8c898, { rough: 1 }), bulb: [0.3, 0.3, 0.3, 0xffb050], frame: [0x3a2812, 0, 0] },
   Animazione: { color: 0xff5aa8, door: "candy", fog: [0xbfd8ff, 0.02], hemi: [0xffffff, 1.6], lamp: [0xffffff, 10], torch: 0, mood: "steady", ceil: 0xf0f4ff,
     wall: W({ proc: "stars", c1: "#3a5ae0", c2: "#ffe066" }, [1.6, 1.6], 0xffffff), floor: W({ proc: "checker", c1: "#ff7ab0", c2: "#fff2a0" }, [1.2, 1.2], 0xffffff, { rough: 0.4 }), bulb: [0.5, 0.05, 0.5, 0xffffff], frame: [0xffffff, 0xff5aa8, 0.5] },
   Commedia: { color: 0xf0b020, door: "candy", fog: [0xffe8b0, 0.02], hemi: [0xfff4e0, 1.5], lamp: [0xffe0a0, 11], torch: 0, mood: "steady", ceil: 0xfff0d0,
@@ -184,21 +220,21 @@ const THEMES = {
   Crime: { color: 0xe0902a, door: "noir", fog: [0x120a05, 0.05], hemi: [0xb87038, 0.95], lamp: [0xffa030, 14], torch: 12, mood: "steady", ceil: 0x0a0806,
     wall: W({ tex: "rust" }, [2.4, 2.4], 0x7a6a60, { rough: 0.6, metal: 0.2 }), floor: W({ tex: "floorB" }, [1.8, 1.8], 0x6a625a, { rough: 0.3 }), bulb: [0.7, 0.05, 0.3, 0xffb050], frame: [0x1a1208, 0xffa030, 0.2] },
   Documentario: { color: 0xa0a8b0, door: "gallery", fog: [0xe8e8ea, 0.015], hemi: [0xffffff, 1.7], lamp: [0xffffff, 10], torch: 0, mood: "steady", ceil: 0xf4f4f4,
-    wall: W({ proc: "plaster", c1: "#e8e6e0", c2: "#c8c4b8" }, [2.4, 2.4], 0xffffff), floor: W({ tex: "parquet" }, [1.6, 1.6], 0xd8c8b0, { rough: 0.55 }), bulb: [1.2, 0.04, 0.3, 0xffffff], frame: [0x111111, 0, 0] },
+    wall: W({ tex: "stucco" }, [2.2, 2.2], 0xffffff, { rough: 0.9 }), floor: W({ tex: "floorB" }, [1.8, 1.8], 0xe8e4dc, { rough: 0.35 }), bulb: [1.2, 0.04, 0.3, 0xffffff], frame: [0x111111, 0, 0] },
   Famiglia: { color: 0x70c040, door: "candy", fog: [0xf0f4e0, 0.02], hemi: [0xfff8e0, 1.5], lamp: [0xffe8b0, 10], torch: 0, mood: "steady", ceil: 0xfff8ee,
-    wall: W({ proc: "stripes", c1: "#bde0c8", c2: "#e8f5ec" }, [1.2, 1.2], 0xffffff), floor: W({ tex: "rawwood" }, [1.6, 1.6], 0xe0c8a0), bulb: [0.5, 0.05, 0.5, 0xfff4d0], frame: [0x8a5a2a, 0, 0] },
+    wall: W({ tex: "plaster" }, [2.2, 2.2], 0xb8e8c8, { rough: 0.9 }), floor: W({ tex: "rawwood" }, [1.6, 1.6], 0xe0c8a0), bulb: [0.5, 0.05, 0.5, 0xfff4d0], frame: [0x8a5a2a, 0, 0] },
   Fantasy: { color: 0x5adca0, door: "forest", fog: [0x0a2018, 0.05], hemi: [0x7affc0, 0.9], lamp: [0x9affb0, 9], torch: 14, mood: "pulse", ceil: 0x0a1a14,
-    wall: W({ tex: "stone" }, [1.8, 1.8], 0x6aa880), floor: W({ proc: "grass", c1: "#2a5a2a", c2: "#6aaa3a" }, [1.5, 1.5], 0xffffff, { rough: 1 }), bulb: [0.2, 0.2, 0.2, 0xb8ffd0], frame: [0x1a3a22, 0x7affc0, 0.35] },
+    wall: W({ tex: "stone" }, [1.8, 1.8], 0x6aa880), floor: W({ tex: "rocky" }, [1.8, 1.8], 0xd0ffd0, { rough: 1 }), bulb: [0.2, 0.2, 0.2, 0xb8ffd0], frame: [0x1a3a22, 0x7affc0, 0.35] },
   Storia: { color: 0xb08a50, door: "wood", fog: [0x2a1a0c, 0.045], hemi: [0xffc890, 0.9], lamp: [0xffb060, 10], torch: 12, mood: "candle", ceil: 0x2a1e14, trim: 0x8a6a30,
     wall: W({ tex: "stone" }, [1.8, 1.8], 0xd0b490), floor: W({ tex: "floorB" }, [1.8, 1.8], 0xb8a488), bulb: [0.15, 0.3, 0.15, 0xffa040], frame: [0x3a2410, 0xb08a3a, 0.2] },
   Musica: { color: 0xc050ff, door: "club", fog: [0x100820, 0.05], hemi: [0x8a4aff, 0.7], lamp: [0xff40d0, 10], torch: 10, mood: "cycle", cycle: [0xff40d0, 0x40d8ff], ceil: 0x0a0614,
     wall: W({ tex: "velvet" }, [1.1, 1.1], 0x5a3a9a), floor: W({ tex: "planks" }, [1.6, 1.6], 0x8a7aa8, { rough: 0.4 }), bulb: [0.5, 0.05, 0.5, 0xff60e0], frame: [0x140a24, 0xff60e0, 0.45] },
   Romance: { color: 0xf070a0, door: "drama", fog: [0xffd0dc, 0.025], hemi: [0xffe0e8, 1.5], lamp: [0xffb0c0, 10], torch: 0, mood: "steady", ceil: 0xffe8ee, trim: 0xe8c080,
-    wall: W({ tex: "velvet" }, [1.1, 1.1], 0xe8a0b4), floor: W({ tex: "parquet" }, [1.6, 1.6], 0xffd8c8, { rough: 0.45 }), bulb: [0.6, 0.05, 0.3, 0xffe0e8], frame: [0xf0d0a0, 0xffc0d0, 0.3] },
+    wall: W({ tex: "velvet" }, [1.1, 1.1], 0xe8a0b4), floor: W({ tex: "parquet" }, [1.6, 1.6], 0xf0e0d8, { rough: 0.45 }), bulb: [0.6, 0.05, 0.3, 0xffe0e8], frame: [0xf0d0a0, 0xffc0d0, 0.3] },
   Guerra: { color: 0x8a9a40, door: "bunker", fog: [0x1c1e10, 0.045], hemi: [0xb8c080, 1.1], lamp: [0xd0d890, 11], torch: 12, mood: "steady", ceil: 0x1a1c10,
     wall: W({ tex: "rust" }, [2.4, 2.4], 0x8a9060, { rough: 0.7, metal: 0.2 }), floor: W({ tex: "floorB" }, [1.8, 1.8], 0x6a6444), bulb: [0.4, 0.12, 0.15, 0xd8e0a0], frame: [0x2a2c18, 0, 0] },
   Western: { color: 0xd0803a, door: "saloon", fog: [0x3a2410, 0.035], hemi: [0xffc880, 1.1], lamp: [0xffa850, 10], torch: 8, mood: "steady", ceil: 0x3a2814,
-    wall: W({ tex: "rawwood" }, [1.6, 1.6], 0xc09a6a), floor: W({ tex: "parquet" }, [1.6, 1.6], 0x9a7a50), bulb: [0.2, 0.35, 0.2, 0xffb060], frame: [0x2a1a0c, 0, 0] },
+    wall: W({ tex: "rawwood" }, [1.6, 1.6], 0xc09a6a), floor: W({ tex: "soil" }, [1.8, 1.8], 0xd8b890, { rough: 1 }), bulb: [0.2, 0.35, 0.2, 0xffb060], frame: [0x2a1a0c, 0, 0] },
 };
 const FALLBACK = { color: 0x8890a0, door: "plain", fog: [0x101418, 0.04], hemi: [0xffffff, 1.2], lamp: [0xffffff, 9], torch: 6, mood: "steady", ceil: 0x1a1c20,
   wall: W({ proc: "plaster", c1: "#9aa0aa", c2: "#6a707a" }, [2.4, 2.4], 0xffffff), floor: W({ tex: "parquet" }, [1.6, 1.6], 0x8a8070, { rough: 0.55 }), bulb: [0.8, 0.05, 0.3, 0xffffff], frame: [0x15171a, 0, 0] };
@@ -361,7 +397,7 @@ function buildRoom(genre, films) {
   const th = themeOf(genre);
   clearGroup(room); posters.length = 0;
   const L = START + Math.ceil(films.length / 2) * STEP + 4;
-  room.userData = { L, genre, theme: th };
+  room.userData = { L, genre, theme: th, boxes: [], tok: (room.userData.tok || 0) + 1 };
   const HW = 1.9, H = 3.1, cz = -L / 2 + 1;
   const mk = (geo, mat, x, y, z, ry = 0, rx = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, 0); room.add(m); return m; };
   const wallMat = specMat(th.wall, L / th.wall.tile[0], H / th.wall.tile[1]);
@@ -382,8 +418,8 @@ function buildRoom(genre, films) {
   if (th.neon) [-1, 1].forEach((s) => { mk(new THREE.BoxGeometry(0.06, 0.04, L), glow(th.neon), s * (HW - 0.12), H - 0.04, cz); mk(new THREE.BoxGeometry(0.05, 0.05, L), glow(th.neon), s * (HW - 0.01), 0.12, cz); });
   if (th.stripe) [-1, 1].forEach((s) => mk(new THREE.BoxGeometry(0.03, 0.16, L), glow(th.stripe), s * (HW - 0.015), 0.95, cz));
   if (th.trim) { const gold = new THREE.MeshStandardMaterial({ color: th.trim, emissive: th.trim, emissiveIntensity: 0.25, metalness: 0.6, roughness: 0.4 }); [-1, 1].forEach((s) => { mk(new THREE.BoxGeometry(0.05, 0.1, L), gold, s * (HW - 0.02), 0.08, cz); mk(new THREE.BoxGeometry(0.05, 0.1, L), gold, s * (HW - 0.02), H - 0.08, cz); }); }
-  const [bw, bh, bd, bc] = th.bulb, hanging = bh > 0.15;
-  for (let z = -3; z > -L + 2; z -= LAMP_STEP) {
+  const [bw, bh, bd, bc] = th.bulb, hanging = bh > 0.15, fixture = PROPS[genre]?.fixture;
+  for (let z = -3; !fixture && z > -L + 2; z -= LAMP_STEP) {
     if (hanging) [-1, 1].forEach((s) => { mk(new THREE.BoxGeometry(bw, bh, bd), glow(bc), s * (HW - 0.25), 2.25, z); mk(new THREE.BoxGeometry(0.02, H - 2.4, 0.02), glow(0x111111), s * (HW - 0.25), (H + 2.4) / 2, z); });
     else mk(new THREE.BoxGeometry(bw, bh, bd), glow(bc), 0, H - 0.05, z);
   }
@@ -431,6 +467,51 @@ function updatePosters(z) {
       for (const [mesh, ks] of [[p.mesh, ["map"]], [p.plaque, ["map"]]]) { const m = mesh.material; ks.forEach((k) => { m[k]?.dispose(); m[k] = null; }); m.emissiveMap = null; m.color.setHex(0x15100e); m.emissive.setHex(0xffffff); m.needsUpdate = true; }
     }
   }
+}
+
+// Oggetti 3D della stanza (si caricano dopo la stanza; se un modello manca, la stanza resta com'è)
+const PRESET = { can: 2.4, ammo: 1.5, stove: 0.9, slamp1: 0.72, slamp2: 0.55, tank: 1.05 };
+async function placeModel(name, o) {
+  const m = await loadModel(name);
+  if (!m || o.tok !== room.userData.tok) return null;
+  const inner = m.scene.clone(true), sc = o.scale ?? PRESET[name] ?? 1;
+  inner.position.set(-m.center.x, o.mode === "floor" ? -m.box.min.y : o.mode === "hang" ? -m.box.max.y : -m.center.y, -m.center.z);
+  const w = new THREE.Group(); w.add(inner); w.scale.setScalar(sc); w.position.set(o.x, o.y ?? 0, o.z); w.rotation.y = o.ry ?? 0; room.add(w);
+  return { sx: m.size.x * sc, sy: m.size.y * sc, sz: m.size.z * sc };
+}
+async function dress(genre, th, L) {
+  const cfg = PROPS[genre] || {}, tok = room.userData.tok, HW = 1.9, H = 3.1, jobs = [];
+  const faceIn = (sd) => (sd < 0 ? Math.PI / 2 : -Math.PI / 2);   // il davanti del modello guarda il centro del corridoio
+  const prop = (name, z, sd, maxH) => jobs.push((async () => {
+    const m = await loadModel(name); if (!m) return;
+    const sc = Math.min(PRESET[name] ?? 1, maxH ? maxH / m.size.y : 9);
+    if (name === "slamp2") {   // lanterna da muro
+      await placeModel(name, { mode: "wall", x: sd * (HW - 0.2), y: 1.95, z, ry: faceIn(sd), scale: sc, tok }); return;
+    }
+    const cx = sd * (HW - 0.04) - sd * (m.size.z * sc) / 2;
+    const r = await placeModel(name, { mode: "floor", x: cx, z, ry: faceIn(sd), scale: sc, tok });
+    if (r) room.userData.boxes.push({ x0: cx - r.sz / 2, x1: cx + r.sz / 2, z0: z - r.sx / 2, z1: z + r.sx / 2 });
+  })());
+  const pick = (list, i) => list[i % list.length];
+  if (cfg.entrance) for (let k = 0; k < 3; k++) [-1, 1].forEach((sd, j) => prop(pick(cfg.entrance, k * 2 + j), -2.4 - k * 1.9, sd));
+  if (cfg.end) [0, 1].forEach((k) => [-1, 1].forEach((sd, j) => prop(pick(cfg.end, k * 2 + j), -L + 3.7 - k * 1.5, sd)));
+  if (cfg.floor) { let i = 0; for (let z = -START - 2.6; z > -L + 6; z -= 10.3, i++) prop(pick(cfg.floor, i), z, i % 2 ? 1 : -1, 0.58); }
+  if (cfg.door) jobs.push(placeModel("door", { mode: "floor", x: 0, z: -L + 1.16, ry: 0, scale: 0.88, tok }));
+  if (cfg.fixture) {
+    const bc = th.bulb[3], glowMat = new THREE.MeshBasicMaterial({ color: bc });
+    let i = 0;
+    for (let z = -3; z > -L + 2; z -= LAMP_STEP, i++) {
+      const sd = i % 2 ? 1 : -1;
+      if (cfg.fixture === "hlamp") {
+        jobs.push(placeModel("hlamp", { mode: "hang", x: 0, y: H, z, scale: 0.62, tok }));
+        const gl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), glowMat); gl.position.set(0, H - 0.78, z); room.add(gl);
+      } else {
+        jobs.push(placeModel("wlamp", { mode: "wall", x: sd * (HW - 0.09), y: 2.85, z, ry: faceIn(sd), scale: 1.2, tok }));
+        const gl = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), glowMat); gl.position.set(sd * (HW - 0.2), 2.85, z); room.add(gl);
+      }
+    }
+  }
+  await Promise.all(jobs);
 }
 
 // ─── controlli ───────────────────────────────────────────────────────────────
@@ -499,7 +580,7 @@ const state = { where: "hub", busy: false, rooms: {} };
 function fadeTo(fn) {
   if (state.busy) return; state.busy = true; ctl.enabled = false;
   const f = $("fade"); f.style.transition = "opacity .9s"; f.style.opacity = 1;
-  setTimeout(() => { fn(); setTimeout(() => { f.style.opacity = 0; ctl.enabled = true; state.busy = false; }, 250); }, 950);
+  setTimeout(async () => { try { await fn(); } catch (e) { console.warn(e); } setTimeout(() => { f.style.opacity = 0; ctl.enabled = true; state.busy = false; }, 250); }, 950);
 }
 function setAtmosphere(fogHex, density, hemiC, hemiI) {
   scene.fog.color.setHex(fogHex); scene.fog.density = density; scene.background.setHex(fogHex);
@@ -523,6 +604,7 @@ function enterRoom(genre) {
   lamps[0].color.setHex(th.lamp[0]); lamps[0].intensity = 0; lamps[1].intensity = lamps[2].intensity = 0; torch.intensity = th.torch;
   camera.position.set(0, 1.6, 0); yaw = 0; pitch = 0;
   updatePosters(0);
+  return Promise.race([dress(genre, th, room.userData.L), new Promise((r) => setTimeout(r, 6000))]);
 }
 $("back").onclick = () => fadeTo(() => enterHub(room.userData.genre));
 
@@ -540,7 +622,13 @@ function frame(now) {
     const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; }
     const run = k.has("ShiftLeft") || m > 0.92 ? 1.9 : 1;     // joystick a fondo (o Shift) = corsa
     const sp = 1.7 * run * dt, sy = Math.sin(yaw), cy = Math.cos(yaw);
-    camera.position.x += (x * cy + y * sy) * sp; camera.position.z += (-x * sy + y * cy) * sp;
+    const ox = camera.position.x, oz = camera.position.z, boxes = state.where === "room" ? room.userData.boxes : [];
+    const hit = (px, pz) => boxes.some((b) => px > b.x0 - 0.3 && px < b.x1 + 0.3 && pz > b.z0 - 0.3 && pz < b.z1 + 0.3);
+    let nx = ox + (x * cy + y * sy) * sp, nz = oz + (-x * sy + y * cy) * sp;
+    if (hit(nx, oz)) nx = ox;
+    if (hit(nx, nz)) nz = oz;
+    camera.position.x = nx; camera.position.z = nz;
+    for (let i = 0; i < 8 && hit(camera.position.x, camera.position.z); i++) camera.position.z += 0.5;   // dopo un salto con la barra
     if (state.where === "hub") {
       const r = Math.hypot(camera.position.x, camera.position.z), max = HUB_R - 0.45;
       if (r > max) { camera.position.x *= max / r; camera.position.z *= max / r; }
@@ -583,7 +671,7 @@ function frame(now) {
   buildHub(list.map(([genre, a]) => ({ genre, count: a.length })));
   enterHub();
   if (q.get("room") && state.rooms[q.get("room")]) enterRoom(q.get("room"));
-  if (q.has("debug")) window.__s = { camera, state, doors, posters, enterHub, enterRoom, THEMES, setView: (y, p) => { yaw = y; pitch = p; } };
+  if (q.has("debug")) window.__s = { room, camera, state, doors, posters, enterHub, enterRoom, THEMES, setView: (y, p) => { yaw = y; pitch = p; } };
   $("intro-msg").textContent = list.length ? `${list.length} generi · ${new Set([...db.seen, ...db.watchlist].map((f) => f.id)).size} titoli` : "Libreria vuota: aggiungi titoli nell'app.";
   $("go").hidden = false;
   $("go").onclick = () => { $("intro").remove(); const f = $("fade"); f.style.opacity = 0; ctl.enabled = true; };
