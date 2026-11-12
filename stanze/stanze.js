@@ -6,8 +6,8 @@
 // I dati sono quelli di sempre (loadDB): niente di nuovo da salvare.
 import * as THREE from "three";
 import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
-import { loadDB } from "../storage.js?v=7708fec";
-import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=7708fec";
+import { loadDB } from "../storage.js?v=56bcc4c";
+import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=56bcc4c";
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
