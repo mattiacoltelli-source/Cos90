@@ -174,24 +174,24 @@ function loadModel(name) {
 // Oggetti per stanza: ingresso e fondo (alti, senza locandine), pavimento lungo il corridoio (bassi, sotto le targhette),
 // fixture = lampade vere al posto delle barrette, door = portone in fondo.
 const PROPS = {
-  Horror: { entrance: ["chair", "cart", "bin"], floor: ["bin", "can"], end: ["shelf", "chair"], fixture: "hlamp" },
-  Mistero: { entrance: ["cabinet", "shelf", "slamp2"], floor: ["stool", "can"], end: ["cabinet", "stool"], door: true },
-  Thriller: { entrance: ["rack", "cart"], floor: ["bin", "can"], end: ["cabinet", "rack"] },
-  Drama: { entrance: ["stool", "cabinet", "slamp2"], floor: ["stool"], end: ["stool", "slamp2"] },
-  Azione: { entrance: ["rack", "stove", "tank"], floor: ["stove", "tank"], end: ["ammo", "stove"], fixture: "hlamp" },
-  Avventura: { entrance: ["stove", "ammo", "slamp2"], floor: ["ammo", "can", "stove"], end: ["ammo", "stove"], door: true },
-  Animazione: { entrance: ["tank", "stool"], floor: ["stool", "can"], end: ["cart", "tank"] },
-  Commedia: { entrance: ["cabinet", "stool"], floor: ["stool", "bin"], end: ["cart", "stool"] },
-  Crime: { entrance: ["slamp1", "bin", "stove"], floor: ["bin", "stove"], end: ["slamp1", "cabinet"], fixture: "wlamp" },
-  Documentario: { entrance: ["shelf", "cabinet"], floor: ["stool"], end: ["rack", "cart"] },
-  Famiglia: { entrance: ["cabinet", "shelf"], floor: ["stool", "can"], end: ["cabinet", "stool"] },
-  Fantasy: { entrance: ["slamp1", "stool"], floor: ["stool"], end: ["slamp1", "stool"], door: true },
-  Storia: { entrance: ["shelf", "cabinet", "slamp2"], floor: ["stool", "can"], end: ["shelf", "stool"], door: true },
-  Musica: { entrance: ["stool", "cabinet", "slamp2"], floor: ["stool"], end: ["slamp2", "stool"] },
-  Romance: { entrance: ["cabinet", "stool", "slamp2"], floor: ["stool"], end: ["cabinet", "slamp2"] },
-  Guerra: { entrance: ["ammo", "tank", "stove"], floor: ["ammo", "tank", "can"], end: ["ammo", "rack"], fixture: "wlamp" },
-  Western: { entrance: ["stove", "cabinet", "slamp2"], floor: ["stool", "stove"], end: ["shelf", "stove"] },
-  Fantascienza: { fixture: "wlamp" },
+  Horror: { entrance: ["chair", "vintage_grandfather_clock_01", "ornate_mirror_01", "cart", "marble_bust_01@stool", "bin"], floor: ["bin", "garden_gnome", "can"], end: ["shelf", "horse_head@cabinet", "ornate_mirror_01", "chair"], fixture: "hlamp" },
+  Mistero: { entrance: ["vintage_grandfather_clock_01", "cabinet", "marble_bust_01@stool", "slamp2", "vintage_pocket_watch@stool", "shelf"], floor: ["stool", "wicker_basket_02", "can"], end: ["ornate_mirror_01", "cabinet", "industrial_microscope@cabinet", "stool"], door: true },
+  Thriller: { entrance: ["rack", "classic_laptop@cabinet", "cart", "television_02@cart", "industrial_microscope@cabinet", "bin"], floor: ["bin", "can", "television_02"], end: ["cabinet", "rack", "spray_paint_bottles_02", "cart"] },
+  Fantascienza: { entrance: ["vintage_spacecraft_instrument@cabinet", "television_02@cart", "classic_laptop@cabinet", "cart", "vintage_spacecraft_instrument@stool", "rack"], floor: ["television_02", "vintage_spacecraft_instrument"], end: ["vintage_spacecraft_instrument@cabinet", "classic_laptop@cabinet", "rack", "television_02@cart"], fixture: "wlamp" },
+  Drama: { entrance: ["marble_bust_01@stool", "ornate_mirror_01", "CoffeeTable_01", "slamp2", "lion_head@stool", "cabinet"], floor: ["stool", "CoffeeTable_01", "wicker_basket_02"], end: ["vintage_grandfather_clock_01", "ornate_mirror_01", "marble_bust_01@stool", "slamp2"] },
+  Azione: { entrance: ["rack", "spray_paint_bottles_02", "stove", "tank", "ammo", "stove"], floor: ["stove", "tank", "spray_paint_bottles_02"], end: ["ammo", "stove", "spray_paint_bottles_02", "rack"], fixture: "hlamp" },
+  Avventura: { entrance: ["seadogs_compass@stool", "wicker_basket_02", "stove", "fishermans_hat@stool", "ammo", "slamp2"], floor: ["ammo", "can", "wicker_basket_02", "stove"], end: ["ammo", "stove", "seadogs_compass@cabinet", "stool"], door: true },
+  Animazione: { entrance: ["garden_gnome", "tank", "spray_paint_bottles_02", "stool", "cart", "wicker_basket_02"], floor: ["stool", "can", "garden_gnome"], end: ["cart", "tank", "garden_gnome", "television_02@cart"] },
+  Commedia: { entrance: ["garden_gnome", "cabinet", "television_02@cart", "fishermans_hat@stool", "stool", "wicker_basket_02"], floor: ["stool", "bin", "garden_gnome"], end: ["cart", "television_02@cabinet", "CoffeeTable_01", "stool"] },
+  Crime: { entrance: ["slamp1", "spray_paint_bottles_02", "stove", "classic_laptop@cabinet", "bin", "vintage_pocket_watch@stool"], floor: ["bin", "stove", "spray_paint_bottles_02"], end: ["slamp1", "cabinet", "television_02@cart", "bin"], fixture: "wlamp" },
+  Documentario: { entrance: ["shelf", "industrial_microscope@cabinet", "seadogs_compass@stool", "television_02@cart", "marble_bust_01@stool", "cabinet"], floor: ["stool", "wicker_basket_02", "can"], end: ["rack", "classic_laptop@cabinet", "cart", "chinese_screen_panels"] },
+  Famiglia: { entrance: ["cabinet", "television_02@cart", "garden_gnome", "shelf", "wicker_basket_02", "stool"], floor: ["stool", "can", "wicker_basket_02", "garden_gnome"], end: ["cabinet", "CoffeeTable_01", "chinese_screen_panels", "stool"] },
+  Fantasy: { entrance: ["slamp1", "lion_head@stool", "garden_gnome", "ornate_mirror_01", "horse_head@stool", "slamp1"], floor: ["stool", "garden_gnome", "wicker_basket_02"], end: ["slamp1", "marble_bust_01@stool", "ornate_mirror_01", "slamp1"], door: true },
+  Storia: { entrance: ["shelf", "vintage_grandfather_clock_01", "marble_bust_01@stool", "ornate_mirror_01", "lion_head@stool", "slamp2"], floor: ["stool", "can", "wicker_basket_02"], end: ["shelf", "vintage_pocket_watch@cabinet", "seadogs_compass@stool", "chinese_screen_panels"], door: true },
+  Musica: { entrance: ["stool", "television_02@cart", "classic_laptop@cabinet", "ornate_mirror_01", "spray_paint_bottles_02", "slamp2"], floor: ["stool", "television_02"], end: ["slamp2", "stool", "cabinet", "chinese_screen_panels"] },
+  Romance: { entrance: ["ornate_mirror_01", "CoffeeTable_01", "marble_bust_01@stool", "slamp2", "wicker_basket_02", "cabinet"], floor: ["stool", "wicker_basket_02", "CoffeeTable_01"], end: ["cabinet", "chinese_screen_panels", "vintage_pocket_watch@stool", "slamp2"] },
+  Guerra: { entrance: ["ammo", "vintage_spacecraft_instrument@cabinet", "tank", "fishermans_hat@stool", "stove", "seadogs_compass@stool"], floor: ["ammo", "tank", "can"], end: ["ammo", "rack", "stove", "vintage_spacecraft_instrument@cart"], fixture: "wlamp" },
+  Western: { entrance: ["stove", "horse_head@cabinet", "cabinet", "fishermans_hat@stool", "slamp2", "wicker_basket_02"], floor: ["stool", "stove", "wicker_basket_02", "can"], end: ["shelf", "stove", "seadogs_compass@stool", "horse_head@stool"] },
 };
 
 // ─── i temi: una stanza per genere ───────────────────────────────────────────
@@ -470,7 +470,8 @@ function updatePosters(z) {
 }
 
 // Oggetti 3D della stanza (si caricano dopo la stanza; se un modello manca, la stanza resta com'è)
-const PRESET = { can: 2.4, ammo: 1.5, stove: 0.9, slamp1: 0.72, slamp2: 0.55, tank: 1.05 };
+const PRESET = { can: 2.4, ammo: 1.5, stove: 0.9, slamp1: 0.72, slamp2: 0.55, tank: 1.05, marble_bust_01: 1.15, lion_head: 1.15, horse_head: 1.25, vintage_pocket_watch: 5, seadogs_compass: 3, fishermans_hat: 1.3, spray_paint_bottles_02: 1.3, wicker_basket_02: 1.3, ornate_mirror_01: 1.8 };
+const WALL_MODELS = { slamp2: 1.95, ornate_mirror_01: 1.5 };   // modelli appesi al muro: altezza del centro
 async function placeModel(name, o) {
   const m = await loadModel(name);
   if (!m || o.tok !== room.userData.tok) return null;
@@ -482,15 +483,18 @@ async function placeModel(name, o) {
 async function dress(genre, th, L) {
   const cfg = PROPS[genre] || {}, tok = room.userData.tok, HW = 1.9, H = 3.1, jobs = [];
   const faceIn = (sd) => (sd < 0 ? Math.PI / 2 : -Math.PI / 2);   // il davanti del modello guarda il centro del corridoio
-  const prop = (name, z, sd, maxH) => jobs.push((async () => {
-    const m = await loadModel(name); if (!m) return;
-    const sc = Math.min(PRESET[name] ?? 1, maxH ? maxH / m.size.y : 9);
-    if (name === "slamp2") {   // lanterna da muro
-      await placeModel(name, { mode: "wall", x: sd * (HW - 0.2), y: 1.95, z, ry: faceIn(sd), scale: sc, tok }); return;
+  const prop = (spec, z, sd, maxH) => jobs.push((async () => {
+    const [name, base] = spec.split("@");
+    if (WALL_MODELS[name]) {   // lanterne e specchi da muro
+      await placeModel(name, { mode: "wall", x: sd * (HW - (name === "slamp2" ? 0.2 : 0.04)), y: WALL_MODELS[name], z, ry: faceIn(sd), tok }); return;
     }
-    const cx = sd * (HW - 0.04) - sd * (m.size.z * sc) / 2;
-    const r = await placeModel(name, { mode: "floor", x: cx, z, ry: faceIn(sd), scale: sc, tok });
-    if (r) room.userData.boxes.push({ x0: cx - r.sz / 2, x1: cx + r.sz / 2, z0: z - r.sx / 2, z1: z + r.sx / 2 });
+    const bm = await loadModel(base || name); if (!bm) return;
+    const bsc = Math.min(PRESET[base || name] ?? 1, maxH ? maxH / bm.size.y : 9);
+    const cx = sd * (HW - 0.04) - sd * (bm.size.z * bsc) / 2;
+    const r = await placeModel(base || name, { mode: "floor", x: cx, z, ry: faceIn(sd), scale: bsc, tok });
+    if (!r) return;
+    room.userData.boxes.push({ x0: cx - r.sz / 2, x1: cx + r.sz / 2, z0: z - r.sx / 2, z1: z + r.sx / 2 });
+    if (base) await placeModel(name, { mode: "floor", x: cx, y: r.sy, z, ry: faceIn(sd), tok });
   })());
   const pick = (list, i) => list[i % list.length];
   if (cfg.entrance) for (let k = 0; k < 3; k++) [-1, 1].forEach((sd, j) => prop(pick(cfg.entrance, k * 2 + j), -2.4 - k * 1.9, sd));
