@@ -255,7 +255,23 @@ function displayLayout(films) {
   }
   return { rated, width, depth, displays, panels, pages: Math.ceil(films.length / displays.length) };
 }
-let hubRadius;
+const roomHalfWidth = (g, z) => Math.min(g.width / 2, g.frontHalf - z * g.wallSlope);
+
+function fitEntrance(g, halfFace) {
+  g.frontHalf = Math.min(g.width / 2, halfFace - 0.09);
+  g.wallSlope = (g.width / 2 - g.frontHalf) / g.depth;
+  g.wallAngle = Math.atan(g.wallSlope);
+  g.displays = g.displays.map(([x, z, ry]) => {
+    const side = Math.sign(x);
+    if (ry === -side * Math.PI / 2 && Math.abs(x) === g.width / 2 - 0.035) {
+      return [side * (roomHalfWidth(g, z) - 0.035), z, ry - side * g.wallAngle];
+    }
+    if (ry === Math.PI && z === -0.04) {
+      return [side * (Math.abs(x) < 2 ? 1.74 : 2.87), z, ry];
+    }
+    return [x, z, ry];
+  });
+}
 
 function mesh(group, geometry, material, x = 0, y = 0, z = 0, ry = 0, rx = 0) {
   const m = new THREE.Mesh(geometry, material);
@@ -273,12 +289,12 @@ function openingPath(shape, r, reverse) {
 }
 
 function archFront(gallery) {
-  const { shell, genre, width, rated } = gallery;
+  const { shell, genre, frontHalf, rated } = gallery;
   const facade = new THREE.Shape();
-  facade.moveTo(-width / 2, 0);
-  facade.lineTo(-width / 2, HEIGHT);
-  facade.lineTo(width / 2, HEIGHT);
-  facade.lineTo(width / 2, 0);
+  facade.moveTo(-frontHalf, 0);
+  facade.lineTo(-frontHalf, HEIGHT);
+  facade.lineTo(frontHalf, HEIGHT);
+  facade.lineTo(frontHalf, 0);
   facade.lineTo(ARCH, 0);
   openingPath(facade, ARCH, false);
   facade.closePath();
@@ -343,8 +359,15 @@ function mountSign(shell, sign, w, h, y, z, ry = 0) {
 function buildHub(list) {
   const count = Math.max(5, list.length);
   const angle = Math.PI / count;
-  const halfFace = Math.max(4.35, ...list.map(({ width }) => width)) / 2 + 0.23;
-  hubRadius = halfFace / Math.tan(angle);
+  const spread = Math.tan(angle);
+  // Ogni parete laterale resta dentro il proprio settore, anche a fondo sala.
+  const halfFace = Math.max(2.18,
+    ...list.map(({ width, depth, displays }) => {
+      const frontFrames = displays.filter(([, z]) => z === -0.04).length;
+      const frameClearance = frontFrames > 2 ? 3.53 : frontFrames ? 2.43 : 0;
+      return Math.max(width * 0.395 + 0.20, width / 2 - depth * spread * 0.9 + 0.09, frameClearance);
+    }));
+  const hubRadius = halfFace / spread;
   const outline = new THREE.Shape();
   const roof = surface("plaster", 1 / 2.55, 1 / 2.55, 0x8d7e72);
   roof.side = THREE.DoubleSide;
@@ -367,6 +390,7 @@ function buildHub(list) {
       shell.rotation.y = -a;
       scene.add(shell);
       const gallery = { ...slot, ...entry, shell, theme: themeOf(entry.genre), page: 0, exhibits: new Map(), boxes: [], lights: [] };
+      fitEntrance(gallery, halfFace);
       slot.gallery = gallery;
       galleries.push(gallery);
       archFront(gallery);
@@ -379,7 +403,7 @@ function buildHub(list) {
         for (const y of [0.135, HEIGHT - 0.085]) mesh(hub, new THREE.BoxGeometry(0.33, 0.16, 0.24), darkWood, xx, y, zz, -a);
       }
     }
-    const roomHalf = (entry?.width || 0) / 2;
+    const roomHalf = slot.gallery?.frontHalf || 0;
     const panels = entry ? [-1, 1].map((side) => [side * (roomHalf + halfFace) / 2, halfFace - roomHalf]) : [[0, 2 * halfFace]];
     for (const y of [0.087, HEIGHT - 0.061]) {
       const segments = entry && y < 1 ? [[-1, halfFace - ARCH - 0.23], [1, halfFace - ARCH - 0.23]] : [[0, 2 * halfFace]];
@@ -433,11 +457,22 @@ function plaqueTexture(f) {
 }
 
 function buildRoom(gallery) {
-  const { shell, theme, width, depth, panels } = gallery;
+  const { shell, theme, width, depth, panels, frontHalf, wallSlope, wallAngle } = gallery;
+  const sideLength = Math.hypot(depth, width / 2 - frontHalf);
+  const sideCenter = (frontHalf + width / 2) / 2;
+  const footprint = (isCeiling) => {
+    const geometry = new THREE.PlaneGeometry(width, depth);
+    const position = geometry.getAttribute("position");
+    for (let i = 0; i < position.count; i++) {
+      const z = -depth / 2 + (isCeiling ? 1 : -1) * position.getY(i);
+      position.setX(i, Math.sign(position.getX(i)) * roomHalfWidth(gallery, z));
+    }
+    return geometry;
+  };
   const { wall: finish, floor: flooring } = theme;
   const panelColor = new THREE.Color(finish.tint ?? 0xaaaaaa).lerp(wallFinish, 0.60);
   const wallSpec = { ...finish, tint: panelColor };
-  const wall = specMat(wallSpec, depth / finish.tile[0], HEIGHT / finish.tile[1]);
+  const wall = specMat(wallSpec, sideLength / finish.tile[0], HEIGHT / finish.tile[1]);
   const rear = specMat(wallSpec, width / finish.tile[0], HEIGHT / finish.tile[1]);
   for (const material of [wall, rear]) {
     material.emissive.setHex(0x928374);
@@ -448,18 +483,19 @@ function buildRoom(gallery) {
   const floor = specMat({ ...flooring, tint: floorColor }, width / flooring.tile[0], depth / flooring.tile[1]);
   const ceilColor = new THREE.Color(theme.ceil).lerp(new THREE.Color(0x998a7f), 0.55);
   const ceiling = surface("plaster", width / 2.2, depth / 2.2, ceilColor);
-  const wainscot = surface("planks", depth / 2.1, 0.6, 0x6d503d);
+  const wainscot = surface("planks", sideLength / 2.1, 0.6, 0x6d503d);
   const rearWainscot = surface("planks", width / 2.1, 0.6, 0x6d503d);
   for (const side of [-1, 1]) {
-    const x = side * width / 2;
-    mesh(shell, new THREE.PlaneGeometry(depth, HEIGHT), wall, x, HEIGHT / 2, -depth / 2, -side * Math.PI / 2);
-    mesh(shell, new THREE.PlaneGeometry(depth, 0.65), wainscot, x - side * 0.018, 0.325, -depth / 2, -side * Math.PI / 2);
-    for (const y of [0.083, 0.65, 3.18]) mesh(shell, new THREE.BoxGeometry(0.072, 0.068, depth), darkWood, x - side * 0.033, y, -depth / 2);
+    const x = side * sideCenter;
+    const ry = -side * (Math.PI / 2 + wallAngle);
+    mesh(shell, new THREE.PlaneGeometry(sideLength, HEIGHT), wall, x, HEIGHT / 2, -depth / 2, ry);
+    mesh(shell, new THREE.PlaneGeometry(sideLength, 0.65), wainscot, x - side * 0.018, 0.325, -depth / 2, ry);
+    for (const y of [0.083, 0.65, 3.18]) mesh(shell, new THREE.BoxGeometry(0.072, 0.068, sideLength), darkWood, x - side * 0.033, y, -depth / 2, -side * wallAngle);
   }
   mesh(shell, new THREE.PlaneGeometry(width, HEIGHT), rear, 0, HEIGHT / 2, -depth);
   mesh(shell, new THREE.PlaneGeometry(width, 0.65), rearWainscot, 0, 0.325, -depth + 0.018);
-  mesh(shell, new THREE.PlaneGeometry(width, depth), floor, 0, 0, -depth / 2, 0, -Math.PI / 2);
-  mesh(shell, new THREE.PlaneGeometry(width, depth), ceiling, 0, HEIGHT, -depth / 2, 0, Math.PI / 2);
+  mesh(shell, footprint(false), floor, 0, 0, -depth / 2, 0, -Math.PI / 2);
+  mesh(shell, footprint(true), ceiling, 0, HEIGHT, -depth / 2, 0, Math.PI / 2);
   for (const y of [0.083, 0.65, 3.18]) mesh(shell, new THREE.BoxGeometry(width, 0.068, 0.072), darkWood, 0, y, -depth + 0.033);
   mountSign(shell, labelTexture([["Atrio", 56, 92]], 512, 160, "#473a2c", "#cdbb9e"), 0.84, 0.22, 3.07, -0.035, Math.PI);
 
@@ -583,15 +619,15 @@ async function placeProp(gallery, spec, x, z, ry, maxH, y = 0) {
 async function dress(gallery) {
   const cfg = PROPS[gallery.genre];
   if (!cfg) return;
-  const { width, depth } = gallery;
-  const side = width / 2 - 0.52;
+  const { depth } = gallery;
+  const side = (z) => roomHalfWidth(gallery, z) - 0.52;
   const placements = [
-    [cfg.entrance[0], -side, -0.52, Math.PI / 7, 2.15],
-    [cfg.entrance[1], side, -0.52, -Math.PI / 7, 2.15],
-    [cfg.end[0], -side, -depth + 0.55, Math.PI / 5, 1.28],
-    [cfg.end[1], side, -depth + 0.55, -Math.PI / 5, 1.28],
-    [cfg.floor[0], -side, -depth * 0.42, Math.PI / 2, 0.52],
-    [cfg.floor[1], side, -depth * 0.62, -Math.PI / 2, 0.52],
+    [cfg.entrance[0], -side(-0.52), -0.52, Math.PI / 7, 2.15],
+    [cfg.entrance[1], side(-0.52), -0.52, -Math.PI / 7, 2.15],
+    [cfg.end[0], -side(-depth + 0.55), -depth + 0.55, Math.PI / 5, 1.28],
+    [cfg.end[1], side(-depth + 0.55), -depth + 0.55, -Math.PI / 5, 1.28],
+    [cfg.floor[0], -side(-depth * 0.42), -depth * 0.42, Math.PI / 2, 0.52],
+    [cfg.floor[1], side(-depth * 0.62), -depth * 0.62, -Math.PI / 2, 0.52],
   ];
   await Promise.all(placements.filter(([spec]) => spec).map((args) => placeProp(gallery, ...args)));
 }
@@ -712,7 +748,7 @@ $("back").onclick = () => {
 function roomAt(x, z) {
   return galleries.find((g) => {
     const lx = localX(g, x, z), lz = localZ(g, x, z);
-    return Math.abs(lx) < g.width / 2 && lz < 0 && lz > -g.depth;
+    return lz < 0 && lz > -g.depth && Math.abs(lx) < roomHalfWidth(g, lz);
   }) || null;
 }
 
@@ -723,7 +759,7 @@ function walkable(x, z, ox, oz) {
   if (!gallery) return false;
   const lx = localX(gallery, x, z), lz = localZ(gallery, x, z);
   if (Math.abs(lz) < CLEARANCE) return Math.abs(lx) < ARCH - CLEARANCE;
-  if (lz >= 0 || lz < -gallery.depth + CLEARANCE || Math.abs(lx) > gallery.width / 2 - CLEARANCE) return false;
+  if (lz >= 0 || lz < -gallery.depth + CLEARANCE || Math.abs(lx) > roomHalfWidth(gallery, lz) - CLEARANCE) return false;
   const x0 = localX(gallery, ox, oz), z0 = localZ(gallery, ox, oz);
   return !gallery.boxes.some((b) => {
     if (b.halfWidth) {
