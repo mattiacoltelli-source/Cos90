@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#000000">
 <title>CineTracker · Stanze</title>
-<link rel="stylesheet" href="stanze/stanze.css?v=56bcc4c">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="stanze/stanze.css?v=stanze20261118">
 <script type="importmap">{ "imports": { "three": "./stanze/vendor/three.module.min.js" } }</script>
 </head>
 <body>
@@ -16,7 +17,11 @@
   <button id="back" hidden>‹ Atrio</button>
   <div id="where"></div>
 </div>
-<input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Posizione nel corridoio" hidden>
+<nav id="exhibits" aria-label="Locandine della sala" hidden>
+  <button id="previous" type="button" aria-label="Locandine precedenti">‹</button>
+  <span id="exhibit-count" aria-live="polite"></span>
+  <button id="next" type="button" aria-label="Locandine successive">›</button>
+</nav>
 <div id="stick"><i></i></div>
 <div id="card" hidden>
   <div class="card-in">
@@ -30,7 +35,16 @@
     </div>
   </div>
 </div>
-<div id="intro"><div><h1>STANZE</h1><p id="intro-msg">Carico la libreria…</p><button id="go" hidden>ENTRA</button></div></div>
-<script type="module" src="stanze/stanze.js?v=56bcc4c"></script>
+<div id="intro" class="loading">
+  <div class="intro-panel">
+    <div class="intro-brand"><img src="icon-192.png" alt=""> CineTracker</div>
+    <h1>Stanze</h1>
+    <p id="intro-msg" role="status">Apro la libreria…</p>
+    <button id="go" type="button" hidden>Entra nell’atrio</button>
+    <p class="intro-controls"><span class="keyboard">WASD per muoverti · Trascina per guardarti attorno</span><span class="touch">Muoviti a sinistra · Guarda a destra</span><br>Tocca una locandina per aprire la scheda</p>
+    <a href="./">Torna a CineTracker</a>
+  </div>
+</div>
+<script type="module" src="stanze/stanze.js?v=stanze20261118"></script>
 </body>
 </html>
