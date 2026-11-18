@@ -2,8 +2,8 @@
 // Galleria continua: l'atrio e le sale condividono la stessa scena.
 import * as THREE from "three";
 import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
-import { loadDB } from "../storage.js?v=594b73d";
-import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=594b73d";
+import { loadDB } from "../storage.js?v=489ae17";
+import { posterUrl, titleOf, yearOf, extractDirector } from "../cine-core.js?v=489ae17";
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
